@@ -102,6 +102,7 @@ A: If fewer than 25 tickets are sold, the referee may decide to refund all ticke
 
 ## Need Help?
 
-If you have any questions or need assistance, please reach out to us on [Twitter](https://twitter.com/scoresquare) or [Discord](https://discord.gg/scoresquare).
+If you have any questions or need assistance, please reach out to us on [Twitter](https://twitter.com/scoresquare) or [Discord](https://discord.gg/scoresquare) 
+[Warpcast](https://warpcast.com/gabedev.eth) 
 
 Happy playing! 
