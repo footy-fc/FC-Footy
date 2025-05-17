@@ -1,5 +1,4 @@
-# 🖼️ frames-v2
-# Footy App – Mini App on Warpcast
+# Foty App – Mini App on Warpcast
 
 **Footy App** is a fun and engaging mini app built for Warpcast that brings football fans together. Users can select their favorite football team and join a dedicated group chat to connect with fellow supporters.
 
@@ -57,5 +56,5 @@ To run the Footy App locally:
 * Player stats and news feeds
 
 ## License
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-This project is licensed under the MIT License.
