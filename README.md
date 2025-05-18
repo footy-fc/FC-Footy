@@ -58,4 +58,5 @@ To run the Footy App locally:
 
 ## License
 
-This project is licensed under the MIT License.
+This project is licensed under the [MIT License](LICENSE).
+
