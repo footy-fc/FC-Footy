@@ -1,4 +1,4 @@
-# Foty App – Mini App on Warpcast
+# Footy App on Farcaster
 
 **Footy App** is a fun and engaging mini app built for Warpcast that brings football fans together. Users can select their favorite football team and join a dedicated group chat to connect with fellow supporters.
 
