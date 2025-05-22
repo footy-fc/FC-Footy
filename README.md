@@ -1,3 +1,7 @@
+![Dynamic JSON Badge](https://img.shields.io/badge/dynamic/json)
+
+![revnet badge](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fapp.revnet.eth.sucks%2Fapi%2Fdata%2Fshields%3FprojectId%3D53%26chainId%3D8453&query=%24.message&label=Footy%20App%20Points&cacheSeconds=3600)
+
 # Foty App – Mini App on Warpcast
 
 **Footy App** is a fun and engaging mini app built for Warpcast that brings football fans together. Users can select their favorite football team and join a dedicated group chat to connect with fellow supporters.
