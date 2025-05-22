@@ -1,6 +1,4 @@
-![Dynamic JSON Badge](https://img.shields.io/badge/dynamic/json)
-
-![revnet badge](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fapp.revnet.eth.sucks%2Fapi%2Fdata%2Fshields%3FprojectId%3D53%26chainId%3D8453&query=%24.message&label=Footy%20App%20Points&cacheSeconds=3600)
+[![revnet badge](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fapp.revnet.eth.sucks%2Fapi%2Fdata%2Fshields%3FprojectId%3D53%26chainId%3D8453&query=%24.message&label=Footy%20App%20Points&cacheSeconds=3600)](https://app.revnet.eth.sucks/base:53)
 
 # Foty App – Mini App on Warpcast
 
