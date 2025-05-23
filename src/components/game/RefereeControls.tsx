@@ -256,20 +256,26 @@ const RefereeControls: React.FC<RefereeControlsProps> = ({
       {!showDistributePrizes &&
         ticketsSold > 0 &&
         ticketsSold < 25 && (
-          <div className="flex flex-col gap-2 mt-4">
-            <button
-              onClick={handleRefundGame}
-              className="w-full py-2 px-4 rounded bg-indigo-700 text-white hover:bg-indigo-800"
-            >
-              Abort Game 1st
-            </button>
-            <button
-              onClick={handleDistributeRefund}
-              className="w-full py-2 px-4 rounded bg-yellow-700 text-white hover:bg-yellow-800"
-            >
-              Distribute Refund 2nd
-            </button>
-          </div>
+          <>
+            <p className="text-yellow-200 mb-2">
+              ⚠️ This game has not sold out. You can still share the game link to encourage more entries.
+              If the game doesn&apos;t fill, use the buttons below to refund all participants.
+            </p>
+            <div className="flex flex-col gap-2 mt-4">
+              <button
+                onClick={handleRefundGame}
+                className="w-full py-2 px-4 rounded bg-indigo-700 text-white hover:bg-indigo-800"
+              >
+                Abort Game 1st
+              </button>
+              <button
+                onClick={handleDistributeRefund}
+                className="w-full py-2 px-4 rounded bg-yellow-700 text-white hover:bg-yellow-800"
+              >
+                Distribute Refunds 2nd
+              </button>
+            </div>
+          </>
       )}
 
       {/* Show Finalize Game & Cancel Buttons if game is active */}

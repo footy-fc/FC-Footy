@@ -8,6 +8,7 @@ import { getTeamPreferences } from "~/lib/kv";
 import { teamsByLeague, getTeamFullName } from "./utils/fetchTeamLogos";
 import { useFetchCastsParentUrl } from "./utils/useFetchCastsParentUrls";
 import { fetchFanUserData } from "./utils/fetchFCProfile";
+// import TestSubmitCast from "./TestSigner";
 
 interface CastType {
   timestamp: number;
@@ -284,7 +285,7 @@ const ContentLiveChat = ({ teamId }: { teamId: string }) => {
   const { getFarcasterSignerPublicKey, signFarcasterMessage } = useFarcasterSigner();
   const { requestFarcasterSignerFromWarpcast } = useFarcasterSigner();
   const { authenticated, user } = usePrivy();
-
+  const signer = new ExternalEd25519Signer(signFarcasterMessage, getFarcasterSignerPublicKey);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -393,16 +394,23 @@ const ContentLiveChat = ({ teamId }: { teamId: string }) => {
     setIsPosting(true);
 
     try {
-      const fid = Number(user?.farcaster?.fid);
-      const signer = new ExternalEd25519Signer(
+      const fid = user?.farcaster?.fid;
+      if (!fid) {
+        console.error("FID is undefined, cannot submit cast");
+        setIsPosting(false);
+        return;
+      }
+/*       const signer = new ExternalEd25519Signer(
         signFarcasterMessage,
         getFarcasterSignerPublicKey
-      );
-
+      ); */
+      
       const client = new HubRestAPIClient({
-        hubUrl: "https://snapchain-grpc.pinnable.xyz",
+        // hubUrl: "https://snapchain-grpc.pinnable.xyz",
+        hubUrl: "https://crackle.farcaster.xyz:3381",
       });
 
+      console.log("Submitting cast with", { message, fid, signer });
       const response = await client.submitCast(
         {
           text: message,
@@ -536,7 +544,9 @@ const ContentLiveChat = ({ teamId }: { teamId: string }) => {
             isPosting={isPosting}
           />
         </div>
-        {/* <div className="flex justify-around">
+           {/*     <TestSubmitCast />
+
+        <div className="flex justify-around">
           <button className="flex-1 py-3 px-2 text-center text-gray-500">
             <div className="flex flex-col items-center">
               <div className="mb-1">
