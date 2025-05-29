@@ -15,10 +15,12 @@ export default function AdminPage() {
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [category, setCategory] = useState("matches");
-  const [adminOnly, setAdminOnly] = useState(false); // New state for admin-only toggle
+  const [adminOnly, setAdminOnly] = useState(false);
   const [responseMessage, setResponseMessage] = useState("");
   const [totalNumberOfUsers, setTotalNumberOfUsers] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [customTargetUrl, setCustomTargetUrl] = useState(""); // New state for custom target URL
+  const [useCustomUrl, setUseCustomUrl] = useState(false); // Toggle for custom URL
 
   const categories = [
     { value: "matches", label: "Matches" },
@@ -55,7 +57,10 @@ export default function AdminPage() {
     setResponseMessage("");
     setLoading(true);
     
-    const targetURL = `${process.env.NEXT_PUBLIC_URL}?tab=${category}`;
+    // Determine which URL to use - custom or generated from category
+    const targetURL = useCustomUrl && customTargetUrl 
+      ? customTargetUrl 
+      : `${process.env.NEXT_PUBLIC_URL}?tab=${category}`;
     
     try {
       const response = await fetch("/api/notify-all", {
@@ -79,6 +84,8 @@ export default function AdminPage() {
         setBody("");
         setCategory("matches");
         setAdminOnly(false);
+        setCustomTargetUrl(""); // Reset custom URL on success
+        setUseCustomUrl(false); // Reset toggle
       } else {
         const errorData = await response.json();
         setResponseMessage(`Error: ${errorData.error || "Failed to send notification"}`);
@@ -155,23 +162,59 @@ export default function AdminPage() {
               className="w-full p-3 border border-gray-300 rounded-lg text-black focus:outline-none focus:ring-2 focus:ring-deepPink focus:bg-gray-50 transition-all duration-200"
             />
           </div>
-          <div>
-            <label htmlFor="category" className="block text-sm font-medium text-gray-700 mb-1">
-              Target Category
+          
+          {/* Custom URL Toggle */}
+          <div className="flex items-center space-x-3">
+            <label htmlFor="useCustomUrl" className="text-sm font-medium text-gray-700">
+              Use Custom Target URL
             </label>
-            <select
-              id="category"
-              value={category}
-              onChange={(e) => setCategory(e.target.value)}
-              className="w-full p-3 border border-gray-300 rounded-lg text-black focus:outline-none focus:ring-2 focus:ring-deepPink bg-white transition-all duration-200"
-            >
-              {categories.map((cat) => (
-                <option key={cat.value} value={cat.value}>
-                  {cat.label}
-                </option>
-              ))}
-            </select>
+            <input
+              id="useCustomUrl"
+              type="checkbox"
+              checked={useCustomUrl}
+              onChange={(e) => setUseCustomUrl(e.target.checked)}
+              className="h-5 w-5 text-deepPink focus:ring-deepPink border-gray-300 rounded"
+            />
           </div>
+          
+          {/* Custom URL Input (shown only when toggle is on) */}
+          {useCustomUrl && (
+            <div>
+              <label htmlFor="customTargetUrl" className="block text-sm font-medium text-gray-700 mb-1">
+                Custom Target URL
+              </label>
+              <input
+                id="customTargetUrl"
+                type="url"
+                value={customTargetUrl}
+                onChange={(e) => setCustomTargetUrl(e.target.value)}
+                placeholder="https://example.com"
+                className="w-full p-3 border border-gray-300 rounded-lg text-black focus:outline-none focus:ring-2 focus:ring-deepPink focus:bg-gray-50 transition-all duration-200"
+              />
+            </div>
+          )}
+          
+          {/* Category Selector (shown only when not using custom URL) */}
+          {!useCustomUrl && (
+            <div>
+              <label htmlFor="category" className="block text-sm font-medium text-gray-700 mb-1">
+                Target Category
+              </label>
+              <select
+                id="category"
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+                className="w-full p-3 border border-gray-300 rounded-lg text-black focus:outline-none focus:ring-2 focus:ring-deepPink bg-white transition-all duration-200"
+              >
+                {categories.map((cat) => (
+                  <option key={cat.value} value={cat.value}>
+                    {cat.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+          
           <div className="flex items-center space-x-3">
             <label htmlFor="adminOnly" className="text-sm font-medium text-gray-700">
               Send to Admins Only (FIDs: 4163, 420564)
@@ -184,6 +227,7 @@ export default function AdminPage() {
               className="h-5 w-5 text-deepPink focus:ring-deepPink border-gray-300 rounded"
             />
           </div>
+          
           <button
             type="submit"
             className="w-full bg-deepPink text-white p-3 rounded-lg hover:bg-darkPurple flex items-center justify-center transform transition-all duration-200 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
