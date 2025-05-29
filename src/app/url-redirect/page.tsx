@@ -1,14 +1,13 @@
 "use client"
 import React, { Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { sdk } from '@farcaster/frame-sdk'
 
 const UrlDisplayContent = () => {
   const searchParams = useSearchParams();
   const url = searchParams?.get('url') || 'No URL provided';
 
   const handleButtonClick = async (url: string) => {
-    await sdk.actions.openUrl(url)
+   window.open(url, '_blank');
   }
 
   return (
