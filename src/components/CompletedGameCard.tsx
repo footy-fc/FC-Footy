@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useContractRead } from 'wagmi';
 import { formatEther } from 'viem';
 import { getTeamLogo, getLeagueCode } from './utils/fetchTeamLogos';
@@ -11,6 +11,7 @@ import Image from 'next/image';
 import { SCORE_SQUARE_ADDRESS } from '../lib/config';
 
 import type { GameStatusResponse, SubgraphGame } from '../types/gameTypes';
+import { fetchNativeTokenPrice } from '~/utils/fetchUsdPrice';
 
 const SCORE_SQUARE_ABI = [
   {
@@ -44,7 +45,23 @@ const SCORE_SQUARE_ABI = [
 ];
 
 const CompletedGameCard: React.FC<{ game: SubgraphGame }> = ({ game }) => {
+  const [ethPrice, setEthPrice] = useState<number | null>(null);
   const eventDetails = parseEventId(game.eventId);
+
+  useEffect(() => {
+  const fetchPrice = async () => {
+    try {
+      const price = await fetchNativeTokenPrice('base');
+      setEthPrice(price);
+    } catch (error) {
+      console.error('Failed to fetch ETH price:', error);
+      setEthPrice(null);
+      // Consider adding retry logic here
+    }
+  };
+  
+  fetchPrice();
+}, []);
 
   const { data: onChainTickets } = useContractRead({
     address: SCORE_SQUARE_ADDRESS as `0x${string}`,
@@ -103,6 +120,18 @@ const CompletedGameCard: React.FC<{ game: SubgraphGame }> = ({ game }) => {
       </div>
     );
   }
+  // Calculate ETH prize pool
+  const calculatePrizePool = () => {
+    if (!gameStatusRaw) return 0;
+    
+    const squarePriceEth = parseFloat(formatEther(BigInt(game.squarePrice)));
+    const fullPool = squarePriceEth * 25;
+    const totalFeePercent = (game.deployerFeePercent || 0) + 5;
+    return fullPool * (1 - totalFeePercent / 100);
+  };
+
+  const ethPrizePool = calculatePrizePool();
+  const usdPrizePool = ethPrice ? ethPrizePool * ethPrice : null;
 
 
   return (
@@ -146,17 +175,21 @@ const CompletedGameCard: React.FC<{ game: SubgraphGame }> = ({ game }) => {
         </div>
 
         <div className="text-right">
-          <div className="text-[11px] text-lightPurple">PRIZE POOL</div>
-          <div className="text-base font-semibold text-limeGreenOpacity">
-            {(() => {
-              const squarePriceEth = parseFloat(formatEther(BigInt(game.squarePrice)));
-              const fullPool = squarePriceEth * 25;
-              const totalFeePercent = (game.deployerFeePercent || 0) + 5;
-              const finalPool = fullPool * (1 - totalFeePercent / 100);
-              return `${finalPool.toFixed(4)} ETH`;
-            })()}
-          </div>
+        <div className="text-[11px] text-lightPurple">PRIZE POOL</div>
+        <div className="text-base font-semibold text-limeGreenOpacity">
+          {ethPrizePool.toFixed(4)} ETH
         </div>
+        <div className="text-xs text-gray-400">
+          {usdPrizePool !== null ? (
+            `~$${usdPrizePool.toLocaleString('en-US', { 
+              minimumFractionDigits: 2, 
+              maximumFractionDigits: 2 
+            })}`
+          ) : (
+            <span className="text-gray-500">USD value unavailable</span>
+          )}
+        </div>
+      </div>
       </div>
 
       <div>
