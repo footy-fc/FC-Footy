@@ -1,13 +1,13 @@
 "use client"
-import React from 'react';
+import React, { Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { sdk } from '@farcaster/frame-sdk'
- 
-const UrlDisplayPage = () => {
+
+const UrlDisplayContent = () => {
   const searchParams = useSearchParams();
   const url = searchParams?.get('url') || 'No URL provided';
 
-  const handleButtonClick = async(url: string) => {
+  const handleButtonClick = async (url: string) => {
     await sdk.actions.openUrl(url)
   }
 
@@ -27,7 +27,6 @@ const UrlDisplayPage = () => {
 
         <div className="flex justify-center">
           <button 
-          
             className="px-6 py-3 rounded-full font-medium transition-all hover:scale-105"
             style={{ 
               backgroundColor: '#BD195D', 
@@ -47,6 +46,18 @@ const UrlDisplayPage = () => {
         </div>
       </div>
     </div>
+  );
+};
+
+const UrlDisplayPage = () => {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: '#181424' }}>
+        <p style={{ color: '#FEA282' }}>Loading...</p>
+      </div>
+    }>
+      <UrlDisplayContent />
+    </Suspense>
   );
 };
 
