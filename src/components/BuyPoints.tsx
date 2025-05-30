@@ -481,13 +481,13 @@ export default function BuyPoints() {
       </div>
       <div className="w-full h-full mt-6">
         <p className="text-lightPurple text-sm">{tvl} in treasury</p>
-        <div className="w-full h-[500px] overflow-y-auto mt-2">
-          <table className="w-full bg-darkPurple">
+        <div className="w-full h-[500px] overflow-y-auto overflow-x-hidden mt-2">
+          <table className="w-full table-fixed bg-darkPurple">
             <thead className="bg-darkPurple">
               <tr className="text-notWhite text-center border-b border-limeGreenOpacity">
-                <th className="py-1 px-2 text-left font-medium">Rank</th>
-                <th className="py-1 px-4 text-left font-medium">User</th>
-                <th className="py-1 px-4 text-right font-medium">$SCORES</th>
+                <th className="py-1 px-2 text-left font-medium w-[60px]">Rank</th>
+                <th className="py-1 px-4 text-left font-medium w-[200px]">User</th>
+                <th className="py-1 px-4 text-right font-medium w-[120px]">$SCORES</th>
               </tr>
             </thead>
             <tbody>
