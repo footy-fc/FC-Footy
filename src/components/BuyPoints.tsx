@@ -482,12 +482,12 @@ export default function BuyPoints() {
       <div className="w-full h-full mt-6">
         <p className="text-lightPurple text-sm">{tvl} in treasury</p>
         <div className="w-full h-[500px] overflow-y-auto overflow-x-hidden mt-2">
-          <table className="w-full table-fixed bg-darkPurple">
+          <table className="w-full table-auto bg-darkPurple">
             <thead className="bg-darkPurple">
               <tr className="text-notWhite text-center border-b border-limeGreenOpacity">
-                <th className="py-1 px-2 text-left font-medium w-[60px]">Rank</th>
-                <th className="py-1 px-4 text-left font-medium w-[200px]">User</th>
-                <th className="py-1 px-4 text-right font-medium w-[120px]">$SCORES</th>
+                <th className="py-1 px-1 text-left font-medium">Rank</th>
+                <th className="py-1 px-4 text-left font-medium">User</th>
+                <th className="py-1 px-4 text-right font-medium">$SCORES</th>
               </tr>
             </thead>
             <tbody>
@@ -500,21 +500,23 @@ export default function BuyPoints() {
                   <td className="py-1 px-4 border-b border-limeGreenOpacity text-left">
                     {index + 1}
                   </td>
-                  <td className="py-1 px-4 border-b border-limeGreenOpacity text-left flex items-center gap-2">
-                    {holder.pfp && (
-                      <Image
-                        src={holder.pfp}
-                        alt={holder.username || ''}
-                        width={30}
-                        height={30}
-                        className="rounded-full cursor-pointer"
-                        onClick={() => handlePfpClick(userMapRef.current.get(holder.address.toLowerCase())?.fid)}
-                      />
-                    )}
-                    {holder.teamLogo && (
-                      <Image src={holder.teamLogo} alt="Team" width={16} height={16} className="rounded-sm" />
-                    )}
-                    <span className="truncate">{holder.username || holder.address}</span>
+                  <td className="border-b border-limeGreenOpacity text-left">
+                    <div className="py-1 px-4 flex items-center gap-2">
+                      {holder.pfp && (
+                        <Image
+                          src={holder.pfp}
+                          alt={holder.username || ''}
+                          width={30}
+                          height={30}
+                          className="rounded-full cursor-pointer"
+                          onClick={() => handlePfpClick(userMapRef.current.get(holder.address.toLowerCase())?.fid)}
+                        />
+                      )}
+                      {holder.teamLogo && (
+                        <Image src={holder.teamLogo} alt="Team" width={16} height={16} className="rounded-sm" />
+                      )}
+                      <span className="max-w-[160px] overflow-hidden text-ellipsis truncate">{holder.username || holder.address}</span>
+                    </div>
                   </td>
                   <td className="py-1 px-4 border-b border-limeGreenOpacity text-right font-bold whitespace-nowrap">
                     {Math.floor(Number(holder.balance)).toLocaleString()}
