@@ -24,7 +24,7 @@ interface PinataResponse {
  */
 export async function fetchFanUserData(fanFid: number): Promise<Record<string, string[]>> {
   try {
-    const response = await fetch(`https://snapchain.pinnable.xyz/v1/userDataByFid?fid=${fanFid}`, {
+    const response = await fetch(`https://hub.pinata.cloud/v1/userDataByFid?fid=${fanFid}`, {
       /* headers: {
         "Content-Type": "application/json",
         "api_key": NEYNAR_API_KEY
