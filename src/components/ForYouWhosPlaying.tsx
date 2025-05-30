@@ -64,7 +64,6 @@ const ForYouWhosPlaying: React.FC = () => {
           const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${league}/scoreboard`);
           const data = await res.json();
           const events = data?.events || [];
-          console.log("Events", events);
           // @ts-expect-error waiting to clean up types
           const filtered = events.filter(event => {
             const shortName = event?.shortName || '';
@@ -93,7 +92,7 @@ const ForYouWhosPlaying: React.FC = () => {
           const eventDate = new Date(event.date);
           const now = new Date();
           const twoDaysAgo = new Date();
-          twoDaysAgo.setDate(now.getDate() - 2);
+          twoDaysAgo.setDate(now.getDate() - 90);
 
           if (eventDate < twoDaysAgo) return false;
 

@@ -40,14 +40,14 @@ const ForYou = () => {
         ) : (
             <>
             <button
-            onClick={() => setSelectedTab("fellowFollowers")}
-            className={`flex-shrink-0 py-1 px-6 text-sm font-semibold cursor-pointer rounded-full border-2 ${
-                selectedTab === "fellowFollowers"
-                ? "border-limeGreenOpacity text-lightPurple"
-                : "border-gray-500 text-gray-500"
-            }`}
+              onClick={() => setSelectedTab("buyPoints")}
+              className={`flex-shrink-0 py-1 px-6 text-sm font-semibold cursor-pointer rounded-full border-2 ${
+                selectedTab === "buyPoints"
+                  ? "border-limeGreenOpacity text-lightPurple"
+                  : "border-gray-500 text-gray-500"
+              }`}
             >
-            Teams & Fans
+              Buy $SCORES
             </button>
             <button
               onClick={() => setSelectedTab("matches")}
@@ -60,14 +60,14 @@ const ForYou = () => {
               Who&apos;s Playing
             </button>
             <button
-              onClick={() => setSelectedTab("buyPoints")}
-              className={`flex-shrink-0 py-1 px-6 text-sm font-semibold cursor-pointer rounded-full border-2 ${
-                selectedTab === "buyPoints"
-                  ? "border-limeGreenOpacity text-lightPurple"
-                  : "border-gray-500 text-gray-500"
-              }`}
+            onClick={() => setSelectedTab("fellowFollowers")}
+            className={`flex-shrink-0 py-1 px-6 text-sm font-semibold cursor-pointer rounded-full border-2 ${
+                selectedTab === "fellowFollowers"
+                ? "border-limeGreenOpacity text-lightPurple"
+                : "border-gray-500 text-gray-500"
+            }`}
             >
-              Academy
+            Teams & Fans
             </button>
             </>
         )}
