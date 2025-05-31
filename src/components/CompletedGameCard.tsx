@@ -186,7 +186,7 @@ const CompletedGameCard: React.FC<{ game: SubgraphGame }> = ({ game }) => {
               maximumFractionDigits: 2 
             })}`
           ) : (
-            <span className="text-gray-500">USD value unavailable</span>
+            <span className="text-gray-500">$</span>
           )}
         </div>
       </div>
