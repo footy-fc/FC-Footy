@@ -12,6 +12,7 @@ import { fetchTeamLogos } from './utils/fetchTeamLogos';
 import { GET_SS_GAMES } from '../lib/graphql/queries';
 import FarcasterAvatar from './FarcasterAvatar';
 import sdk from '@farcaster/frame-sdk';
+import { fetchNativeTokenPrice } from '~/utils/fetchUsdPrice';
 // import ContestScoreSquare from './ContestScoreSquare';
 // import ContestScoreSquareCreate from './ContestScoreSquareCreate';
 
@@ -87,6 +88,7 @@ const MatchEventCard: React.FC<EventCardProps> = ({ event, sportId }) => {
   const hasLoadedFans = useRef(false);
   const client = useApolloClient();
   const [hasQueried, setHasQueried] = useState(false);
+  const [ethPrice, setEthPrice] = useState<number | null>(null);
   const [ssGames, setSsGames] = useState<
     Array<{ eventId: string; gameId: string; referee: string; prizePool: string; squarePrice: string; deployerFeePercent: string }>>([]);
   useEffect(() => {
@@ -104,6 +106,20 @@ const MatchEventCard: React.FC<EventCardProps> = ({ event, sportId }) => {
   // Fetch team logos (which include league information) on mount.
   useEffect(() => {
     fetchTeamLogos().then((data) => setTeams(data));
+  }, []);
+   useEffect(() => {
+    const fetchPrice = async () => {
+      try {
+        const price = await fetchNativeTokenPrice('base');
+        setEthPrice(price);
+      } catch (error) {
+        console.error('Failed to fetch ETH price:', error);
+        setEthPrice(null);
+        // Consider adding retry logic here
+      }
+    };
+    
+    fetchPrice();
   }, []);
 
   // Extract match info from event data.
@@ -596,15 +612,30 @@ useEffect(() => {
                           const netPrizePool = totalPool * netMultiplier;
                           const refereeFee = totalPool * (deployerFee / 100);
                           const communityFee = totalPool * (communityFeeRate / 100);
+                          const usdPrizePool = ethPrice ? netPrizePool * ethPrice : null;
+
+
                         
                         return (
                           <>
-                            <div className="flex justify-between items-center text-notWhite text-md font-bold border-b border-gray-700 pb-2">
+                            <div className="flex justify-between items-start text-notWhite text-md font-bold border-b border-gray-700 pb-2">
                               <div className="flex items-center gap-2">
                                 <FaTrophy className="text-orange-400" />
                                 <p>Prize Pool:</p>
                               </div>
-                              <p className="text-limeGreenOpacity">{netPrizePool.toFixed(3)} Ξ</p>
+                              <div className="flex flex-col items-end -mt-1">
+                                <p className="text-limeGreenOpacity">{netPrizePool.toFixed(3)} Ξ</p>
+                                <div className="text-xs text-gray-400 mt-0.5">
+                                  {usdPrizePool !== null ? (
+                                    `~$${usdPrizePool.toLocaleString('en-US', { 
+                                      minimumFractionDigits: 2, 
+                                      maximumFractionDigits: 2 
+                                    })}`
+                                  ) : (
+                                    <span className="text-gray-500">$</span>
+                                  )}
+                                </div>
+                              </div>
                             </div>
                             <div className="flex items-center gap-2 mb-2 text-notWhite text-sm">
                               <FarcasterAvatar address={game.referee} showName />  <p>is the referee</p>

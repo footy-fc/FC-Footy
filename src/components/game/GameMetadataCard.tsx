@@ -1,5 +1,5 @@
 /* eslint-disable */
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import Image from 'next/image';
 import { getTeamLogo, getLeagueDisplayName } from '../utils/fetchTeamLogos';
 import { parseEventId } from '../../utils/eventIdParser';
@@ -7,6 +7,7 @@ import { useGameContext } from '../../context/GameContext';
 import { FaTicketAlt, FaTrophy } from "react-icons/fa";
 import RefereeIcon from '../ui/RefereeIcon';
 import FarcasterAvatar from '../FarcasterAvatar';
+import { fetchNativeTokenPrice } from '~/utils/fetchUsdPrice';
 
 interface GameMetadataCardProps {
   derivedPlayers: (string | null)[];
@@ -14,6 +15,22 @@ interface GameMetadataCardProps {
 
 const GameMetadataCard: React.FC<GameMetadataCardProps> = ({ derivedPlayers }) => {
   const { gameDataState, homeScore, awayScore, gameClock, gameStatus, winnerProfiles } = useGameContext();
+  const [ethPrice, setEthPrice] = useState<number | null>(null);
+  
+    useEffect(() => {
+    const fetchPrice = async () => {
+      try {
+        const price = await fetchNativeTokenPrice('base');
+        setEthPrice(price);
+      } catch (error) {
+        console.error('Failed to fetch ETH price:', error);
+        setEthPrice(null);
+        // Consider adding retry logic here
+      }
+    };
+    
+    fetchPrice();
+  }, []);
   
   if (!gameDataState || !gameDataState.eventId) {
     return (
@@ -59,6 +76,8 @@ const GameMetadataCard: React.FC<GameMetadataCardProps> = ({ derivedPlayers }) =
   const communityFee = (totalPrizePool * 4) / 100;
   const refereeFee = (totalPrizePool * deployerFeePercent) / 100;
   const netPrizePool = totalPrizePool - communityFee - refereeFee;
+  const usdPrizePool = ethPrice ? netPrizePool * ethPrice : null;
+
 
   const displayHomeScore = homeScore !== undefined && homeScore !== null ? homeScore : '-';
   const displayAwayScore = awayScore !== undefined && awayScore !== null ? awayScore : '-';
@@ -147,13 +166,25 @@ return (
       </div>
 
       <div className="mt-4 bg-gray-800 p-4 rounded-lg shadow-md">
-        <div className="flex justify-between items-center text-notWhite text-md font-bold border-b border-gray-700 pb-2">
-          <div className="flex items-center gap-2">
-            <FaTrophy className="text-orange-400" />
-            <p>Prize Pool:</p>
-          </div>
-          <p className="text-limeGreenOpacity">{netPrizePool.toFixed(4)} Ξ</p>
-        </div>
+        <div className="flex justify-between items-start text-notWhite text-md font-bold border-b border-gray-700 pb-2">
+  <div className="flex items-center gap-2">
+    <FaTrophy className="text-orange-400" />
+    <p>Prize Pool:</p>
+  </div>
+  <div className="flex flex-col items-end -mt-1">
+    <p className="text-limeGreenOpacity">{netPrizePool.toFixed(3)} Ξ</p>
+    <div className="text-xs text-gray-400 mt-0.5">
+      {usdPrizePool !== null ? (
+        `~$${usdPrizePool.toLocaleString('en-US', { 
+          minimumFractionDigits: 2, 
+          maximumFractionDigits: 2 
+        })}`
+      ) : (
+        <span className="text-gray-500">$</span>
+      )}
+    </div>
+  </div>
+</div>
 
         <div className="flex justify-between items-center text-notWhite text-sm mt-3">
           <div className="flex items-center gap-2">
