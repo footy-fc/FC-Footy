@@ -202,7 +202,7 @@ const ForYouTeamsFans: React.FC<{ showLiveChat: boolean; setShowLiveChat: (val: 
 
   if (loading) return <div>For you today</div>;
   if (error) return <div>{error}</div>;
-
+  console.log("teamLinks", teamLinks);
   if (showSettings) {
     return (
       <div className="p-4">
