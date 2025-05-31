@@ -105,12 +105,10 @@ export default function BuyPoints() {
     (async () => {
       try {
         const data = await fetchRevnetShields(53, 8453);
-        console.log('Shields data:', data);
         setTVL(data.message);
         // Find the chain with chainId === 8453
         const baseChain = data.chains?.find((c: { chainId: number }) => c.chainId === 8453);
         const participants: Participant[] = baseChain?.participants ?? [];
-        console.log('Participants:', participants);
         const holders: Participant[] = participants
           .filter((p) => p.balance !== '0')
           .map((p) => ({
@@ -123,7 +121,6 @@ export default function BuyPoints() {
         const farcasterData = await fetchUsersByAddress(
           holders.map((h) => h.address)
         );
-        console.log('Farcaster data:', farcasterData);
         const userMap: Map<string, FarcasterUser> = new Map();
         Object.entries(farcasterData).forEach(([address, users]) => {
           if (users.length > 0) {
@@ -211,9 +208,6 @@ export default function BuyPoints() {
       if (!fid) return;
       const prefs = await getTeamPreferences(fid);
       const rawTeam = prefs?.[0]; // e.g. 'eng.1-liv'
-      console.log('User FID:', fid);
-      console.log('Raw Team Preference:', rawTeam);
-
       const clubCode = rawTeam?.split('-')?.[1]; // → 'liv'
       if (clubCode) {
         const upperClub = clubCode.toUpperCase();
@@ -329,7 +323,7 @@ export default function BuyPoints() {
       {/* Modal for ScoresInfo */}
       {showInstructions && <ScoresInfo defaultOpen onClose={() => setShowInstructions(false)} />}
       <div className="flex justify-between items-center mb-4">
-        <h2 className="text-xl text-notWhite font-bold">Join the Footy fan club</h2>
+        <h2 className="text-xl text-notWhite font-bold">Participate in Footy App</h2>
         {/* <div className="mb-6">
           {!false && (
             <button
@@ -431,10 +425,15 @@ export default function BuyPoints() {
         </div>
       </div> */}
       <div className={`bg-gray-800/70 rounded-lg shadow-lg p-4 border border-gray-700 mt-2 ${!favClub ? 'pointer-events-none opacity-50 relative' : ''}`}>
-        <h3 className="text-lg font-semibold text-notWhite mb-2">Participate in Footy App</h3>
-        <p className="text-sm text-lightPurple mb-2">
-          Help cover the costs of running Footy App.
-        </p>
+        <div className="text-sm text-lightPurple mb-2 space-y-1">
+          <p>This is a community project built by fans, for fans of the beautiful game. Your contribution earns you $SCORES points, which *will* unlock:</p>
+          <ul className="list-disc list-inside pl-2">
+            <li>Fantasy League participation</li>
+            <li>Custom emoji packs</li>
+            <li>Score Square games</li>
+            <li>And more to come!</li>
+          </ul>
+        </div>
         
         <PriceIncreaseCountdown />
         <p className="text-sm text-lightPurple mt-2 mb-2">
@@ -482,11 +481,11 @@ export default function BuyPoints() {
       </div>
       <div className="w-full h-full mt-6">
         <p className="text-lightPurple text-sm">{tvl} in treasury</p>
-        <div className="w-full h-[500px] overflow-y-auto mt-2">
-          <table className="w-full bg-darkPurple">
+        <div className="w-full h-[500px] overflow-y-auto overflow-x-hidden mt-2">
+          <table className="w-full table-auto bg-darkPurple">
             <thead className="bg-darkPurple">
               <tr className="text-notWhite text-center border-b border-limeGreenOpacity">
-                <th className="py-1 px-2 text-left font-medium">Rank</th>
+                <th className="py-1 px-1 text-left font-medium">Rank</th>
                 <th className="py-1 px-4 text-left font-medium">User</th>
                 <th className="py-1 px-4 text-right font-medium">$SCORES</th>
               </tr>
@@ -501,24 +500,26 @@ export default function BuyPoints() {
                   <td className="py-1 px-4 border-b border-limeGreenOpacity text-left">
                     {index + 1}
                   </td>
-                  <td className="py-1 px-4 border-b border-limeGreenOpacity text-left flex items-center gap-2">
-                    {holder.pfp && (
-                      <Image
-                        src={holder.pfp}
-                        alt={holder.username || ''}
-                        width={30}
-                        height={30}
-                        className="rounded-full cursor-pointer"
-                        onClick={() => handlePfpClick(userMapRef.current.get(holder.address.toLowerCase())?.fid)}
-                      />
-                    )}
-                    {holder.teamLogo && (
-                      <Image src={holder.teamLogo} alt="Team" width={16} height={16} className="rounded-sm" />
-                    )}
-                    <span className="truncate">{holder.username || holder.address}</span>
+                  <td className="border-b border-limeGreenOpacity text-left">
+                    <div className="py-1 px-4 flex items-center gap-2">
+                      {holder.pfp && (
+                        <Image
+                          src={holder.pfp}
+                          alt={holder.username || ''}
+                          width={30}
+                          height={30}
+                          className="rounded-full cursor-pointer"
+                          onClick={() => handlePfpClick(userMapRef.current.get(holder.address.toLowerCase())?.fid)}
+                        />
+                      )}
+                      {holder.teamLogo && (
+                        <Image src={holder.teamLogo} alt="Team" width={16} height={16} className="rounded-sm" />
+                      )}
+                      <span className="max-w-[160px] overflow-hidden text-ellipsis truncate">{holder.username || holder.address}</span>
+                    </div>
                   </td>
                   <td className="py-1 px-4 border-b border-limeGreenOpacity text-right font-bold whitespace-nowrap">
-                    {Number(holder.balance).toLocaleString()}
+                    {Math.floor(Number(holder.balance)).toLocaleString()}
                   </td>
                 </tr>
               ))}

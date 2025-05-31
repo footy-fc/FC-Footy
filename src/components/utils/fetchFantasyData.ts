@@ -54,7 +54,7 @@ export const fetchFantasyData = async (): Promise<FantasyEntry[]> => {
           fid = parseInt(last_name, 10);
 
           if (Number.isInteger(fid)) {
-            const server = "https://snapchain.pinnable.xyz";
+            const server = "https://hub.pinata.cloud";
             try {
               // Fetch user data by fid
               const response = await axios.get(`${server}/v1/userDataByFid?fid=${fid}`, {

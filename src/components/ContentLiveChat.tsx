@@ -237,7 +237,7 @@ const ChatInput = ({
           }
         }}
         maxLength={390}
-        placeholder="Type your cast... (tap ⚽️ for custom emojis)"
+        placeholder="COMING SOON... (tap ⚽️ for custom emojis)"
         className="w-full px-4 py-2 rounded-md border border-limeGreenOpacity bg-gray-800 text-white outline-none resize-none overflow-hidden pb-12"
       />
       <button

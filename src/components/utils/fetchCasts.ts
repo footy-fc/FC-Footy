@@ -19,13 +19,13 @@ export interface CastType {
 export const fetchCastByHash = async (roomHash: string = DEFAULT_CHANNEL_HASH): Promise<CastType[]> => {
   try {
     const [parentCastRes, repliesRes] = await Promise.all([
-      axios.get(`https://snapchain.pinnable.xyz/v1/cast`, {
+      axios.get(`https://hub.pinata.cloud/v1/cast`, {
         params: {
           fid: 4163,
           hash: roomHash,
         },
       }),
-      axios.get(`https://snapchain.pinnable.xyz/v1/castsByParent`, {
+      axios.get(`https://hub.pinata.cloud/v1/castsByParent`, {
         params: {
           fid: 4163,
           hash: roomHash,

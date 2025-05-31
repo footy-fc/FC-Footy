@@ -27,12 +27,10 @@ interface NeynarUserResponse {
 }
 
 export async function fetchUsersByAddress(addresses: string[]): Promise<NeynarUserResponse> {
-  console.log('fetchUsersByAddress called with addresses:', addresses); // Log the input addresses for debugging
   if (!addresses || addresses.length === 0) {
     return { users: [] };
   }
   const csv = addresses.join(',');
-  console.log('fetchUsersByAddress called with CSV string:', csv);
   const query = csv;
   const options = {
     method: 'GET',
