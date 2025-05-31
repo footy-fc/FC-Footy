@@ -170,8 +170,6 @@ const ForYouTeamsFans: React.FC<{ showLiveChat: boolean; setShowLiveChat: (val: 
     }
   }, [favoriteTeams]);
 
-  console.log(teamLinks); // TEMP: avoid lint error
-
   const getTeamLogoUrl = (teamId: string): string => {
     const [league, abbr] = teamId.split("-");
     return getTeamLogo(abbr, league);
@@ -311,14 +309,14 @@ const ForYouTeamsFans: React.FC<{ showLiveChat: boolean; setShowLiveChat: (val: 
             Connect with fellow fans and share your passion for the beautiful game!
           </p>
           <div className="mt-2 flex gap-2 justify-center">
-            <button
+{/*             <button
               onClick={() => {
                 setShowLiveChat(true);
               }}
               className="px-4 py-2 bg-deepPink hover:bg-fontRed text-white rounded-lg"
             >
               Join the chat
-            </button>
+            </button> */}
             <button
               disabled={loadingMatches}
               onClick={async () => {

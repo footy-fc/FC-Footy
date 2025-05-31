@@ -251,7 +251,7 @@ const ActiveGamesBrowser: React.FC<ActiveGamesBrowserProps> = ({ initialGameId }
         })}
         {activeGames.length === 0 && (
           <div className="mt-4 text-center text-gray-400 flex flex-col items-center gap-2">
-            <p>No active games found. Ready to be the first referee? Scroll down and create one!</p>
+            <p>No active games found. Ready to be the first referee? Tap to create one!</p>
             <ChevronDown className="w-6 h-6 animate-bounce text-limeGreenOpacity" />
           </div>
         )}
