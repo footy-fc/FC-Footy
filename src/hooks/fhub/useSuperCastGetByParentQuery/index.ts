@@ -1,4 +1,3 @@
-/* eslint-disable */
 import { action } from './action'
 import type * as Actions from 'fhub/Actions'
 import { useQuery, type UseQueryOptions } from '@tanstack/react-query'

@@ -39,9 +39,14 @@ const sportsData = [
         name: 'WC Qualifiers - African',
         sportId: 'fifa.worldq.caf',
         url: 'https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.worldq.caf/scoreboard',
+      },     
+      {
+        name: 'WC Qualifiers - N.American',
+        sportId: 'fifa.worldq.concacaf',
+        url: 'https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.worldq.concacaf/scoreboard',
       },
       {
-        name: 'WC Qualifiers - American',
+        name: 'WC Qualifiers - S.American',
         sportId: 'fifa.worldq.conmebol',
         url: 'https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.worldq.conmebol/scoreboard',
       },
