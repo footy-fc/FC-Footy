@@ -33,6 +33,7 @@ const ForYouTeamsFans: React.FC<{ showLiveChat: boolean; setShowLiveChat: (val: 
   const [showMatchUps, setShowMatchUps] = useState(false);
   const [matchUps, setMatchUps] = useState<FanPair[]>([]);
   const [loadingMatches, setLoadingMatches] = useState(false);
+  const showChatFeature = false;
 
   const fetchFavoriteTeams = async () => {
     try {
@@ -309,14 +310,16 @@ const ForYouTeamsFans: React.FC<{ showLiveChat: boolean; setShowLiveChat: (val: 
             Connect with fellow fans and share your passion for the beautiful game!
           </p>
           <div className="mt-2 flex gap-2 justify-center">
-{/*             <button
-              onClick={() => {
-                setShowLiveChat(true);
-              }}
-              className="px-4 py-2 bg-deepPink hover:bg-fontRed text-white rounded-lg"
-            >
-              Join the chat
-            </button> */}
+            {showChatFeature && (
+              <button
+                onClick={() => {
+                  setShowLiveChat(true);
+                }}
+                className="px-4 py-2 bg-deepPink hover:bg-fontRed text-white rounded-lg"
+              >
+                Join the chat
+              </button>
+            )}
             <button
               disabled={loadingMatches}
               onClick={async () => {

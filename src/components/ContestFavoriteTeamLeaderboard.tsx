@@ -37,20 +37,51 @@ const LoadingIndicator = () => {
 };
 
 const FavoriteTeamLeaderboard = () => {
-  const [teams, setTeams] = useState<Team[]>([]);
+  const [teams, setTeams] = useState<Team[]>(() => {
+    if (typeof window !== "undefined") {
+      const cached = localStorage.getItem("favoriteTeams");
+      if (cached) {
+        try {
+          return JSON.parse(cached);
+        } catch {
+          return [];
+        }
+      }
+    }
+    return [];
+  });
   // favTeams now stores unique team IDs (e.g. "eng.1-ars")
   const [favTeams] = useState<string[]>([]);
   // loadingTeamIds will store team IDs that are processing an update.
   const [loadingTeamIds] = useState<string[]>([]);
   // fanCounts maps each team’s unique ID to its fan count.
-  const [fanCounts, setFanCounts] = useState<Record<string, number>>({});
+  const [fanCounts, setFanCounts] = useState<Record<string, number>>(() => {
+    if (typeof window !== "undefined") {
+      const cached = localStorage.getItem("fanCounts");
+      if (cached) {
+        try {
+          return JSON.parse(cached);
+        } catch {
+          return {};
+        }
+      }
+    }
+    return {};
+  });
 
-  // Fetch the team data once on mount.
+  // Fetch the team data once on mount and update cache
   useEffect(() => {
-    fetchTeamLogos().then((data) => setTeams(data));
+    async function fetchAndCacheTeams() {
+      const data = await fetchTeamLogos();
+      setTeams(data);
+      if (typeof window !== "undefined") {
+        localStorage.setItem("favoriteTeams", JSON.stringify(data));
+      }
+    }
+    fetchAndCacheTeams();
   }, []);
 
-  // Once teams are loaded, fetch each team’s fan count from Redis.
+  // Once teams are loaded, fetch each team’s fan count from Redis and update cache.
   useEffect(() => {
     async function fetchFanCounts() {
       const counts: Record<string, number> = {};
@@ -60,6 +91,9 @@ const FavoriteTeamLeaderboard = () => {
         counts[id] = fansByTeam[i].length;
       });
       setFanCounts(counts);
+      if (typeof window !== "undefined") {
+        localStorage.setItem("fanCounts", JSON.stringify(counts));
+      }
     }
 
     if (teams.length > 0) {
@@ -73,14 +107,14 @@ const FavoriteTeamLeaderboard = () => {
   };
 
   // Order teams by fan count (highest first)
-  const orderedTeams = [...teams].sort((a, b) => {
+  const orderedTeams = [...(teams || [])].sort((a, b) => {
     const countA = fanCounts[getTeamId(a)] || 0;
     const countB = fanCounts[getTeamId(b)] || 0;
     return countB - countA;
   });
 
   // Only display the top 10 teams
-  const topTeams = orderedTeams.slice(0, 10);
+  const topTeams = (orderedTeams || []).slice(0, 10);
 
   return (
     <div className="w-full h-full">
@@ -88,15 +122,23 @@ const FavoriteTeamLeaderboard = () => {
       <div className="w-full h-[500px] overflow-y-auto">
         <table className="w-full bg-darkPurple">
           <thead className="bg-darkPurple">
-            <tr className="text-notWhite text-center border-b border-limeGreenOpacity">
-              <th className="py-1 px-2 text-left font-medium">Rank</th>
-              <th className="py-1 px-4 text-left font-medium">Followers</th>
-              <th className="py-1 px-4 text-left font-medium">Team</th>
-              <th className="py-1 px-4 text-right font-medium">Badge</th>
+            <tr>
+              <th className="h-12 px-1 sm:px-4 border-b border-limeGreenOpacity text-notWhite text-center font-medium">
+                Rank
+              </th>
+              <th className="h-12 px-1 sm:px-4 border-b border-limeGreenOpacity text-notWhite text-center font-medium">
+                Badge
+              </th>
+              <th className="h-12 px-1 sm:px-4 border-b border-limeGreenOpacity text-notWhite text-center font-medium">
+                Team
+              </th>
+              <th className="h-12 px-1 sm:px-4 border-b border-limeGreenOpacity text-notWhite text-center font-medium">
+                Followers
+              </th>
             </tr>
           </thead>
           <tbody>
-            {topTeams.map((team, index) => {
+            {(topTeams || []).map((team, index) => {
               const teamId = getTeamId(team);
               const isLoading = loadingTeamIds.includes(teamId);
               const fanCount = fanCounts[teamId];
@@ -112,21 +154,21 @@ const FavoriteTeamLeaderboard = () => {
                     favTeams.includes(teamId) ? "bg-purplePanel" : ""
                   }`}
                 >
-                  <td className="py-1 px-4 border-b border-limeGreenOpacity text-left">
+                  <td className="py-1 px-4 border-b border-limeGreenOpacity text-left font-medium">
                     {index + 1}
                   </td>
-                  <td className="py-1 px-4 border-b border-limeGreenOpacity text-left">
-                    {fanCount !== undefined ? fanCount : <LoadingIndicator />}
-                  </td>
-                  <td className="py-1 px-4 border-b border-limeGreenOpacity text-left">
-                    {team.name}
-                  </td>
-                  <td className="py-1 px-4 border-b border-limeGreenOpacity text-right">
+                  <td className="py-1 px-4 border-b border-limeGreenOpacity text-right font-medium">
                     {isLoading ? (
                       <LoadingIndicator />
                     ) : (
                       <Image src={team.logoUrl} alt={team.name} width={30} height={30} />
                     )}
+                  </td>
+                  <td className="py-1 px-4 border-b border-limeGreenOpacity text-left font-medium">
+                    {team.name}
+                  </td>
+                  <td className="py-1 px-4 border-b border-limeGreenOpacity text-left font-medium">
+                    {fanCount !== undefined ? fanCount : <LoadingIndicator />}
                   </td>
                 </tr>
               );
