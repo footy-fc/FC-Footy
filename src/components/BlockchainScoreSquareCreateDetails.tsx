@@ -406,8 +406,11 @@ const BlockchainScoreSquareCreateDetails: React.FC<BlockchainScoreSquareCreateDe
             className="border border-limeGreenOpacity p-2 rounded w-full bg-darkPurple text-lightPurple"
             required
           >
-            <option value="eng.1">EPL (eng.1)</option>
-            <option value="uefa.champions">Champions league (uefa.champions)</option>
+            <option value="fifa.worldq.afc">World Cup Qualifiers (Asia)</option>
+            <option value="fifa.worldq.conmebol">World Cup Qualifiers (S.America)</option>
+            <option value="fifa.worldq.uefa">World Cup Qualifiers (Europe)</option>
+            <option value="fifa.worldq.concacaf">World Cup Qualifiers (N.America)</option>
+            <option value="fifa.worldq.caf">World Cup Qualifiers (Africa)</option>
           </select>
         </div>
         
