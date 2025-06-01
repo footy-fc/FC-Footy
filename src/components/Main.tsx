@@ -191,6 +191,7 @@ export default function Main() {
           {selectedTab === "contests" && <Contests  />}
           {selectedTab === "scoutPlayers" && <Scout />}
           {selectedTab === "moneyGames" && <MoneyGames />}
+          
           {selectedTab === "extraTime" && <ContentTab />}
           {selectedTab === "settings" && <Settings />}
           {selectedTab === "forYou" && <ForYou />}
