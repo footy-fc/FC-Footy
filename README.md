@@ -1,8 +1,8 @@
 [![revnet badge](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fapp.revnet.eth.sucks%2Fapi%2Fdata%2Fshields%3FprojectId%3D53%26chainId%3D8453&query=%24.message&label=Footy%20App%20Points&cacheSeconds=3600)](https://app.revnet.eth.sucks/base:53)
 
-# Footy App – 'Mini' App on Warpcast
+# Footy App – 'Mini' App on Farcaster
 
-**Footy App** is a fun and engaging mini app built for Warpcast that brings football fans together. Users can select their favorite football team and join a dedicated group chat to connect with fellow supporters.
+**Footy App** is a fun and engaging mini app built for Farcaster that brings football fans together. Users can select their favorite football team and join a dedicated group chat to connect with fellow supporters.
 
 ## Features
 
@@ -16,16 +16,15 @@
 2. Pick your favorite football team.
 3. Enter the team’s chatroom and start engaging with other fans!
 
+[How To Play](https://github.com/footy-fc/FC-Footy/blob/ae8015762c8bfb11cb37908fdd86677f896f46e5/HOW_TO_PLAY.md) 
 ## Built With
-
-* [Warpcast](https://warpcast.com/) platform for mini apps
 * [Farcaster](https://www.farcaster.xyz/) protocol for decentralized social interactions
 
 ## Getting Started
 
 To try Footy App:
 
-1. Login With Your Gmail or Warpcast Account!
+1. Login With Your Gmail or Farcaster Account!
 2. Find the Footy mini app in the app drawer or via direct link
  https://fc-footy.vercel.app/ 
 3. Select your favorite teams to goal notifications and start chatting!
