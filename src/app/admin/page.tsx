@@ -25,6 +25,9 @@ export default function AdminPage() {
   const categories = [
     { value: "matches", label: "Matches" },
     { value: "contests", label: "Contests" },
+    { value: "rewards", label: "Rewards" },
+    { value: "moneyGames", label: "Money Games" },
+    { value: "forYou", label: "For You" },
     { value: "scoutPlayers", label: "Scout Players" },
     { value: "extraTime", label: "Extra Time" },
     { value: "settings", label: "Settings" },
