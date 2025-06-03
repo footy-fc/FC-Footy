@@ -48,7 +48,7 @@
     "juice-sdk-react": "^1.9.1-beta",
     "lodash": "^4.17.21",
     "lucide-react": "^0.469.0",
-    "next": "15.0.3",
+    "next": "15.2.4",
     "next-auth": "^4.24.11",
     "node-fetch": "^2.7.0",
     "ox": "^0.4.2",
