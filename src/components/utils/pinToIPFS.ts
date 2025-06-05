@@ -38,8 +38,8 @@ const generateFiles = (jsonData: object) => {
 
 const uploadFilesToIPFS = async (jsonData: object): Promise<Record<string, PinResponse> | undefined> => {
   const pinata = new PinataSDK({
-    pinataJwt: process.env.NEXT_PUBLIC_PINTATAJWT!,
-    pinataGateway: process.env.NEXT_PUBLIC_PINTATAGATEWAY!,
+    pinataJwt: process.env.NEXT_PUBLIC_PINATA_JWT!,
+    pinataGateway: process.env.NEXT_PUBLIC_PINATA_GATEWAY!,
   });
 
   console.log("Uploading website files to Pinata");
