@@ -140,7 +140,8 @@ function analyzeRosterForFPLPoints(roster: Team[]): string {
 function formatSummaryDataToPrompt(
   summaryData: SummaryData,
   competitors: string,
-  includeFPL: boolean
+  includeFPL: boolean,
+  retrievedInsights: string
 ): string {
   const isPreview = !summaryData.keyEvents || summaryData.keyEvents.length === 0;
 
@@ -149,6 +150,10 @@ function formatSummaryDataToPrompt(
     : keepKeys(summaryData, SUMMARY_KEEP_KEYS);
 
   const { keyEvents, gameInfo, standings, odds, roster } = filteredData as SummaryData;
+
+  const retrievedText = retrievedInsights
+    ? `Retrieved insights:\n${retrievedInsights}\n`
+    : '';
 
   if (isPreview) {
     const gameInfoText = gameInfo
@@ -166,16 +171,16 @@ function formatSummaryDataToPrompt(
     const rosterAnalysis = includeFPL && roster
       ? `Roster Analysis:\n${analyzeRosterForFPLPoints(roster)}`
       : 'No roster information available.';
-
+    console.log('Roster Analysis:', rosterAnalysis);
     const fplRules = includeFPL
       ? `
 Use the following **Fantasy Premier League (FPL) scoring rules** to identify players who might score a lot of points during the match:
-...
-      `
+...`
       : '';
 
     return `
-Provide a detailed match preview for the upcoming match between ${competitors}. Use the following information:
+${retrievedText}
+Use the retrieved insights and structured data below to provide a detailed match preview for the upcoming match between ${competitors}. The retrieved insights should be used to enhance and supplement the structured data. If any information seems unclear, mention the uncertainty.
 
 ${gameInfoText}
 
@@ -211,7 +216,8 @@ Discuss likely outcomes based on team strategies, standout players, and other fa
     : 'No additional game information available.';
 
   return `
-Provide a match summary for the match between ${competitors}. Use the following information:
+${retrievedText}
+Use the retrieved insights and structured data below to provide a concise match summary for the match between ${competitors}. The retrieved insights should be used to enhance and supplement the structured data. If any information seems unclear, mention the uncertainty.
 
 ${keyEventsText}
 
@@ -219,8 +225,8 @@ ${gameInfoText}
 
 ${standingsText}
 
-Summarize the match focusing on key moments, strategies, and standout players. Avoid external links or markdown. Keep concise and under 400 characters.
-  `;
+Summarize the match focusing on key moments, strategies, and standout players. Avoid external links or markdown. Keep concise and under 1200 characters.
+  `.trim();
 }
 
 export default formatSummaryDataToPrompt;

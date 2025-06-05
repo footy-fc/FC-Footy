@@ -86,7 +86,8 @@ const RAGameContext = async (
           summaryData = await summaryResponse.json();
         }
 
-        const formattedPrompt = formatSummaryDataToPrompt(summaryData, competitors, includeFPL);
+        const retrievedInsights = ''; // TODO: Replace this with actual RAG data if you have it.
+        const formattedPrompt = formatSummaryDataToPrompt(summaryData, competitors, includeFPL, retrievedInsights);
         console.log("Formatted prompt:", formattedPrompt);
         return await sendOpenAi(formattedPrompt, openAiApiKey);
       }
