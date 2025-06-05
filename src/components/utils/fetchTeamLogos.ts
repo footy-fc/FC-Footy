@@ -271,6 +271,7 @@ export const teamsByLeague: { [league: string]: { team: string; abbr: string; ro
     { team: "Cambodia", abbr: "cam" },
     { team: "China", abbr: "chn" },
     //{ team: "Chinese Taipei", abbr: "tpe" },
+    { team: "Indonesia", abbr: "idn" },
     //{ team: "India", abbr: "ind" },
     { team: "Iran", abbr: "irn" },
     { team: "Iraq", abbr: "irq" },
