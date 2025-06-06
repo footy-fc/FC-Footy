@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { getTeamPreferences } from "../lib/kvPerferences";
 import { usePrivy } from "@privy-io/react-auth";
-import MatchEventCard from './MatchEventCard';
+import EventCard from "./MatchEventCard";
 import { MatchEvent } from "../types/gameTypes";
 
 const ForYouWhosPlaying: React.FC = () => {
@@ -71,7 +71,13 @@ const ForYouWhosPlaying: React.FC = () => {
             const away = shortName.slice(0, 3).toLowerCase();
             return leagueMap[league].includes(home) || leagueMap[league].includes(away);
           });
-          allMatches.push(...filtered);
+         // @ts-expect-error waiting to clean up types
+      const eventsWithLeague = filtered.map(event => ({
+        ...event,
+        league
+      }));
+      
+      allMatches.push(...eventsWithLeague);
         }));
         setMatchData(allMatches);
       } catch (err) {
@@ -104,7 +110,7 @@ const ForYouWhosPlaying: React.FC = () => {
         .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
         .map(event => (
           // @ts-expect-error: Ignoring type issues for the event prop for now
-          <MatchEventCard key={event.id} event={event} sportId={event.competitions?.[0]?.id || ''} />
+          <EventCard key={event.id} event={event} sportId={event.league|| ''} />
       ))}
     </div>
   );
