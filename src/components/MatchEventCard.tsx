@@ -509,7 +509,14 @@ useEffect(() => {
           <div className="mt-4 flex flex-row gap-4 justify-center items-center">
             <button
               className="w-full sm:w-38 bg-deepPink text-white py-2 px-4 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed hover:bg-fontRed"
-              onClick={fetchAiSummary}
+              onClick={async () => {
+                try {
+                  await sdk.haptics.impactOccurred('medium');
+                } catch {
+                  // ignore haptics errors
+                }
+                fetchAiSummary();
+              }}
               disabled={loading}
             >
               {loading ? (

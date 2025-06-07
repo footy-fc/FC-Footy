@@ -321,6 +321,11 @@ const ForYouTeamsFans: React.FC<{ showLiveChat: boolean; setShowLiveChat: (val: 
             <button
               disabled={loadingMatches}
               onClick={async () => {
+                try {
+                  await sdk.haptics.impactOccurred('heavy');
+                } catch {
+                  // ignore haptics errors
+                }
                 setLoadingMatches(true);
                 const context = await sdk.context;
                 const currentFid = context.user?.fid;

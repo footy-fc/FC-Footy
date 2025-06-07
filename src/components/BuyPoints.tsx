@@ -166,7 +166,14 @@ export default function BuyPoints() {
           </label>
         </div>
         <button
-          onClick={() => handleBuyPack(ethAmount)}
+          onClick={async () => {
+            try {
+              await sdk.haptics.impactOccurred('medium');
+            } catch {
+              // ignore haptics errors
+            }
+            handleBuyPack(ethAmount);
+          }}
           disabled={isSubmitting || !ethAmount || !hasAgreed}
           className={`w-full mt-4 py-2 px-4 rounded transition-colors ${
             txStatus === 'pending'
