@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { sdk } from '@farcaster/frame-sdk';
 import { getTeamPreferences, getFanCountForTeam } from "../lib/kvPerferences";
-import { usePrivy } from "@privy-io/react-auth";
 import { getTeamLogo } from "./utils/fetchTeamLogos";
 import { getFansForTeam } from '../lib/kvPerferences'; // Assuming these functions are imported from a relevant file
 import { fetchMutualFollowers } from './utils/fetchCheckIfFollowing';
@@ -22,8 +21,6 @@ const ForYouTeamsFans: React.FC<{ showLiveChat: boolean; setShowLiveChat: (val: 
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [teamLinks, setTeamLinks] = useState<Record<string, TeamLink[]>>({});
-  const { user } = usePrivy();
-  const currentFid = user?.linkedAccounts.find((a) => a.type === "farcaster")?.fid;
   const [selectedTeam, setSelectedTeam] = useState<string | null>(null);
   const [favoriteTeamFans, setFavoriteTeamFans] = useState<Array<{ fid: number; pfp: string; mutual: boolean; youFollow?: boolean }>>([]);
   const [fanCount, setFanCount] = useState<number>(0);
@@ -37,17 +34,16 @@ const ForYouTeamsFans: React.FC<{ showLiveChat: boolean; setShowLiveChat: (val: 
 
   const fetchFavoriteTeams = async () => {
     try {
-      const farcasterAccount = user?.linkedAccounts.find(
-        (account) => account.type === "farcaster"
-      );
-      const fid = farcasterAccount?.fid;
+      const context = await sdk.context;
+      console.log('context now', context.user);
+      const currentFid = context.user?.fid;
 
-      if (!fid) {
-        setError("No Farcaster FID found in Privy account");
+      if (!currentFid) {
+        setError("You need to link your Farcaster account to see your favorite teams.");
         return;
       }
 
-      const preferences = await getTeamPreferences(fid);
+      const preferences = await getTeamPreferences(currentFid);
       if (preferences && preferences.length > 0) {
         // console.log("Fetched team preferences:", preferences);
         setFavoriteTeams(preferences);
@@ -97,7 +93,9 @@ const ForYouTeamsFans: React.FC<{ showLiveChat: boolean; setShowLiveChat: (val: 
     const fetchFans = async () => {
       try {
         const fanFids = await getFansForTeam(selectedTeam.toLowerCase());
-        const currentFid = user?.linkedAccounts.find((a) => a.type === "farcaster")?.fid;
+        const context = await sdk.context;
+        console.log('context now', context.user);
+        const currentFid = context.user?.fid;
         if (!currentFid) {
           console.error("No current fid found");
           return;
@@ -140,12 +138,12 @@ const ForYouTeamsFans: React.FC<{ showLiveChat: boolean; setShowLiveChat: (val: 
     return () => {
       cancelled = true;
     };
-  }, [selectedTeam, user, cachedTeamFollowers]);
+  }, [selectedTeam, cachedTeamFollowers]);
 
   // Fetch the user's favorite teams from Redis
   useEffect(() => {
     fetchFavoriteTeams();
-  }, [user]);
+  }, []);
 
   useEffect(() => {
     if (favoriteTeams.length === 0) return;
@@ -290,7 +288,7 @@ const ForYouTeamsFans: React.FC<{ showLiveChat: boolean; setShowLiveChat: (val: 
                           src={fan.pfp}
                           alt={`Fan ${fan.fid}`}
                           className={`rounded-full w-7 h-7 ${
-                            fan.fid === currentFid ? '' :
+                            fan.fid === undefined ? '' :
                             fan.mutual ? 'ring-2 ring-purple-500' :
                             fan.youFollow ? 'ring-2 ring-limeGreen' :
                             'ring-2 ring-fontRed'
@@ -324,6 +322,8 @@ const ForYouTeamsFans: React.FC<{ showLiveChat: boolean; setShowLiveChat: (val: 
               disabled={loadingMatches}
               onClick={async () => {
                 setLoadingMatches(true);
+                const context = await sdk.context;
+                const currentFid = context.user?.fid;
                 const matches = await getAlikeFanMatches(
                   currentFid ? Number(currentFid) : undefined,
                   favoriteTeamFans.map(fan => fan.fid)

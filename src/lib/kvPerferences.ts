@@ -63,7 +63,7 @@ export async function getFansForTeam(uniqueTeamId: string): Promise<number[]> {
  * of FIDs for which the stored preferences include any of the given unique team IDs.
  */
 export async function getFansForTeams(uniqueTeamIds: string[]): Promise<number[]> {
-console.log("getFansForTeams", uniqueTeamIds);
+//console.log("getFansForTeams", uniqueTeamIds);
   const fanFidsSet = new Set<number>();
 
   for (const teamId of uniqueTeamIds) {

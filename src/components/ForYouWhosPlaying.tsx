@@ -1,25 +1,23 @@
 import React, { useEffect, useState } from 'react';
 import { getTeamPreferences } from "../lib/kvPerferences";
-import { usePrivy } from "@privy-io/react-auth";
 import EventCard from "./MatchEventCard";
 import { MatchEvent } from "../types/gameTypes";
+import { sdk } from "@farcaster/frame-sdk";
 
 const ForYouWhosPlaying: React.FC = () => {
   const [favoriteTeams, setFavoriteTeams] = useState<string[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [matchData, setMatchData] = useState<MatchEvent[]>([]);
-  const { user } = usePrivy();
 
   const fetchFavoriteTeams = async () => {
     try {
-      const farcasterAccount = user?.linkedAccounts.find(
-        (account) => account.type === "farcaster"
-      );
-      const fid = farcasterAccount?.fid;
+      const context = await sdk.context;
+      console.log('context now', context.user);
+      const fid = context.user?.fid;
 
       if (!fid) {
-        setError("No Farcaster FID found in Privy account");
+        setError("No Farcaster FID found in frame context");
         return;
       }
 
@@ -42,7 +40,7 @@ const ForYouWhosPlaying: React.FC = () => {
 
   useEffect(() => {
     fetchFavoriteTeams();
-  }, [user]);
+  }, []);
 
   useEffect(() => {
     if (favoriteTeams.length === 0) return;

@@ -2,15 +2,15 @@ import { config } from '~/components/providers/WagmiProvider';
 import React, { useState, useEffect } from 'react';
 import { PriceIncreaseCountdown } from '~/components/points/PriceIncreaseCountdown';
 import ScoresInfo from '~/components/ScoresInfo';
-import { getTeamPreferences } from '~/lib/kvPerferences';
 import { useAccount } from 'wagmi';
 import { useFormattedTokenIssuance } from '~/hooks/useFormattedTokenIssuance';
 import { useWriteJbMultiTerminalPay, useJBRulesetContext } from 'juice-sdk-react';
 import { parseEther } from 'viem';
-import { usePrivy } from '@privy-io/react-auth';
 import { TERMINAL_ADDRESS, PROJECT_ID } from '~/constants/contracts';
 import { waitForTransactionReceipt } from 'wagmi/actions';
 import ContestScoresPoints from "./ContestScoresPoints";
+import { sdk } from "@farcaster/frame-sdk";
+import { getTeamPreferences } from '~/lib/kvPerferences';
 
 const fetchRevnetShields = async (projectId: number, chainId: number) => {
   //const url = `https://app.revnet.eth.sucks/api/data/shields?projectId=${projectId}&chainId=${chainId}`;
@@ -29,7 +29,6 @@ export default function BuyPoints() {
   const [showInstructions, setShowInstructions] = useState(false);
   const { address } = useAccount();
   const { writeContractAsync } = useWriteJbMultiTerminalPay();
-  const { ready, authenticated, user } = usePrivy();
   const [favClub, setFavClub] = useState<string | null>(null);
   const [tvl, setTVL] = useState<string | null>(null);
   const { rulesetMetadata } = useJBRulesetContext();
@@ -39,10 +38,17 @@ export default function BuyPoints() {
 
   const [hasAgreed, setHasAgreed] = useState(false);
   const [txStatus, setTxStatus] = useState<'idle' | 'pending' | 'confirmed' | 'failed'>('idle');
+  const [isMiniApp, setIsMiniApp] = useState<boolean>(false);
 
   useEffect(() => {
-    if (!ready) return;
+    const checkMiniApp = async () => {
+      const result = await sdk.isInMiniApp();
+      setIsMiniApp(result);
+    };
+    checkMiniApp();
+  }, []);
 
+  useEffect(() => {
       (async () => {
         try {
           const data = await fetchRevnetShields(53, 8453);
@@ -53,19 +59,13 @@ export default function BuyPoints() {
           console.error('Failed to fetch token holders', err);
         }
       })();
-  }, [ready, authenticated]);
-
-  const getIssuedPoints = (eth: number) => {
-    const pointsPerEth = Number(issuance?.replace(/[^\d.]/g, '') ?? 0);
-    return Math.round(pointsPerEth * eth).toLocaleString();
-  };
+  }, []);
 
   useEffect(() => {
     const fetchTeam = async () => {
-      const farcasterAccount = user?.linkedAccounts.find(
-        (account) => account.type === 'farcaster'
-      );
-      const fid = farcasterAccount?.fid;
+      const context = await sdk.context;
+      console.log('context now', context.user);
+      const fid = context.user?.fid;
       if (!fid) return;
       const prefs = await getTeamPreferences(fid);
       const rawTeam = prefs?.[0]; // e.g. 'eng.1-liv'
@@ -75,10 +75,15 @@ export default function BuyPoints() {
         setFavClub(upperClub);
       }
     };
-    if (authenticated) fetchTeam();
-  }, [user, authenticated]);
+    fetchTeam();
+  }, []);
+  
+  const getIssuedPoints = (eth: number) => {
+    const pointsPerEth = Number(issuance?.replace(/[^\d.]/g, '') ?? 0);
+    return Math.round(pointsPerEth * eth).toLocaleString();
+  };
 
-  if (!ready || !authenticated) return null;
+  if (!isMiniApp) return null;
 
   const handleBuyPack = async (ethAmount: string) => {
     if (!address) return;
@@ -90,6 +95,7 @@ export default function BuyPoints() {
       const weiAmount = parseEther(ethAmount);
       // Always allow transaction, even if favClub is null
       const finalMemo = favClub ? `${memo} I support ${favClub}` : `${memo} I support Footy App`;
+      console.log("Transaction memo:", finalMemo);
 
       const txHash = await writeContractAsync({
         args: [
@@ -118,7 +124,7 @@ export default function BuyPoints() {
   };
 
   return (
-    <div className="bg-purplePanel rounded shadow-md max-w-4xl mx-auto p-2">
+    <div className="bg-purplePanel rounded shadow-md max-w-4xl mx-auto">
       {showInstructions && <ScoresInfo defaultOpen onClose={() => setShowInstructions(false)} />}
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-xl text-notWhite font-bold">Participate in Footy App</h2>
@@ -134,7 +140,7 @@ export default function BuyPoints() {
           </ul>
         </div>
         <PriceIncreaseCountdown />
-        <p className="text-sm text-lightPurple mt-2 mb-2">
+        <p className="text-sm text-notWhite mt-2 mb-2">
           {ethAmount || '0'} ETH = {getIssuedPoints(Number(ethAmount || '0'))} $SCORES
         </p>
         <input
@@ -178,8 +184,8 @@ export default function BuyPoints() {
         </button>
       </div>
       <div className="w-full h-full mt-6">
-        <p className="text-lightPurple text-sm">{tvl} in treasury</p>
-       <ContestScoresPoints />  
+        <p className="text-lightPurple text-sm mb-2">{tvl} in treasury</p>
+         <ContestScoresPoints />  
       </div>
     </div>
   );

@@ -54,14 +54,6 @@ const SCORE_SQUARE_ABI = [
   }
 ];
 
-/**
- * Creates a composite event ID for the game
- * @param sportId - League/cup identifier from sportsData (e.g., "eng.1", "uefa.champions")
- * @param homeTeam - Home team name
- * @param awayTeam - Away team name
- * @param matchId - Optional ESPN match ID for reference
- * @returns Formatted eventId string
- */
 function createCompositeEventId(sportId: string, homeTeam: string, awayTeam: string): string {
   const homeAbbr = getTeamAbbreviation(homeTeam);
   const awayAbbr = getTeamAbbreviation(awayTeam);
@@ -85,7 +77,6 @@ function createCompositeEventId(sportId: string, homeTeam: string, awayTeam: str
 
   return `${leaguePrefix}_${homeAbbr}_${awayAbbr}_${timestamp}`;
 }
-
 
 interface BlockchainScoreSquareCreateDetailsProps {
   home: string;
@@ -340,82 +331,81 @@ const BlockchainScoreSquareCreateDetails: React.FC<BlockchainScoreSquareCreateDe
   };
 
   return (
-    <div className="bg-purplePanel rounded shadow-md max-w-md mx-auto">
-      {/* Header with Toggle Button for Instructions */}
-      <div className="flex justify-between items-center mb-4">
-        <h2 className="text-2xl font-bold text-notWhite text-center m-2">
-          Create Game 
-        </h2>
-        <button
-          onClick={() => setShowInstructions(!showInstructions)}
-          className="text-sm text-fontRed hover:text-deepPink focus:outline-none"
-        >
-          <Info className="inline w-5 h-5" /> {showInstructions ? "Hide" : "Show"} Instructions
-        </button>
+    <>
+      <div className="mb-4">
+        <h1 className="text-2xl text-notWhite font-bold">Create Game</h1>
       </div>
+      <div className="rounded-lg shadow-lg max-w-md mx-auto border border-purplePanel bg-purplePanel p-4">
+        {/* Header with Toggle Button for Instructions */}
+        {/* Modal for Instructions */}
+        {showInstructions && (
+          <div className="fixed inset-0 bg-black bg-opacity-70 flex justify-center items-center z-50">
+            <div className="p-4 rounded shadow-lg max-w-md w-full">
+              <button
+                type="button"
+                onClick={() => setShowInstructions(false)}
+                className="text-sm text-lightPurple hover:text-notWhite focus:outline-none float-right mr-2 mt-2"
+              >
+                X
+              </button>
+              <UserInstructions />
+            </div>
+          </div>
+        )}
 
-      {/* Conditionally Render Instructions */}
-      {showInstructions && (
-        <div className="mb-6 p-4 bg-gray-800 rounded-lg shadow-lg">
-          <UserInstructions />
-        </div>
-      )}
+        {message && <div className="mb-4 text-sm text-center text-green-500">{message}</div>}
+        {error && (
+          <div className="mb-4 text-sm text-center text-deepPink">
+            <p className="font-bold">Error:</p>
+            <p>Something went wrong. Transaction rejected.</p>
+            {error.includes("not been authorized") && (
+              <p className="mt-2 text-yellow-400">
+                Please check your wallet and approve the transaction request. Make sure you&apos;re connected to the Base network.
+              </p>
+            )}
+          </div>
+        )}
+        {eventsError && <div className="mb-4 text-sm text-center text-yellow-500">Warning: {eventsError}</div>}
 
-      
-      {message && <div className="mb-4 text-sm text-center text-green-500">{message}</div>}
-      {error && (
-        <div className="mb-4 text-sm text-center text-red-500">
-          <p className="font-bold">Error:</p>
-          <p>{error}</p>
-          {error.includes("not been authorized") && (
-            <p className="mt-2 text-yellow-400">
-              Please check your wallet and approve the transaction request. Make sure you&apos;re connected to the Base network.
-            </p>
-          )}
-        </div>
-      )}
-      {eventsError && <div className="mb-4 text-sm text-center text-yellow-500">Warning: {eventsError}</div>}
-      
-      {txHash && (
-        <div className="mb-4 text-sm text-center text-blue-500">
-          {isConfirming ? "Confirming transaction..." : "Transaction submitted!"} 
-          <a 
-            href={`${getBlockExplorerUrl()}/tx/${txHash}`} 
-            target="_blank" 
-            rel="noopener noreferrer"
-            className="ml-2 underline"
-          >
-            View on Explorer
-          </a>
-        </div>
-      )}
-      
-      <form onSubmit={handleSubmit} className="space-y-4 bg-darkPurple p-4 rounded">
+        {txHash && (
+          <div className="mb-4 text-sm text-center text-blue-500">
+            {isConfirming ? "Confirming transaction..." : "Transaction submitted!"} 
+            <a 
+              href={`${getBlockExplorerUrl()}/tx/${txHash}`} 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="ml-2 underline"
+            >
+              View on Explorer
+            </a>
+          </div>
+        )}
+        <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label className="block font-medium mb-1 text-notWhite">League/Competition:</label>
+          <label className="block text-notWhite font-semibold mb-1">League/Competition:</label>
           <select 
             value={selectedSportId}
             onChange={(e) => {
-              // Even though there's only one option, we keep the handler to maintain consistency
               setSelectedSportId(e.target.value);
-              setSelectedMatchId(""); // Reset selected match when changes
+              setSelectedMatchId("");
               setHomeTeam("");
               setAwayTeam("");
-              setBlockchainEventId(""); // Reset event ID when changes
+              setBlockchainEventId("");
             }}
-            className="border border-limeGreenOpacity p-2 rounded w-full bg-darkPurple text-lightPurple"
+            className="bg-darkPurple text-lightPurple border border-limeGreenOpacity p-2 rounded w-full focus:outline-none focus:ring-2 focus:ring-limeGreenOpacity"
             required
           >
-            <option value="fifa.worldq.afc">World Cup Qualifiers (Asia)</option>
-            <option value="fifa.worldq.conmebol">World Cup Qualifiers (S.America)</option>
-            <option value="fifa.worldq.uefa">World Cup Qualifiers (Europe)</option>
-            <option value="fifa.worldq.concacaf">World Cup Qualifiers (N.America)</option>
-            <option value="fifa.worldq.caf">World Cup Qualifiers (Africa)</option>
+            <option className="text-lightPurple" value="">-- Select a League/Competition --</option>
+            <option className="text-lightPurple" value="fifa.worldq.afc">World Cup Qualifiers (Asia)</option>
+            <option className="text-lightPurple" value="fifa.worldq.conmebol">World Cup Qualifiers (S.America)</option>
+            <option className="text-lightPurple" value="fifa.worldq.uefa">World Cup Qualifiers (Europe)</option>
+            <option className="text-lightPurple" value="fifa.worldq.concacaf">World Cup Qualifiers (N.America)</option>
+            <option className="text-lightPurple" value="fifa.worldq.caf">World Cup Qualifiers (Africa)</option>
           </select>
         </div>
         
         <div>
-          <label className="block font-medium mb-1 text-notWhite">Select Match:</label>
+          <label className="block text-notWhite font-semibold mb-1">Select Match:</label>
           {eventsLoading ? (
             <div className="text-center p-2 text-lightPurple">Loading matches...</div>
           ) : availableMatches.length === 0 ? (
@@ -425,13 +415,13 @@ const BlockchainScoreSquareCreateDetails: React.FC<BlockchainScoreSquareCreateDe
               value={selectedMatchId}
               onChange={(e) => {
                 setSelectedMatchId(e.target.value);
-                setBlockchainEventId(""); // ✅ Reset event ID
+                setBlockchainEventId("");
               }}
-              className="border border-limeGreenOpacity p-2 rounded w-full bg-darkPurple text-lightPurple"
+              className="bg-darkPurple text-lightPurple border border-limeGreenOpacity p-2 rounded w-full focus:outline-none focus:ring-2 focus:ring-limeGreenOpacity"
             >
-              <option value="">-- Select a match --</option>
+              <option className="text-lightPurple" value="">-- Select a match --</option>
               {availableMatches.map(match => (
-                <option key={match.id} value={match.id}>
+                <option className="text-lightPurple" key={match.id} value={match.id}>
                   {match.homeTeam} vs {match.awayTeam} - {formatDate(match.date)}
                 </option>
               ))}
@@ -439,87 +429,46 @@ const BlockchainScoreSquareCreateDetails: React.FC<BlockchainScoreSquareCreateDe
           )}
         </div>
         
-        {selectedMatchId && (
-          <div className="p-3 bg-indigo-900 rounded">
-            <div className="flex justify-between items-center mb-2">
-              <div className="text-notWhite font-medium">{homeTeam}</div>
-              <div className="text-notWhite">vs</div>
-              <div className="text-notWhite font-medium">{awayTeam}</div>
-            </div>
-            <div className="text-xs text-lightPurple text-center">
-              {formatDate(availableMatches.find(m => m.id === selectedMatchId)?.date || '')}
-            </div>
-          </div>
-        )}
-        
-        {!selectedMatchId && (
-          <>
-            <div>
-              <label className="block font-medium mb-1 text-notWhite">Home Team:</label>
-              <input 
-                type="text" 
-                value={homeTeam} 
-                onChange={(e) => setHomeTeam(e.target.value)} 
-                className="border border-limeGreenOpacity p-2 rounded w-full bg-darkPurple text-lightPurple" 
-                required 
-                placeholder="Enter home team name manually"
-              />
-            </div>
-            
-            <div>
-              <label className="block font-medium mb-1 text-notWhite">Away Team:</label>
-              <input 
-                type="text" 
-                value={awayTeam} 
-                onChange={(e) => setAwayTeam(e.target.value)} 
-                className="border border-limeGreenOpacity p-2 rounded w-full bg-darkPurple text-lightPurple" 
-                required 
-                placeholder="Enter away team name manually"
-              />
-            </div>
-          </>
-        )}
-        
         <div>
-          <label className="block font-medium mb-1 text-notWhite">Square Price (ETH):</label>
+          <label className="block text-notWhite font-semibold mb-1">Square Price (ETH):</label>
           <input 
             type="text" 
             value={squarePrice} 
             onChange={(e) => setSquarePrice(e.target.value)} 
-            className="border border-limeGreenOpacity p-2 rounded w-full bg-darkPurple text-lightPurple" 
+            className="bg-darkPurple text-lightPurple border border-limeGreenOpacity p-2 rounded w-full focus:outline-none focus:ring-2 focus:ring-limeGreenOpacity" 
             required 
           />
         </div>
         
       <div className="hidden">
-          <label className="block font-medium mb-1 text-notWhite">Referee Address:</label>
+          <label className="block text-notWhite font-semibold mb-1">Referee Address:</label>
           <input 
             type="text" 
             value={referee} 
             onChange={(e) => setReferee(e.target.value)} 
             placeholder="0x..." 
-            className="border border-limeGreenOpacity p-2 rounded w-full bg-darkPurple text-lightPurple" 
+            className="bg-darkPurple text-lightPurple border border-limeGreenOpacity p-2 rounded w-full focus:outline-none focus:ring-2 focus:ring-limeGreenOpacity" 
             required 
           />
       </div>
         
         <div>
-          <label className="block font-medium mb-1 text-notWhite">Deployer Fee (% of pot):</label>
+          <label className="block text-notWhite font-semibold mb-1">Deployer Fee (% of pot):</label>
           <select 
             value={deployerFeePercent} 
             onChange={(e) => setDeployerFeePercent(Number(e.target.value))} 
-            className="border border-limeGreenOpacity p-2 rounded w-full bg-darkPurple text-lightPurple" 
+            className="bg-darkPurple text-lightPurple border border-limeGreenOpacity p-2 rounded w-full focus:outline-none focus:ring-2 focus:ring-limeGreenOpacity" 
             required
           >
             {[...Array(10)].map((_, i) => (
-              <option key={i} value={i + 1}>{i + 1}%</option>
+              <option className="text-lightPurple" key={i} value={i + 1}>{i + 1}%</option>
             ))}
           </select>
         </div>
         
         {blockchainEventId && (
-          <div className="p-2 bg-indigo-900 rounded text-xs">
-            <p className="font-bold text-white">Generated Event ID:</p>
+          <div className="p-2 bg-gray-700 rounded text-xs">
+            <p className="font-bold text-white">Event ID:</p>
             <p className="text-lightPurple break-all">{blockchainEventId}</p>
           </div>
         )}
@@ -527,23 +476,30 @@ const BlockchainScoreSquareCreateDetails: React.FC<BlockchainScoreSquareCreateDe
         <div className="text-xs text-gray-400 mt-2">
           <p>Note: 4% community fee goes into treasury</p>
         </div>
+        <button
+          type="button"
+          onClick={() => setShowInstructions(!showInstructions)}
+          className="text-sm text-deepPink hover:text-fontRed focus:outline-none"
+        >
+          <Info className="inline w-5 h-5" /> {showInstructions ? "Hide" : "Show"} Instructions
+        </button>
         <div className="flex items-center gap-2 text-sm text-notWhite">
-  <input
-    type="checkbox"
-    id="acknowledge"
-    checked={instructionsAcknowledged}
-    onChange={(e) => setInstructionsAcknowledged(e.target.checked)}
-    className="accent-deepPink w-4 h-4"
-  />
-  <label htmlFor="acknowledge">
-    I’ve read and understand the game creation instructions and my role as the referee.
-  </label>
-</div>
+          <input
+            type="checkbox"
+            id="acknowledge"
+            checked={instructionsAcknowledged}
+            onChange={(e) => setInstructionsAcknowledged(e.target.checked)}
+            className="accent-deepPink w-4 h-4"
+          />
+          <label htmlFor="acknowledge">
+            I understand the game and my responsibilities as the referee.
+          </label>
+        </div>
 
         <button 
           type="submit" 
           disabled={loading || isConfirming || !address || (!homeTeam && !awayTeam) || !instructionsAcknowledged}
-          className={`w-full px-4 py-2 rounded ${
+          className={`w-full px-4 py-2 rounded font-semibold ${
             loading || isConfirming || !address || (!homeTeam && !awayTeam)
               ? 'bg-gray-500 cursor-not-allowed' 
               : 'bg-deepPink hover:bg-fontRed'
@@ -557,8 +513,9 @@ const BlockchainScoreSquareCreateDetails: React.FC<BlockchainScoreSquareCreateDe
                 ? 'Connect Wallet to Deploy' 
                 : 'Deploy Game'}
         </button>
-      </form>
-    </div>
+        </form>
+      </div>
+    </>
   );
 };
 

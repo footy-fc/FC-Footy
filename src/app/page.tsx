@@ -47,7 +47,7 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
     title: "Footy App",
     openGraph: {
       title: "Footy App",
-      description: "⚽️ match previews, summaries, Farcaster fantasy league, money games & onchain fan experiences",
+      description: "⚽️ match previews, summaries, notifications, Farcaster fantasy league, money games & onchain fan experiences",
     },
     other: {
       "fc:frame": JSON.stringify(frame),

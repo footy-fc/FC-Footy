@@ -25,7 +25,7 @@ export default function RootLayout({
           rel="stylesheet"
         /> */}
       </head>
-      <body>
+      <body className="flex justify-center bg-black text-white m-0">
         <Providers>{children}</Providers>
       </body>
     </html>

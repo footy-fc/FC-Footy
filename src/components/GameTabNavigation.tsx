@@ -12,7 +12,6 @@ const GameTabNavigation: React.FC<GameTabNavigationProps> = ({ selectedTab = 'sc
   // Define the tabs for game type navigation
   const tabs = [
     { id: 'scoreSquare', label: 'Score Square', path: '/?tab=moneyGames&gameType=scoreSquare' },
-    { id: 'comingSoon', label: 'More Games (Coming Soon)', path: '/?tab=moneyGames&gameType=comingSoon' }
   ];
   
   // Handle tab change

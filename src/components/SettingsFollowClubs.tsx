@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from "react";
-import { usePrivy } from "@privy-io/react-auth";
 import Image from "next/image";
 import { fetchTeamLogos } from "./utils/fetchTeamLogos";
 import {
   getTeamPreferences,
   setTeamPreferences,
 } from "../lib/kvPerferences";
+import { sdk } from "@farcaster/frame-sdk";
 
 interface Team {
   name: string;
@@ -29,35 +29,38 @@ const SettingsFollowClubs: React.FC<SettingsFollowClubsProps> = ({ onSave }) => 
   const [favTeams, setFavTeams] = useState<string[]>([]);
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [loadingTeamIds, setLoadingTeamIds] = useState<string[]>([]);
-  const { user } = usePrivy();
-  const farcasterAccount = user?.linkedAccounts.find(
-    (account) => account.type === "farcaster"
-  );
+  const [transactionError, setTransactionError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (farcasterAccount) {
-      const fid = Number(farcasterAccount.fid);
-      getTeamPreferences(fid)
-        .then((teamsFromRedis) => {
-          if (teamsFromRedis) {
-            setFavTeams(teamsFromRedis);
-          }
-        })
-        .catch((err) => {
-          console.error("Error fetching team preferences:", err);
-        });
-    }
+    const fetchContext = async () => {
+      const context = await sdk.context;
+      console.log("context now", context.user);
+      const fid = context.user?.fid;
+      if (fid) {
+        getTeamPreferences(fid)
+          .then((teamsFromRedis) => {
+            if (teamsFromRedis) {
+              setFavTeams(teamsFromRedis);
+            }
+          })
+          .catch((err) => {
+            console.error("Error fetching team preferences:", err);
+          });
+      }
+    };
+    fetchContext();
     fetchTeamLogos().then((data) => setTeams(data));
-  }, [farcasterAccount]);
+  }, []);
 
   const handleRowClick = async (team: Team) => {
-    
-    if (!farcasterAccount) {
+    const context = await sdk.context;
+    console.log("context now", context.user);
+    const fid = context.user?.fid;
+    if (!fid) {
       console.error("User not authenticated");
       return;
     }
     const teamId = getTeamId(team);
-    const fid = Number(farcasterAccount.fid);
 
     // Prevent new clicks if any update is in progress
     if (loadingTeamIds.length > 0) return;
@@ -65,26 +68,39 @@ const SettingsFollowClubs: React.FC<SettingsFollowClubsProps> = ({ onSave }) => 
     // Mark this team as loading
     setLoadingTeamIds((prev) => [...prev, teamId]);
 
-    let updatedFavTeams: string[];
+    try {
+      let updatedFavTeams: string[];
 
-    if (favTeams.includes(teamId)) {
-      // Remove team
-      updatedFavTeams = favTeams.filter((id) => id !== teamId);
-    } else {
-      // Add team
-      updatedFavTeams = [...favTeams, teamId];
-    }
+      if (favTeams.includes(teamId)) {
+        // Remove team
+        updatedFavTeams = favTeams.filter((id) => id !== teamId);
+      } else {
+        // Add team
+        updatedFavTeams = [...favTeams, teamId];
+      }
 
-    await setTeamPreferences(fid, updatedFavTeams);
-    setFavTeams(updatedFavTeams);
-    onSave?.(updatedFavTeams);
-    
-    // Remove the loading state for this team
-    setLoadingTeamIds((prev) => prev.filter((id) => id !== teamId));
-    
-    // Clear search term if needed
-    if (searchTerm.trim() !== "") {
-      setSearchTerm("");
+      await setTeamPreferences(fid, updatedFavTeams);
+      setFavTeams(updatedFavTeams);
+      onSave?.(updatedFavTeams);
+      setTransactionError(null); // Clear error on success
+
+      // Clear search term if needed
+      if (searchTerm.trim() !== "") {
+        setSearchTerm("");
+      }
+    } catch (error: unknown) {
+      console.error("Error updating team preferences:", error);
+      if (
+        error instanceof Error &&
+        error.message.includes("User rejected the request")
+      ) {
+        setTransactionError("User rejected transaction.");
+      } else {
+        setTransactionError("Transaction failed. Please try again.");
+      }
+    } finally {
+      // Remove the loading state for this team
+      setLoadingTeamIds((prev) => prev.filter((id) => id !== teamId));
     }
   };
 
@@ -136,6 +152,11 @@ const SettingsFollowClubs: React.FC<SettingsFollowClubsProps> = ({ onSave }) => 
           onChange={(e) => setSearchTerm(e.target.value)}
           className="w-full bg-darkPurple p-2 border rounded-md border-limeGreenOpacity focus:outline-none focus:ring-2 focus:ring-darkPurple"
         />
+        {transactionError && (
+          <div className="text-center text-red-500 text-sm mb-2">
+            {transactionError}
+          </div>
+        )}
       </div>
 
       {/* Scrollable table container */}

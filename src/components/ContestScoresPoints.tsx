@@ -1,4 +1,4 @@
-import { sdk } from '@farcaster/frame-sdk';
+import { sdk } from "@farcaster/frame-sdk";
 import Image from 'next/image';
 // --- FarcasterUser type for userMap/farcasterData entries ---
 interface FarcasterUser {
@@ -11,7 +11,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import { getTeamPreferences } from '~/lib/kvPerferences';
 import { getTeamLogo } from "./utils/fetchTeamLogos";
 import { fetchUsersByAddress } from './utils/fetchUserByAddressNeynar';
-import { usePrivy } from '@privy-io/react-auth';
 
 const fetchRevnetShields = async (projectId: number, chainId: number) => {
   //const url = `https://app.revnet.eth.sucks/api/data/shields?projectId=${projectId}&chainId=${chainId}`;
@@ -24,9 +23,15 @@ const fetchRevnetShields = async (projectId: number, chainId: number) => {
 };
 
 export default function BuyPoints() {
-  const { ready, authenticated, user } = usePrivy();
-  const [favClub, setFavClub] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
+  const [isMiniApp, setIsMiniApp] = useState<boolean>(false);
+  useEffect(() => {
+    const checkMiniApp = async () => {
+      const result = await sdk.isInMiniApp();
+      setIsMiniApp(result);
+    };
+    checkMiniApp();
+  }, []);
   // const pathname = usePathname();
   // const searchParams = useSearchParams();
   // --- Added state declarations ---
@@ -62,7 +67,7 @@ export default function BuyPoints() {
   }, []);
 
   useEffect(() => {
-    if (!ready) return;
+    if (!isMiniApp) return;
 
       (async () => {
         // Removed setLoading(true) here to prevent flickering when showing cached data
@@ -132,15 +137,19 @@ export default function BuyPoints() {
           setLoading(false);
         }
       })();
-  }, [ready, authenticated, favClub]);
+  }, [isMiniApp]);
   // Handler for PFP click to view Farcaster profile
-  const handlePfpClick = async (fid: number | undefined) => {
+const handlePfpClick = async (fid: number | undefined) => {
     if (!fid) return;
-    try {
-      await sdk.actions.ready();
-      await sdk.actions.viewProfile({ fid });
-    } catch (error) {
-      console.error('Failed to view profile:', error);
+    if (isMiniApp) {
+      try {
+        await sdk.actions.ready();
+        await sdk.actions.viewProfile({ fid });
+      } catch (error) {
+        console.error('Failed to view profile:', error);
+      }
+    } else {
+      window.open(`https://warpcast.com/~/profile/${fid}`, '_blank');
     }
   };
 
@@ -148,37 +157,21 @@ export default function BuyPoints() {
   const handleRowCast = async (holder: Participant) => {
     const username = holder.username ?? holder.address;
     const message = `@${username} has ${Number(holder.balance).toLocaleString()} $SCORES on Footy App`;
-    try {
-      await sdk.actions.ready();
+    if (isMiniApp) {
+      try {
+        await sdk.actions.ready();
         await sdk.actions.composeCast({
           text: message,
           embeds: ['https://fc-footy.vercel.app'],
         });
-    } catch (err) {
-      console.error('Failed to compose cast:', err);
+      } catch (err) {
+        console.error('Failed to compose cast:', err);
+      }
+    } else {
+      window.open('https://warpcast.com/~/compose?text=' + encodeURIComponent(message), '_blank');
     }
   };
 
-  useEffect(() => {
-    const fetchTeam = async () => {
-      const farcasterAccount = user?.linkedAccounts.find(
-        (account) => account.type === 'farcaster'
-      );
-      const fid = farcasterAccount?.fid;
-      if (!fid) return;
-      const prefs = await getTeamPreferences(fid);
-      const rawTeam = prefs?.[0]; // e.g. 'eng.1-liv'
-      const clubCode = rawTeam?.split('-')?.[1]; // → 'liv'
-      if (clubCode) {
-        const upperClub = clubCode.toUpperCase();
-        setFavClub(upperClub);
-      }
-    };
-    if (authenticated) fetchTeam();
-  }, [user, authenticated]);
-
-
-  if (!ready || !authenticated) return null;
 
   return (
     <div className="bg-purplePanel rounded shadow-md max-w-4xl mx-auto">

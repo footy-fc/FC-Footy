@@ -13,7 +13,7 @@ export function PriceIncreaseCountdown() {
   const chainId = 8453;
 
   const { data: rulesetData } = useJBRuleset({ projectId, chainId });
-
+  console.log("rulesetData", rulesetData);
   const core = rulesetData?.data;
   const meta = rulesetData?.metadata;
 
