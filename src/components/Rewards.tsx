@@ -1,8 +1,20 @@
 import React, { useState } from "react";
 import OgRewards from "./OgRewards";
+import sdk from "@farcaster/frame-sdk";
 
 const Rewards = () => {
   const [selectedTab, setSelectedTab] = useState<string>("ogRewards");
+   const [isMiniApp, setIsMiniApp] = useState<boolean>(false);
+
+  React.useEffect(() => {
+    const checkMiniApp = async () => {
+      const result = await sdk.isInMiniApp();
+      setIsMiniApp(result);
+    };
+    checkMiniApp();
+  }, []);
+
+  if (!isMiniApp) return null;
 
   return (
     <div className="mb-4">
