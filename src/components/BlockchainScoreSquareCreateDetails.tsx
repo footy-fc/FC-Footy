@@ -9,6 +9,7 @@ import sportsData from './utils/sportsData';
 import getTeamAbbreviation, { detectLeagueFromTeams } from './utils/teamAbbreviations';
 import useEventsData from './utils/useEventsData';
 import UserInstructions from './UserInstructions';
+import { sdk } from "@farcaster/frame-sdk";
 
 // ScoreSquare contract ABI (partial, only what we need for createGame)
 const SCORE_SQUARE_ABI = [
@@ -496,8 +497,15 @@ const BlockchainScoreSquareCreateDetails: React.FC<BlockchainScoreSquareCreateDe
           </label>
         </div>
 
-        <button 
-          type="submit" 
+     <button 
+          type="submit"
+          onClick={async () => {
+            try {
+              await sdk.haptics.impactOccurred('medium');
+            } catch {
+              // ignore haptics errors
+            }
+          }}
           disabled={loading || isConfirming || !address || (!homeTeam && !awayTeam) || !instructionsAcknowledged}
           className={`w-full px-4 py-2 rounded font-semibold ${
             loading || isConfirming || !address || (!homeTeam && !awayTeam)

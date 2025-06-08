@@ -141,7 +141,21 @@ export default function BuyPoints() {
         </div>
         <PriceIncreaseCountdown />
         <p className="text-sm text-notWhite mt-2 mb-2">
-          {ethAmount || '0'} ETH = {getIssuedPoints(Number(ethAmount || '0'))} $SCORES
+          {ethAmount || '0'} ETH = {getIssuedPoints(Number(ethAmount || '0'))}{' '}
+          <button
+            onClick={async () => {
+              try {
+                await sdk.actions.viewToken({
+                  token: 'eip155:8453/erc20:0xba1afff81a239c926446a67d73f73ec51c37c777',
+                });
+              } catch (err) {
+                console.error('viewToken error:', err);
+              }
+            }}
+            className="text-xs text-lightPurple underline hover:text-fontRed"
+          >
+            $SCORES
+          </button>
         </p>
         <input
           type="number"
@@ -166,7 +180,14 @@ export default function BuyPoints() {
           </label>
         </div>
         <button
-          onClick={() => handleBuyPack(ethAmount)}
+          onClick={async () => {
+            try {
+              await sdk.haptics.impactOccurred('medium');
+            } catch {
+              // ignore haptics errors
+            }
+            handleBuyPack(ethAmount);
+          }}
           disabled={isSubmitting || !ethAmount || !hasAgreed}
           className={`w-full mt-4 py-2 px-4 rounded transition-colors ${
             txStatus === 'pending'

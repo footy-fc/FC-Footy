@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from "react";
 import ForYouTeamsFans from "./ForYouTeamsFans";
 import ForYouWhosPlaying from "./ForYouWhosPlaying";
+import ForYouProfile from "./ForYouProfile";
 import BuyPoints from "./BuyPoints";
 import { usePrivy } from "@privy-io/react-auth";
 import { getTeamPreferences } from "../lib/kvPerferences";
-
 
 const ForYou = () => {
   const { user } = usePrivy();
@@ -69,6 +69,16 @@ const ForYou = () => {
             >
             Teams & Fans
             </button>
+             <button
+            onClick={() => setSelectedTab("forYouProfile")}
+            className={`flex-shrink-0 py-1 px-6 text-sm font-semibold cursor-pointer rounded-full border-2 ${
+                selectedTab === "forYouProfile"
+                ? "border-limeGreenOpacity text-lightPurple"
+                : "border-gray-500 text-gray-500"
+            }`}
+            >
+            Hazing
+            </button>
             </>
         )}
         </div>
@@ -91,6 +101,11 @@ const ForYou = () => {
       {selectedTab === "buyPoints" && (
         <div>
           <BuyPoints />
+        </div>
+      )}
+      {selectedTab === "forYouProfile" && (
+        <div>
+          <ForYouProfile />
         </div>
       )}
       </div>

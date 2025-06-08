@@ -181,8 +181,13 @@ const SettingsFollowClubs: React.FC<SettingsFollowClubsProps> = ({ onSave }) => 
                 <tr
                   key={teamId}
                   // Only allow row clicks if no row is loading.
-                  onClick={() => {
+                  onClick={async () => {
                     if (!isLoading && loadingTeamIds.length === 0) {
+                      try {
+                        await sdk.haptics.impactOccurred('medium');
+                      } catch {
+                        // ignore haptics errors
+                      }
                       handleRowClick(team);
                     }
                   }}

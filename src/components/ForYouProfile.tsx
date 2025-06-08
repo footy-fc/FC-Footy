@@ -1,14 +1,14 @@
 import React, { useEffect, useState } from 'react';
-import { sdk } from '@farcaster/frame-sdk';
+import sdk from '@farcaster/frame-sdk';
 import { getTeamPreferences, getFanCountForTeam } from "../lib/kvPerferences";
 import { getTeamLogo } from "./utils/fetchTeamLogos";
 import { getFansForTeam } from '../lib/kvPerferences'; // Assuming these functions are imported from a relevant file
 import { fetchMutualFollowers } from './utils/fetchCheckIfFollowing';
 import SettingsFollowClubs from './SettingsFollowClubs';
-import ContentLiveChat from './ContentLiveChat';
 import { getAlikeFanMatches } from "./utils/getAlikeFanMatches";
 import type { FanPair } from "./utils/getAlikeFanMatches";
 import { fetchFanUserData } from './utils/fetchFCProfile';
+
 
 type TeamLink = {
   href: string;
@@ -16,7 +16,7 @@ type TeamLink = {
   shortText?: string;
 };
 
-const ForYouTeamsFans: React.FC<{ showLiveChat: boolean; setShowLiveChat: (val: boolean) => void }> = ({ showLiveChat, setShowLiveChat }) => {
+const ForYouProfile: React.FC = () => {
   const [favoriteTeams, setFavoriteTeams] = useState<string[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -30,7 +30,19 @@ const ForYouTeamsFans: React.FC<{ showLiveChat: boolean; setShowLiveChat: (val: 
   const [showMatchUps, setShowMatchUps] = useState(false);
   const [matchUps, setMatchUps] = useState<FanPair[]>([]);
   const [loadingMatches, setLoadingMatches] = useState(false);
-  const showChatFeature = false;
+ 
+  useEffect(() => {
+    const initSdkContext = async () => {
+      await sdk.isInMiniApp();
+      await sdk.actions.ready();
+      const contextIs = await sdk.context;
+      console.log(contextIs);
+      if (contextIs.location?.type === 'cast_share') {
+        console.log('yippie ', contextIs.location?.cast?.author?.fid);
+      }
+    };
+    initSdkContext();
+  }, []);
 
   const fetchFavoriteTeams = async () => {
     try {
@@ -95,12 +107,21 @@ const ForYouTeamsFans: React.FC<{ showLiveChat: boolean; setShowLiveChat: (val: 
         const fanFids = await getFansForTeam(selectedTeam.toLowerCase());
         const context = await sdk.context;
         console.log('context now', context.user);
-        const currentFid = context.user?.fid;
-        if (!currentFid) {
-          console.error("No current fid found");
-          return;
+        // Determine currentFid properly for all cases
+        let currentFid: number | undefined;
+        if (context.location?.type === 'cast_share') {
+          currentFid = context.location.cast.author.fid ? Number(context.location.cast.author.fid) : undefined;
+          if (!currentFid) {
+            console.error("No current fid found");
+            return;
+          }
+        } else {
+          currentFid = context.user?.fid ? Number(context.user.fid) : undefined;
+          if (!currentFid) {
+            console.error("No current fid found");
+            return;
+          }
         }
-        
         // Convert the fan FIDs to numbers
         const numericFids = fanFids.map(Number);
         
@@ -202,6 +223,7 @@ const ForYouTeamsFans: React.FC<{ showLiveChat: boolean; setShowLiveChat: (val: 
   if (loading) return <div>For you today</div>;
   if (error) return <div>{error}</div>;
   console.log("teamLinks", teamLinks);
+  // If the user has no favorite teams, show a simple button to compose a cast
   if (showSettings) {
     return (
       <div className="p-4">
@@ -213,19 +235,26 @@ const ForYouTeamsFans: React.FC<{ showLiveChat: boolean; setShowLiveChat: (val: 
           setSelectedTeam(newFavorites[0] ?? null);
           setShowSettings(false);
         }} />
-      </div>
-    );
-  }
-  if (showLiveChat && selectedTeam) {
-    return (      
-      <div className="h-[380px] overflow-hidden rounded-lg relative">
-        <ContentLiveChat teamId={selectedTeam} />
+        {/* New affordance: Button to compose a cast */}
+        <div className="mt-6 flex justify-center">
+          <button
+            className="bg-deepPink hover:bg-fontRed text-white px-4 py-2 rounded-lg"
+            onClick={async () => {
+              await sdk.actions.composeCast({
+                text: "Hey, join Footy App!",
+                embeds: [],
+              });
+            }}
+          >
+            Share Footy App!
+          </button>
+        </div>
       </div>
     );
   }
   return (
     <div className="bg-purplePanel text-lightPurple rounded-lg p-1 overflow-hidden">
-      <h2 className='text-notWhite'>Teams you follow</h2>
+      <h2 className='text-notWhite'>Teams they follow</h2>
       <div className="flex overflow-x-auto gap-4 py-2">
         {favoriteTeams.map((teamId) => {
           return (
@@ -308,16 +337,6 @@ const ForYouTeamsFans: React.FC<{ showLiveChat: boolean; setShowLiveChat: (val: 
             Connect with fellow fans and share your passion for the beautiful game!
           </p>
           <div className="mt-2 flex gap-2 justify-center">
-            {showChatFeature && (
-              <button
-                onClick={() => {
-                  setShowLiveChat(true);
-                }}
-                className="px-4 py-2 bg-deepPink hover:bg-fontRed text-white rounded-lg"
-              >
-                Join the chat
-              </button>
-            )}
             <button
               disabled={loadingMatches}
               onClick={async () => {
@@ -380,4 +399,4 @@ const ForYouTeamsFans: React.FC<{ showLiveChat: boolean; setShowLiveChat: (val: 
   );
 };
 
-export default ForYouTeamsFans;
+export default ForYouProfile;

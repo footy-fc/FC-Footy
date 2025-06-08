@@ -139,6 +139,17 @@ export function WarpcastShareButton({ selectedMatch, buttonText, compositeImage,
   }, [isContextLoaded]);
 
   const openWarpcastUrl = useCallback(async () => {
+    // Stronger and more noticeable haptic feedback
+    try {
+      const capabilities = await sdk.getCapabilities();
+      if (capabilities.includes('haptics.notificationOccurred')) {
+        await sdk.haptics.notificationOccurred('error');
+      } else if (capabilities.includes('haptics.impactOccurred')) {
+        await sdk.haptics.impactOccurred('heavy');
+      }
+    } catch {
+      // Ignore haptics errors
+    }
     if (selectedMatch) {
       const frameUrl = BASE_URL || 'fc-footy.vercel.app';
       const {
