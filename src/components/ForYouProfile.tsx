@@ -38,7 +38,7 @@ const ForYouProfile: React.FC = () => {
       const contextIs = await sdk.context;
       console.log(contextIs);
       if (contextIs.location?.type === 'cast_share') {
-        console.log('yippie ', contextIs.location.cast.author.fid);
+        console.log('yippie ', contextIs.location?.cast?.author?.fid);
       }
     };
     initSdkContext();
@@ -107,12 +107,21 @@ const ForYouProfile: React.FC = () => {
         const fanFids = await getFansForTeam(selectedTeam.toLowerCase());
         const context = await sdk.context;
         console.log('context now', context.user);
-        const currentFid = context.user?.fid;
-        if (!currentFid) {
-          console.error("No current fid found");
-          return;
+        // Determine currentFid properly for all cases
+        let currentFid: number | undefined;
+        if (context.location?.type === 'cast_share') {
+          currentFid = context.location.cast.author.fid ? Number(context.location.cast.author.fid) : undefined;
+          if (!currentFid) {
+            console.error("No current fid found");
+            return;
+          }
+        } else {
+          currentFid = context.user?.fid ? Number(context.user.fid) : undefined;
+          if (!currentFid) {
+            console.error("No current fid found");
+            return;
+          }
         }
-        
         // Convert the fan FIDs to numbers
         const numericFids = fanFids.map(Number);
         
