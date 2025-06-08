@@ -77,7 +77,7 @@ const ForYou = () => {
                 : "border-gray-500 text-gray-500"
             }`}
             >
-            Hazing
+            Memoribilia
             </button>
             </>
         )}
