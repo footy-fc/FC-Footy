@@ -223,6 +223,7 @@ const ForYouProfile: React.FC = () => {
   if (loading) return <div>For you today</div>;
   if (error) return <div>{error}</div>;
   console.log("teamLinks", teamLinks);
+  // If the user has no favorite teams, show a simple button to compose a cast
   if (showSettings) {
     return (
       <div className="p-4">
@@ -234,6 +235,20 @@ const ForYouProfile: React.FC = () => {
           setSelectedTeam(newFavorites[0] ?? null);
           setShowSettings(false);
         }} />
+        {/* New affordance: Button to compose a cast */}
+        <div className="mt-6 flex justify-center">
+          <button
+            className="bg-deepPink hover:bg-fontRed text-white px-4 py-2 rounded-lg"
+            onClick={async () => {
+              await sdk.actions.composeCast({
+                text: "Hey, join Footy App!",
+                embeds: [],
+              });
+            }}
+          >
+            Share Footy App!
+          </button>
+        </div>
       </div>
     );
   }
