@@ -81,6 +81,12 @@ const sportsData = [
         sportId: 'eng.2',
         url: 'https://site.api.espn.com/apis/site/v2/sports/soccer/eng.2/scoreboard',
       },
+       {
+        name: 'Nations League - UEFA',
+        sportId: 'uefa.nations',
+        url: 'https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.nations/scoreboard',
+      },
+
 
   ];
   
