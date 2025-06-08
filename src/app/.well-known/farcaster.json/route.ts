@@ -28,6 +28,7 @@ export async function GET() {
       ogTitle: "Footy App",
       ogDescription: "Match previews, summaries, Farcaster fantasy league, money games and onchain fan experiences",
       ogImageUrl: `${appUrl}/opengraph-image`,
+      castShareUrl: "https://fc-footy.vercel.app",
     },
   };
 
