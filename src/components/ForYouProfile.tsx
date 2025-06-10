@@ -1,14 +1,14 @@
+/* eslint-disable @next/next/no-img-element */
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import React, { useEffect, useState } from 'react';
 import sdk from '@farcaster/frame-sdk';
-import { getTeamPreferences, getFanCountForTeam } from "../lib/kvPerferences";
-import { getTeamLogo } from "./utils/fetchTeamLogos";
-import { getFansForTeam } from '../lib/kvPerferences'; // Assuming these functions are imported from a relevant file
+import { getTeamPreferences, getFanCountForTeam, getFansForTeam } from '../lib/kvPerferences';
+import { getTeamLogo } from './utils/fetchTeamLogos';
 import { fetchMutualFollowers } from './utils/fetchCheckIfFollowing';
 import SettingsFollowClubs from './SettingsFollowClubs';
-import { getAlikeFanMatches } from "./utils/getAlikeFanMatches";
-import type { FanPair } from "./utils/getAlikeFanMatches";
+import { getAlikeFanMatches } from './utils/getAlikeFanMatches';
+import type { FanPair } from './utils/getAlikeFanMatches';
 import { fetchFanUserData } from './utils/fetchFCProfile';
-
 
 type TeamLink = {
   href: string;
@@ -16,86 +16,89 @@ type TeamLink = {
   shortText?: string;
 };
 
-const ForYouProfile: React.FC = () => {
+const UserProfile: React.FC = () => {
+  const [userData, setUserData] = useState<{ fid?: number; username?: string; pfp?: string }>({});
   const [favoriteTeams, setFavoriteTeams] = useState<string[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [teamLinks, setTeamLinks] = useState<Record<string, TeamLink[]>>({});
   const [selectedTeam, setSelectedTeam] = useState<string | null>(null);
-  const [favoriteTeamFans, setFavoriteTeamFans] = useState<Array<{ fid: number; pfp: string; mutual: boolean; youFollow?: boolean }>>([]);
   const [fanCount, setFanCount] = useState<number>(0);
+  const [favoriteTeamFans, setFavoriteTeamFans] = useState<Array<{ fid: number; pfp: string; mutual: boolean; youFollow?: boolean }>>([]);
   const [loadingFollowers, setLoadingFollowers] = useState<boolean>(false);
   const [showSettings, setShowSettings] = useState(false);
   const [cachedTeamFollowers, setCachedTeamFollowers] = useState<Record<string, Array<{ fid: number; pfp: string; mutual: boolean; youFollow?: boolean }>>>({});
   const [showMatchUps, setShowMatchUps] = useState(false);
   const [matchUps, setMatchUps] = useState<FanPair[]>([]);
   const [loadingMatches, setLoadingMatches] = useState(false);
- 
+
+  // Initialize SDK and fetch user context
+
   useEffect(() => {
+    
     const initSdkContext = async () => {
+
       await sdk.isInMiniApp();
       await sdk.actions.ready();
-      const contextIs = await sdk.context;
-      console.log(contextIs);
-      if (contextIs.location?.type === 'cast_share') {
-        console.log('yippie ', contextIs.location?.cast?.author?.fid);
+      const context = await sdk.context;
+                    console.log('SDK context:', context.user.fid);
+
+      if (!context.user) {
+        setError('Please link your Farcaster account to view your profile.');
+        return;
+      }
+      if (context.user) {
+        setUserData({
+          fid: context.user.fid,
+          username: context.user.username || 'Footy Og',
+          pfp: context.user.pfpUrl || '/512.png',
+        });
       }
     };
     initSdkContext();
   }, []);
 
+  // Fetch user's favorite teams
   const fetchFavoriteTeams = async () => {
     try {
       const context = await sdk.context;
-      console.log('context now', context.user);
       const currentFid = context.user?.fid;
-
       if (!currentFid) {
-        setError("You need to link your Farcaster account to see your favorite teams.");
+        setError('Please link your Farcaster account to view your profile.');
         return;
       }
 
       const preferences = await getTeamPreferences(currentFid);
       if (preferences && preferences.length > 0) {
-        // console.log("Fetched team preferences:", preferences);
         setFavoriteTeams(preferences);
+        setSelectedTeam(preferences[0]);
         setShowSettings(false);
       } else {
         setShowSettings(true);
-        setFavoriteTeams([]);
       }
-    } catch (error: unknown) {
-      if (error instanceof Error) {
-        console.error("Error fetching team preferences:", error.message);
-      } else {
-        console.error("Unknown error fetching team preferences:", error);
-      }
+    } catch (err) {
+      console.error('Error fetching team preferences:', err);
+      setError('Failed to load profile data.');
     } finally {
       setLoading(false);
     }
   };
 
+  // Fetch team followers and mutuals for selected team
   useEffect(() => {
     if (!selectedTeam) return;
     let cancelled = false;
 
-    // Quickly update fan count using getFanCountForTeam
     getFanCountForTeam(selectedTeam.toLowerCase())
-      .then(count => {
-        if (!cancelled) {
-          setFanCount(count);
-        }
-      })
+      .then(count => !cancelled && setFanCount(count))
       .catch(err => console.error('Error fetching fan count:', err));
 
-    // If we have cached followers for this team, use them and avoid refetching
     if (cachedTeamFollowers[selectedTeam]) {
       setFavoriteTeamFans(cachedTeamFollowers[selectedTeam]);
       setLoadingFollowers(false);
       return;
     }
-    
-    // Clear out previous fans and show loading state
+
     setFavoriteTeamFans([]);
     setShowMatchUps(false);
     setMatchUps([]);
@@ -106,76 +109,57 @@ const ForYouProfile: React.FC = () => {
       try {
         const fanFids = await getFansForTeam(selectedTeam.toLowerCase());
         const context = await sdk.context;
-        console.log('context now', context.user);
-        // Determine currentFid properly for all cases
-        let currentFid: number | undefined;
-        if (context.location?.type === 'cast_share') {
-          currentFid = context.location.cast.author.fid ? Number(context.location.cast.author.fid) : undefined;
-          if (!currentFid) {
-            console.error("No current fid found");
-            return;
-          }
-        } else {
-          currentFid = context.user?.fid ? Number(context.user.fid) : undefined;
-          if (!currentFid) {
-            console.error("No current fid found");
-            return;
-          }
-        }
-        // Convert the fan FIDs to numbers
+        const currentFid = context.user?.fid;
+        if (!currentFid) return;
+
         const numericFids = fanFids.map(Number);
-        
-        // Batch fetch mutual follower data using Neynar's bulk endpoint
         const mutualMap = await fetchMutualFollowers(currentFid, numericFids);
-        
         const userDatas = await Promise.all(numericFids.map(fid => fetchFanUserData(fid)));
-        const fans = numericFids.reduce<Array<{ fid: number; pfp: string; mutual: boolean; youFollow?: boolean }>>((acc, fid, index) => {
-          const userData = userDatas[index];
-          const pfp = userData?.USER_DATA_TYPE_PFP?.[0];
-          if (pfp) {
-            const mutual = mutualMap[fid];
-            const youFollow = fid === currentFid; // Determine if the current user follows this fan
-            acc.push({ fid, pfp, mutual, youFollow });
-          }
-          return acc;
-        }, []);
-        
+
+        const fans = numericFids.reduce<Array<{ fid: number; pfp: string; mutual: boolean; youFollow?: boolean }>>(
+          (acc, fid, index) => {
+            const userData = userDatas[index];
+            const pfp = userData?.USER_DATA_TYPE_PFP?.[0];
+            if (pfp) {
+              const mutual = mutualMap[fid];
+              const youFollow = fid === currentFid;
+              acc.push({ fid, pfp, mutual, youFollow });
+            }
+            return acc;
+          },
+          []
+        );
+
         if (!cancelled) {
-          // Cache the fetched fans for this team
           setCachedTeamFollowers(prev => ({ ...prev, [selectedTeam]: fans }));
           setFavoriteTeamFans(fans);
         }
       } catch (err) {
-        console.error("Error fetching fans:", err);
+        console.error('Error fetching fans:', err);
       } finally {
-        if (!cancelled) {
-          setLoadingFollowers(false);
-        }
+        if (!cancelled) setLoadingFollowers(false);
       }
     };
-    
+
     fetchFans();
-    
     return () => {
       cancelled = true;
     };
   }, [selectedTeam, cachedTeamFollowers]);
 
-  // Fetch the user's favorite teams from Redis
+  // Fetch favorite teams on mount
   useEffect(() => {
     fetchFavoriteTeams();
   }, []);
 
+  // Fetch team links for favorite teams
   useEffect(() => {
     if (favoriteTeams.length === 0) return;
 
     const leagueMap: Record<string, string[]> = {};
-
-    favoriteTeams.forEach((teamId) => {
-      const [league, abbr] = teamId.split("-");
-      if (!leagueMap[league]) {
-        leagueMap[league] = [];
-      }
+    favoriteTeams.forEach(teamId => {
+      const [league, abbr] = teamId.split('-');
+      if (!leagueMap[league]) leagueMap[league] = [];
       leagueMap[league].push(abbr);
     });
 
@@ -184,17 +168,6 @@ const ForYouProfile: React.FC = () => {
     });
   }, [favoriteTeams]);
 
-  useEffect(() => {
-    if (!selectedTeam && favoriteTeams.length > 0) {
-      setSelectedTeam(favoriteTeams[0]);
-    }
-  }, [favoriteTeams]);
-
-  const getTeamLogoUrl = (teamId: string): string => {
-    const [league, abbr] = teamId.split("-");
-    return getTeamLogo(abbr, league);
-  };
-
   const fetchTeamLinksByLeague = async (league: string, teamAbbrs: string[]) => {
     try {
       const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${league}/teams`);
@@ -202,46 +175,58 @@ const ForYouProfile: React.FC = () => {
       const teams = data?.sports?.[0]?.leagues?.[0]?.teams || [];
 
       const newLinks: Record<string, TeamLink[]> = {};
-      teamAbbrs.forEach((abbr) => {
-        const matched = teams.find(
-          (t: { team: { abbreviation: string } }) => t.team.abbreviation.toLowerCase() === abbr.toLowerCase()
-        );
+      teamAbbrs.forEach(abbr => {
+        const matched = teams.find((t: { team: { abbreviation: string } }) => t.team.abbreviation.toLowerCase() === abbr.toLowerCase());
         if (matched?.team?.links) {
           newLinks[abbr] = matched.team.links;
         }
       });
 
-      setTeamLinks((prev) => ({
-        ...prev,
-        ...newLinks
-      }));
+      setTeamLinks(prev => ({ ...prev, ...newLinks }));
     } catch (err) {
       console.error(`Failed to fetch team links for league ${league}`, err);
     }
   };
 
-  if (loading) return <div>For you today</div>;
-  if (error) return <div>{error}</div>;
-  console.log("teamLinks", teamLinks);
-  // If the user has no favorite teams, show a simple button to compose a cast
-  if (showSettings) {
-    return (
-      <div className="p-4">
-        <div className="flex items-center justify-between mb-2">
-          <h2 className="text-notWhite">Follow at least one team</h2>
+  const getTeamLogoUrl = (teamId: string): string => {
+    const [league, abbr] = teamId.split('-');
+    return getTeamLogo(abbr, league);
+  };
+
+  if (loading) return <div className="text-center text-gray-400">Loading profile...</div>;
+  if (error) return <div className="text-center text-red-500">{error}</div>;
+
+  return (
+    <div className="bg-purplePanel text-lightPurple rounded-lg p-4 max-w-2xl mx-auto">
+      {/* User Profile Header */}
+      <div className="flex items-center gap-4 mb-6">
+        <img
+          src={userData.pfp || '/default-avatar.png'}
+          alt="Profile"
+          className="w-16 h-16 rounded-full border-2 border-limeGreen"
+        />
+        <div>
+          <h1 className="text-2xl font-bold text-notWhite">{userData.username || 'Footy Fan'}</h1>
+          <p className="text-sm text-lightPurple">Passionate football supporter</p>
         </div>
-        <SettingsFollowClubs onSave={(newFavorites: string[]) => {
-          setFavoriteTeams(newFavorites);
-          setSelectedTeam(newFavorites[0] ?? null);
-          setShowSettings(false);
-        }} />
-        {/* New affordance: Button to compose a cast */}
-        <div className="mt-6 flex justify-center">
+      </div>
+
+      {/* Favorite Teams Section */}
+      {showSettings ? (
+        <div className="p-4 border border-dashed border-limeGreen rounded-lg">
+          <h2 className="text-notWhite mb-2">Select Your Favorite Teams</h2>
+          <SettingsFollowClubs
+            onSave={(newFavorites: string[]) => {
+              setFavoriteTeams(newFavorites);
+              setSelectedTeam(newFavorites[0] ?? null);
+              setShowSettings(false);
+            }}
+          />
           <button
-            className="bg-deepPink hover:bg-fontRed text-white px-4 py-2 rounded-lg"
+            className="mt-4 bg-deepPink hover:bg-fontRed text-white px-4 py-2 rounded-lg"
             onClick={async () => {
               await sdk.actions.composeCast({
-                text: "Hey, join Footy App!",
+                text: 'Just joined Footy App to connect with fellow fans! ⚽ #FootyApp',
                 embeds: [],
               });
             }}
@@ -249,65 +234,63 @@ const ForYouProfile: React.FC = () => {
             Share Footy App!
           </button>
         </div>
-      </div>
-    );
-  }
-  return (
-    <div className="bg-purplePanel text-lightPurple rounded-lg p-1 overflow-hidden">
-      <h2 className='text-notWhite'>Teams they follow</h2>
-      <div className="flex overflow-x-auto gap-4 py-2">
-        {favoriteTeams.map((teamId) => {
-          return (
+      ) : (
+        <>
+          <h2 className="text-notWhite text-lg font-semibold mb-2">Favorite Teams</h2>
+          <div className="flex overflow-x-auto gap-3 mb-4">
+            {favoriteTeams.map(teamId => (
+              <div
+                key={teamId}
+                onClick={() => setSelectedTeam(teamId)}
+                className={`flex-none w-24 p-2 rounded-lg border cursor-pointer text-center ${
+                  teamId === selectedTeam
+                    ? 'border-limeGreen shadow-[0_0_8px_rgba(173,255,47,0.5)]'
+                    : 'border-lightPurple'
+                }`}
+              >
+                <img
+                  src={getTeamLogoUrl(teamId)}
+                  alt={teamId}
+                  className="w-12 h-12 object-contain mx-auto mb-1"
+                />
+                <span className="text-xs text-lightPurple">{teamId.split('-')[1]}</span>
+              </div>
+            ))}
             <div
-              key={teamId}
-              onClick={() => setSelectedTeam(teamId)}
-              className={`relative flex-none w-[120px] border ${
-                teamId === selectedTeam
-                  ? "border-limeGreenOpacity shadow-[0_0_10px_2px_rgba(173,255,47,0.5)]"
-                  : "border-lightPurple"
-              } rounded-lg p-2 text-center bg-purplePanel cursor-pointer`}
+              onClick={() => setShowSettings(true)}
+              className="flex-none w-24 border border-dashed border-limeGreen rounded-lg p-2 flex flex-col items-center justify-center cursor-pointer"
             >
-              <img
-                src={getTeamLogoUrl(teamId)}
-                alt={teamId}
-                className="w-[60px] h-[60px] object-contain mb-2 mx-auto"
-              />
+              <span className="text-2xl text-limeGreen">+</span>
+              <span className="text-xs text-lightPurple">Add Team</span>
             </div>
-          );
-        })}
-        <div
-          onClick={() => setShowSettings(true)}
-          className="flex-none w-[120px] border border-dashed border-limeGreenOpacity rounded-lg p-2 text-center bg-purplePanel cursor-pointer flex flex-col items-center justify-center"
-        >
-          <div className="text-2xl text-limeGreen">+</div>
-          <div className="text-sm text-lightPurple mt-1">Manage</div>
-        </div>
-      </div>
-        {selectedTeam && favoriteTeams.includes(selectedTeam) && (() => {
-        return (
-          <div className="relative rounded-lg overflow-hidden">
-            <div className="mt-2">
-              <h3 className="text-notWhite mb-1 m">Team Followers ({fanCount})</h3>
-              <div className="flex items-center gap-4 text-xs text-lightPurple mb-2 ml-1">
+          </div>
+
+          {/* Team Followers Section */}
+          {selectedTeam && favoriteTeams.includes(selectedTeam) && (
+            <div className="mt-4">
+              <h3 className="text-notWhite font-semibold mb-2">
+                {selectedTeam.split('-')[1]} Fans ({fanCount})
+              </h3>
+              <div className="flex items-center gap-3 text-xs text-lightPurple mb-3">
                 <div className="flex items-center gap-1">
-                  <span className="w-3 h-3 ring-2 ring-limeGreen rounded-full inline-block"></span>
+                  <span className="w-3 h-3 ring-2 ring-limeGreen rounded-full"></span>
                   <span>You follow</span>
                 </div>
                 <div className="flex items-center gap-1">
-                  <span className="w-3 h-3 ring-2 ring-fontRed rounded-full inline-block"></span>
+                  <span className="w-3 h-3 ring-2 ring-fontRed rounded-full"></span>
                   <span>You don’t follow</span>
                 </div>
                 <div className="flex items-center gap-1">
-                  <span className="w-3 h-3 ring-2 ring-purple-500 rounded-full inline-block"></span>
+                  <span className="w-3 h-3 ring-2 ring-purple-500 rounded-full"></span>
                   <span>Mutual</span>
                 </div>
               </div>
               {loadingFollowers ? (
-                <div className="text-sm text-gray-400 animate-pulse">Loading followers...</div>
+                <div className="text-sm text-gray-400 animate-pulse">Loading fans...</div>
               ) : (
-                <div className="grid grid-cols-10 gap-1 ml-1 mr-1">
+                <div className="grid grid-cols-8 gap-2">
                   {favoriteTeamFans.length > 0 ? (
-                    favoriteTeamFans.map((fan) => (
+                    favoriteTeamFans.map(fan => (
                       <button
                         key={fan.fid}
                         onClick={() => sdk.actions.viewProfile({ fid: fan.fid })}
@@ -316,87 +299,85 @@ const ForYouProfile: React.FC = () => {
                         <img
                           src={fan.pfp}
                           alt={`Fan ${fan.fid}`}
-                          className={`rounded-full w-7 h-7 ${
-                            fan.fid === undefined ? '' :
-                            fan.mutual ? 'ring-2 ring-purple-500' :
-                            fan.youFollow ? 'ring-2 ring-limeGreen' :
-                            'ring-2 ring-fontRed'
+                          className={`w-8 h-8 rounded-full ${
+                            fan.mutual
+                              ? 'ring-2 ring-purple-500'
+                              : fan.youFollow
+                              ? 'ring-2 ring-limeGreen'
+                              : 'ring-2 ring-fontRed'
                           }`}
                         />
                       </button>
                     ))
                   ) : (
-                    <span className="text-sm text-gray-400">No fans found.</span>
+                    <span className="text-sm text-gray-400 col-span-8">No fans found for this team.</span>
                   )}
                 </div>
               )}
             </div>
-                    {/* New affordance added below the team followers */}
-        <div className="mt-4 text-center">
-          <p className="text-lightPurple text-sm">
-            Connect with fellow fans and share your passion for the beautiful game!
-          </p>
-          <div className="mt-2 flex gap-2 justify-center">
-            <button
-              disabled={loadingMatches}
-              onClick={async () => {
-                try {
-                  await sdk.haptics.impactOccurred('heavy');
-                } catch {
-                  // ignore haptics errors
-                }
-                setLoadingMatches(true);
-                const context = await sdk.context;
-                const currentFid = context.user?.fid;
-                const matches = await getAlikeFanMatches(
-                  currentFid ? Number(currentFid) : undefined,
-                  favoriteTeamFans.map(fan => fan.fid)
-                );
-                setMatchUps(matches);
-                setShowMatchUps(true);
-                setLoadingMatches(false);
-              }}
-              className={`px-4 py-2 rounded-lg text-white ${
-                loadingMatches ? 'bg-purple-400 cursor-not-allowed' : 'bg-deepPink hover:bg-fontRed'
-              }`}
-            >
-              {loadingMatches ? 'Loading...' : 'Fans like you'}
-            </button>
-          </div>
-        </div>
-        {showMatchUps && (
-          <div className="mt-4">
-            <h2 className="text-notWhite text-md font-semibold mb-2">Fans Most Like You</h2>
-            <ul className="space-y-2">
-              {matchUps.slice(0, 8).map((pair, i) => (
-                <li key={i} className="flex items-center gap-3 text-sm">
-                  <button
-                    onClick={() => sdk.actions.viewProfile({ fid: pair.fid2 })}
-                    className="focus:outline-none"
-                  >
-                    <img
-                      src={pair.pfp}
-                      alt={`Fan ${pair.fid2}`}
-                      className="w-8 h-8 rounded-full border"
-                    />
-                  </button>
-                  <div>
+          )}
+
+          {/* Connect with Fans */}
+          {selectedTeam && (
+            <div className="mt-4 text-center">
+              <p className="text-lightPurple text-sm mb-2">
+                Connect with fellow {selectedTeam.split('-')[1]} fans!
+              </p>
+              <button
+                disabled={loadingMatches}
+                onClick={async () => {
+                  try {
+                    await sdk.haptics.impactOccurred('heavy');
+                  } catch {
+                    // Ignore haptics errors
+                  }
+                  setLoadingMatches(true);
+                  const context = await sdk.context;
+                  const currentFid = context.user?.fid;
+                  const matches = await getAlikeFanMatches(
+                    currentFid ? Number(currentFid) : undefined,
+                    favoriteTeamFans.map(fan => fan.fid)
+                  );
+                  setMatchUps(matches);
+                  setShowMatchUps(true);
+                  setLoadingMatches(false);
+                }}
+                className={`px-4 py-2 rounded-lg text-white ${
+                  loadingMatches ? 'bg-purple-400 cursor-not-allowed' : 'bg-deepPink hover:bg-fontRed'
+                }`}
+              >
+                {loadingMatches ? 'Loading...' : 'Find Similar Fans'}
+              </button>
+            </div>
+          )}
+
+          {/* Similar Fans Section */}
+          {showMatchUps && matchUps.length > 0 && (
+            <div className="mt-4">
+              <h3 className="text-notWhite font-semibold mb-2">Fans Like You</h3>
+              <ul className="space-y-2">
+                {matchUps.slice(0, 6).map((pair, i) => (
+                  <li key={i} className="flex items-center gap-3">
+                    <button
+                      onClick={() => sdk.actions.viewProfile({ fid: pair.fid2 })}
+                      className="focus:outline-none"
+                    >
+                      <img src={pair.pfp} alt={`Fan ${pair.fid2}`} className="w-8 h-8 rounded-full border" />
+                    </button>
                     <div className="flex gap-1">
                       {pair.teamLogos?.map((logo, idx) => (
                         <img key={idx} src={logo} alt="Team" className="w-5 h-5 rounded-md" />
                       ))}
                     </div>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-      </div>
-        );
-      })()}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </>
+      )}
     </div>
   );
 };
 
-export default ForYouProfile;
+export default UserProfile;
