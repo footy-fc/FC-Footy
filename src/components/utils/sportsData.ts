@@ -86,6 +86,11 @@ const sportsData = [
         sportId: 'uefa.nations',
         url: 'https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.nations/scoreboard',
       },
+      {
+        name: 'Club World Cup',
+        sportId: 'fifa.cwc',
+        url: 'https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.cwc/scoreboard',
+      },
 
 
   ];
