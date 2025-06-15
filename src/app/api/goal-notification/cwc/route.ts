@@ -14,7 +14,7 @@ const redis = new Redis({
 
 export async function POST(request: NextRequest) {
   const scoreboardUrl =
-    "https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.worldq.uefa/scoreboard";
+    "https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.cwc/scoreboard";
 
   let liveEvents: MatchEvent[];
   try {
@@ -28,9 +28,9 @@ export async function POST(request: NextRequest) {
         event.competitions?.[0]?.status?.type?.state === "in" ||
         event.competitions?.[0]?.status?.type?.state === "post"
     );
-    console.log(`Found ${liveEvents.length} live or completed event(s) in UEFA.`);
+    console.log(`Found ${liveEvents.length} live or completed event(s) in CWC.`);
   } catch (error) {
-    console.error("Error fetching UEFA scoreboard:", error);
+    console.error("Error fetching CWC scoreboard:", error);
     return new NextResponse(
       JSON.stringify({ success: false, error: "Failed to fetch scoreboard" }),
       { status: 500 }
@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
       homeTeam.team?.shortDisplayName || homeTeam.team?.displayName
     } vs ${
       awayTeam.team?.shortDisplayName || awayTeam.team?.displayName
-    } (UEFA)`;
+    } (CWC)`;
 
     // Fetch fans for notifications (shared for all notification types)
     let homeFans: number[] = [];
@@ -86,7 +86,7 @@ export async function POST(request: NextRequest) {
         }, ${awayTeamAbbr || "unknown"}: ${awayFans.length}`
       );
     } catch (err) {
-      console.error(`Error fetching fans for UEFA match ${matchId}`, err);
+      console.error(`Error fetching fans for CWC match ${matchId}`, err);
     }
     const uniqueFansToNotify = new Set([...homeFans, ...awayFans]);
     const fidsToNotify = Array.from(uniqueFansToNotify);
@@ -98,7 +98,7 @@ export async function POST(request: NextRequest) {
       fulltime_notified?: string;
     } | null;
     try {
-      notificationFlags = await redis.hgetall(`fc-footy:uefa:notifications:${matchId}`);
+      notificationFlags = await redis.hgetall(`fc-footy:cwc:notifications:${matchId}`);
     } catch (err) {
       console.error(`Error fetching notification flags for match ${matchId}`, err);
       notificationFlags = null;
@@ -120,7 +120,7 @@ export async function POST(request: NextRequest) {
           try {
             await sendFrameNotification({
               fid,
-              title: "Match Started! (WRLD CUP Q)",
+              title: "Match Started! (Club World Cup)",
               body: message,
             });
           } catch (error) {
@@ -130,7 +130,7 @@ export async function POST(request: NextRequest) {
         await Promise.all(notificationPromises);
       }
 
-      await redis.hset(`fc-footy:uefa:notifications:${matchId}`, {
+      await redis.hset(`fc-footy:cwc:notifications:${matchId}`, {
         kickoff_notified: "true",
       });
     }
@@ -151,7 +151,7 @@ export async function POST(request: NextRequest) {
           try {
             await sendFrameNotification({
               fid,
-              title: "Halftime! (WRLD CUP Q)",
+              title: "Halftime! (Club World Cup)",
               body: message,
             });
           } catch (error) {
@@ -161,7 +161,7 @@ export async function POST(request: NextRequest) {
         await Promise.all(notificationPromises);
       }
 
-      await redis.hset(`fc-footy:uefa:notifications:${matchId}`, {
+      await redis.hset(`fc-footy:cwc:notifications:${matchId}`, {
         halftime_notified: "true",
       });
     }
@@ -183,7 +183,7 @@ export async function POST(request: NextRequest) {
           try {
             await sendFrameNotification({
               fid,
-              title: "Match Ended! (WRLD CUP Q)",
+              title: "Match Ended! (Club World Cup)",
               body: message,
             });
           } catch (error) {
@@ -193,7 +193,7 @@ export async function POST(request: NextRequest) {
         await Promise.all(notificationPromises);
       }
 
-      await redis.hset(`fc-footy:uefa:notifications:${matchId}`, {
+      await redis.hset(`fc-footy:cwc:notifications:${matchId}`, {
         fulltime_notified: "true",
       });
     }
@@ -202,17 +202,17 @@ export async function POST(request: NextRequest) {
     // --- Existing Goal Notification Logic (Unchanged) ---
     let previousScore: { homeScore?: string; awayScore?: string } | null;
     try {
-      previousScore = await redis.hgetall(`fc-footy:uefa:match:${matchId}`);
+      previousScore = await redis.hgetall(`fc-footy:cwc:match:${matchId}`);
     } catch (err) {
-      console.error(`Error fetching Redis data for uefa match ${matchId}`, err);
+      console.error(`Error fetching Redis data for cwc match ${matchId}`, err);
       continue;
     }
 
     if (!previousScore || Object.keys(previousScore).length === 0) {
       console.log(
-        `Initializing Redis for uefa match ${matchId} with scores: ${homeScore}-${awayScore}`
+        `Initializing Redis for cwc match ${matchId} with scores: ${homeScore}-${awayScore}`
       );
-      await redis.hset(`fc-footy:uefa:match:${matchId}`, { homeScore, awayScore });
+      await redis.hset(`fc-footy:cwc:match:${matchId}`, { homeScore, awayScore });
       continue;
     }
 
@@ -255,11 +255,11 @@ export async function POST(request: NextRequest) {
       homeTeam.team?.shortDisplayName || homeTeam.team?.displayName
     } ${homeScore} - ${awayScore} ${
       awayTeam.team?.shortDisplayName || awayTeam.team?.displayName
-    } | ${scoringPlayer} scored at ${clockTime} (WRLD CUP Q)`;
+    } | ${scoringPlayer} scored at ${clockTime} (CWC)`;
     goalNotifications.push(message);
-    console.log(`Goal detected in uefa match ${matchId}: ${message}`);
+    console.log(`Goal detected in cwc match ${matchId}: ${message}`);
 
-    console.log(`Notifying ${fidsToNotify.length} fans for uefa match ${matchId}`);
+    console.log(`Notifying ${fidsToNotify.length} fans for cwc match ${matchId}`);
 
     const batchSize = 40;
     for (let i = 0; i < fidsToNotify.length; i += batchSize) {
@@ -268,17 +268,17 @@ export async function POST(request: NextRequest) {
         try {
           await sendFrameNotification({
             fid,
-            title: "Goal! Goal! Goal! (WRLD CUP Q)",
+            title: "Goal! Goal! Goal! (Club World Cup)",
             body: message,
           });
         } catch (error) {
-          console.error(`Failed to send uefa notification to FID: ${fid}`, error);
+          console.error(`Failed to send cwc notification to FID: ${fid}`, error);
         }
       });
       await Promise.all(notificationPromises);
     }
 
-    await redis.hset(`fc-footy:uefa:match:${matchId}`, { homeScore, awayScore });
+    await redis.hset(`fc-footy:cwc:match:${matchId}`, { homeScore, awayScore });
     // --- End Existing Goal Notification Logic ---
   }
 
