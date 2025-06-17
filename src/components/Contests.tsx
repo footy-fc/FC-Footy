@@ -32,7 +32,7 @@ const Contests = () => {
         >
           Fan Clubs
         </button>
-           <button
+        <button
           onClick={() => handleTabSelect("scoresPoints")}
           className={`flex-shrink-0 py-1 px-6 text-sm font-semibold cursor-pointer rounded-full border-2 ${
             selectedTab === "scoresPoints" ? "border-limeGreenOpacity text-lightPurple" : "border-gray-500 text-gray-500"
@@ -40,7 +40,6 @@ const Contests = () => {
         >
           $SCORES
         </button>   
-
       </div>
 
       <div className="bg-purplePanel text-lightPurple rounded-lg p-1">

@@ -12,6 +12,7 @@ const GameTabNavigation: React.FC<GameTabNavigationProps> = ({ selectedTab = 'sc
   // Define the tabs for game type navigation
   const tabs = [
     { id: 'scoreSquare', label: 'Score Square', path: '/?tab=moneyGames&gameType=scoreSquare' },
+    { id: 'oCaptain', label: 'O Captain!', path: '/?tab=moneyGames&gameType=oCaptain' },
   ];
   
   // Handle tab change
@@ -39,7 +40,7 @@ const GameTabNavigation: React.FC<GameTabNavigationProps> = ({ selectedTab = 'sc
   };
   
   return (
-    <div className="ml-4 flex overflow-x-auto space-x-4 mb-4 sticky top-0 z-12 bg-darkPurple">
+    <div className="flex overflow-x-auto space-x-4 mb-4 sticky top-0 z-12 bg-darkPurple">
       {tabs.map((tab) => (
         <div
           key={tab.id}
