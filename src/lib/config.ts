@@ -1,5 +1,8 @@
 export const BASE_URL = process.env.NEXT_PUBLIC_URL
 
+// Testing environment flag - set to true to bypass conditional rendering
+export const IS_TESTING = false
+
 // Contract addresses for different networks
 export const CONTRACTS = {
   // Base network contract address

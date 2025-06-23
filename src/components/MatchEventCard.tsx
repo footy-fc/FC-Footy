@@ -488,14 +488,14 @@ useEffect(() => {
         <button
           key={fan.fid}
           onClick={() => sdk.actions.viewProfile({ fid: fan.fid })}
-          className={`rounded-full border-2 ${getBorderColor(fan.fid)} focus:outline-none`}
+          className={`rounded-full border-2 ${getBorderColor(fan.fid)} focus:outline-none w-6 h-6 flex items-center justify-center`}
         >
           <Image
             src={fan.pfp}
             alt={`Fan ${fan.fid}`}
             width={20}
             height={20}
-            className="rounded-full aspect-square object-cover"
+            className="rounded-full aspect-square object-cover w-5 h-5"
           />
         </button>
       ))

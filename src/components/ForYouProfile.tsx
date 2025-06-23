@@ -16,7 +16,12 @@ type TeamLink = {
   shortText?: string;
 };
 
-const UserProfile: React.FC = () => {
+interface ForYouProfileProps {
+  profileFid?: number; // Optional FID to show instead of current user
+  castHash?: string; // Optional cast hash to pass to the invite button
+}
+
+const UserProfile: React.FC<ForYouProfileProps> = ({ profileFid, castHash }) => {
   const [userData, setUserData] = useState<{ fid?: number; username?: string; pfp?: string }>({});
   const [favoriteTeams, setFavoriteTeams] = useState<string[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -31,50 +36,75 @@ const UserProfile: React.FC = () => {
   const [showMatchUps, setShowMatchUps] = useState(false);
   const [matchUps, setMatchUps] = useState<FanPair[]>([]);
   const [loadingMatches, setLoadingMatches] = useState(false);
+  const [viewingOwnProfile, setViewingOwnProfile] = useState<boolean>(!profileFid);
+  const [currentProfileFid, setCurrentProfileFid] = useState<number | undefined>(profileFid);
 
   // Initialize SDK and fetch user context
-
   useEffect(() => {
-    
     const initSdkContext = async () => {
-
       await sdk.isInMiniApp();
       await sdk.actions.ready();
       const context = await sdk.context;
-                    console.log('SDK context:', context.user.fid);
+      console.log('SDK context:', context.user.fid);
 
-      if (!context.user) {
-        setError('Please link your Farcaster account to view your profile.');
-        return;
-      }
-      if (context.user) {
+      // If we have a profileFid, fetch that user's data
+      if (currentProfileFid) {
+        try {
+          const userData = await fetchFanUserData(currentProfileFid);
+          const pfp = userData?.USER_DATA_TYPE_PFP?.[0];
+          const username = userData?.USER_DATA_TYPE_USERNAME?.[0];
+          
+          setUserData({
+            fid: currentProfileFid,
+            username: username || `FID ${currentProfileFid}`,
+            pfp: pfp || '/512.png',
+          });
+        } catch (error) {
+          console.error('Error fetching profile data:', error);
+          // Fallback to basic data
+          setUserData({
+            fid: currentProfileFid,
+            username: `FID ${currentProfileFid}`,
+            pfp: '/512.png',
+          });
+        }
+      } else if (context.user) {
         setUserData({
           fid: context.user.fid,
           username: context.user.username || 'Footy Og',
           pfp: context.user.pfpUrl || '/512.png',
         });
+      } else {
+        setError('Please link your Farcaster account to view your profile.');
+        return;
       }
     };
     initSdkContext();
-  }, []);
+  }, [currentProfileFid]);
 
   // Fetch user's favorite teams
   const fetchFavoriteTeams = async () => {
     try {
       const context = await sdk.context;
-      const currentFid = context.user?.fid;
-      if (!currentFid) {
+      // Use currentProfileFid if provided, otherwise use current user's FID
+      const targetFid = currentProfileFid || context.user?.fid;
+      if (!targetFid) {
         setError('Please link your Farcaster account to view your profile.');
         return;
       }
 
-      const preferences = await getTeamPreferences(currentFid);
+      const preferences = await getTeamPreferences(targetFid);
       if (preferences && preferences.length > 0) {
         setFavoriteTeams(preferences);
         setSelectedTeam(preferences[0]);
         setShowSettings(false);
       } else {
-        setShowSettings(true);
+        // If viewing someone else's profile and they have no teams, show invite button
+        if (currentProfileFid && currentProfileFid !== context.user?.fid) {
+          setShowSettings(false); // Don't show settings for other users
+        } else {
+          setShowSettings(true);
+        }
       }
     } catch (err) {
       console.error('Error fetching team preferences:', err);
@@ -109,11 +139,15 @@ const UserProfile: React.FC = () => {
       try {
         const fanFids = await getFansForTeam(selectedTeam.toLowerCase());
         const context = await sdk.context;
-        const currentFid = context.user?.fid;
-        if (!currentFid) return;
+        
+        // Determine which FID to use for mutual follower calculations
+        // If currentProfileFid is provided, use that (viewing someone else's profile)
+        // Otherwise use current user's FID (viewing own profile)
+        const profileOwnerFid = currentProfileFid || context.user?.fid;
+        if (!profileOwnerFid) return;
 
         const numericFids = fanFids.map(Number);
-        const mutualMap = await fetchMutualFollowers(currentFid, numericFids);
+        const mutualMap = await fetchMutualFollowers(profileOwnerFid, numericFids);
         const userDatas = await Promise.all(numericFids.map(fid => fetchFanUserData(fid)));
 
         const fans = numericFids.reduce<Array<{ fid: number; pfp: string; mutual: boolean; youFollow?: boolean }>>(
@@ -122,7 +156,7 @@ const UserProfile: React.FC = () => {
             const pfp = userData?.USER_DATA_TYPE_PFP?.[0];
             if (pfp) {
               const mutual = mutualMap[fid];
-              const youFollow = fid === currentFid;
+              const youFollow = fid === profileOwnerFid;
               acc.push({ fid, pfp, mutual, youFollow });
             }
             return acc;
@@ -145,12 +179,12 @@ const UserProfile: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, [selectedTeam, cachedTeamFollowers]);
+  }, [selectedTeam, cachedTeamFollowers, currentProfileFid]);
 
   // Fetch favorite teams on mount
   useEffect(() => {
     fetchFavoriteTeams();
-  }, []);
+  }, [currentProfileFid]);
 
   // Fetch team links for favorite teams
   useEffect(() => {
@@ -193,6 +227,20 @@ const UserProfile: React.FC = () => {
     return getTeamLogo(abbr, league);
   };
 
+  // Function to toggle back to user's own profile
+  const toggleToOwnProfile = async () => {
+    const context = await sdk.context;
+    if (context.user?.fid) {
+      setCurrentProfileFid(undefined);
+      setViewingOwnProfile(true);
+      setCachedTeamFollowers({}); // Clear cache to refetch with new FID
+      setFavoriteTeams([]);
+      setSelectedTeam(null);
+      setLoading(true);
+      // fetchFavoriteTeams will be called automatically by the useEffect
+    }
+  };
+
   if (loading) return <div className="text-center text-gray-400">Loading profile...</div>;
   if (error) return <div className="text-center text-red-500">{error}</div>;
 
@@ -205,10 +253,25 @@ const UserProfile: React.FC = () => {
           alt="Profile"
           className="w-16 h-16 rounded-full border-2 border-limeGreen"
         />
-        <div>
+        <div className="flex-1">
           <h1 className="text-2xl font-bold text-notWhite">{userData.username || 'Footy Fan'}</h1>
-          <p className="text-sm text-lightPurple">Passionate football supporter</p>
+          <p className="text-sm text-lightPurple">
+            {favoriteTeams.length > 0 
+              ? `Passionate ${favoriteTeams[0].split('-')[1].toUpperCase()} supporter${favoriteTeams.length > 1 ? ` & ${favoriteTeams.length - 1} other teams` : ''}`
+              : 'Passionate football supporter'
+            }
+          </p>
         </div>
+        {/* Toggle button - only show when viewing someone else's profile */}
+        {!viewingOwnProfile && (
+          <button
+            onClick={toggleToOwnProfile}
+            className="text-xs bg-limeGreen text-black px-3 py-1 rounded-full hover:bg-green-300 transition-colors"
+            title="View my profile"
+          >
+            My Profile
+          </button>
+        )}
       </div>
 
       {/* Favorite Teams Section */}
@@ -226,7 +289,7 @@ const UserProfile: React.FC = () => {
             className="mt-4 bg-deepPink hover:bg-fontRed text-white px-4 py-2 rounded-lg"
             onClick={async () => {
               await sdk.actions.composeCast({
-                text: 'Just joined Footy App to connect with fellow fans! ⚽ #FootyApp',
+                text: 'Just joined Footy App to connect with fellow fans and get match notifications! 💜⚽\n\nShoutout to @kmacb.eth & @gabedev.eth for building this app - my love for the beautiful game is growing faster than my FPL points! 😂\n\nCheck it out: https://fc-footy.vercel.app',
                 embeds: [],
               });
             }}
@@ -234,144 +297,82 @@ const UserProfile: React.FC = () => {
             Share Footy App!
           </button>
         </div>
+      ) : favoriteTeams.length === 0 && profileFid ? (
+        // Show invite button for cast author with no teams
+        <div className="p-4 border border-dashed border-limeGreen rounded-lg text-center">
+          <h2 className="text-notWhite mb-2">@{userData.username} hasn&apos;t joined Footy yet!</h2>
+          <p className="text-lightPurple mb-4">Invite them to discover their favorite teams and connect with fellow fans.</p>
+          <button
+            className="bg-deepPink hover:bg-fontRed text-white px-6 py-3 rounded-lg font-semibold"
+            onClick={async () => {
+              try {
+                await sdk.actions.composeCast({
+                  text: `Hey @${userData.username} I just discovered your profile on Footy App ⚽️ but you have no favorite teams yet!\n\nJoin me to connect with fellow football fans, track your favorite teams, and get notified when they play!\n\nCheck it out: https://fc-footy.vercel.app`,
+                  embeds: [],
+                  parent: castHash ? { type: 'cast', hash: castHash } : undefined
+                });
+              } catch (error) {
+                console.error('Error composing cast:', error);
+              }
+            }}
+          >
+            Invite to Footy App
+          </button>
+        </div>
       ) : (
         <>
-          <h2 className="text-notWhite text-lg font-semibold mb-2">Favorite Teams</h2>
-          <div className="flex overflow-x-auto gap-3 mb-4">
+          <h2 className="text-notWhite text-lg font-semibold mb-2">Select Team</h2>
+          <div className="flex overflow-x-auto gap-4 mb-4">
             {favoriteTeams.map(teamId => (
               <div
                 key={teamId}
                 onClick={() => setSelectedTeam(teamId)}
-                className={`flex-none w-24 p-2 rounded-lg border cursor-pointer text-center ${
+                className={`relative flex-none w-[120px] border ${
                   teamId === selectedTeam
-                    ? 'border-limeGreen shadow-[0_0_8px_rgba(173,255,47,0.5)]'
-                    : 'border-lightPurple'
-                }`}
+                    ? "border-limeGreenOpacity shadow-[0_0_10px_2px_rgba(173,255,47,0.5)]"
+                    : "border-lightPurple"
+                } rounded-lg p-2 text-center bg-purplePanel cursor-pointer`}
               >
                 <img
                   src={getTeamLogoUrl(teamId)}
                   alt={teamId}
-                  className="w-12 h-12 object-contain mx-auto mb-1"
+                  className="w-[60px] h-[60px] object-contain mb-2 mx-auto"
                 />
-                <span className="text-xs text-lightPurple">{teamId.split('-')[1]}</span>
+                <span className="text-xs text-lightPurple">{teamId.split('-')[1].toUpperCase()}</span>
               </div>
             ))}
-            <div
-              onClick={() => setShowSettings(true)}
-              className="flex-none w-24 border border-dashed border-limeGreen rounded-lg p-2 flex flex-col items-center justify-center cursor-pointer"
-            >
-              <span className="text-2xl text-limeGreen">+</span>
-              <span className="text-xs text-lightPurple">Add Team</span>
-            </div>
+            {/* Only show Add Team button when viewing own profile */}
+            {viewingOwnProfile && (
+              <div
+                onClick={() => setShowSettings(true)}
+                className="flex-none w-[120px] border border-dashed border-limeGreenOpacity rounded-lg p-2 text-center bg-purplePanel cursor-pointer flex flex-col items-center justify-center"
+              >
+                <span className="text-2xl text-limeGreen">+</span>
+                <span className="text-xs text-lightPurple">Add Team</span>
+              </div>
+            )}
           </div>
 
-          {/* Team Followers Section */}
-          {selectedTeam && favoriteTeams.includes(selectedTeam) && (
-            <div className="mt-4">
-              <h3 className="text-notWhite font-semibold mb-2">
-                {selectedTeam.split('-')[1]} Fans ({fanCount})
+          {/* Team Trophy Case Section */}
+          {selectedTeam && (
+            <div className="mt-6">
+              <h3 className="text-notWhite font-semibold mb-3">
+                {viewingOwnProfile ? 'Your' : `${userData.username}'s`} {selectedTeam.split('-')[1].toUpperCase()} Trophy Case
               </h3>
-              <div className="flex items-center gap-3 text-xs text-lightPurple mb-3">
-                <div className="flex items-center gap-1">
-                  <span className="w-3 h-3 ring-2 ring-limeGreen rounded-full"></span>
-                  <span>You follow</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <span className="w-3 h-3 ring-2 ring-fontRed rounded-full"></span>
-                  <span>You don’t follow</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <span className="w-3 h-3 ring-2 ring-purple-500 rounded-full"></span>
-                  <span>Mutual</span>
+              <div className="p-4 border border-dashed border-limeGreenOpacity rounded-lg text-center">
+                <div className="text-4xl mb-2">🏆</div>
+                <h4 className="text-notWhite font-medium mb-2">Trophy Case Coming Soon</h4>
+                <p className="text-sm text-lightPurple">
+                  Collect exclusive {selectedTeam.split('-')[1].toUpperCase()} NFTs and showcase your fandom with unique digital memorabilia.
+                </p>
+                <div className="mt-3 grid grid-cols-3 gap-2 opacity-50">
+                  {[1, 2, 3].map((i) => (
+                    <div key={i} className="bg-gray-700 rounded-lg p-2 aspect-square flex items-center justify-center">
+                      <span className="text-xs text-gray-400">NFT {i}</span>
+                    </div>
+                  ))}
                 </div>
               </div>
-              {loadingFollowers ? (
-                <div className="text-sm text-gray-400 animate-pulse">Loading fans...</div>
-              ) : (
-                <div className="grid grid-cols-8 gap-2">
-                  {favoriteTeamFans.length > 0 ? (
-                    favoriteTeamFans.map(fan => (
-                      <button
-                        key={fan.fid}
-                        onClick={() => sdk.actions.viewProfile({ fid: fan.fid })}
-                        className="focus:outline-none"
-                      >
-                        <img
-                          src={fan.pfp}
-                          alt={`Fan ${fan.fid}`}
-                          className={`w-8 h-8 rounded-full ${
-                            fan.mutual
-                              ? 'ring-2 ring-purple-500'
-                              : fan.youFollow
-                              ? 'ring-2 ring-limeGreen'
-                              : 'ring-2 ring-fontRed'
-                          }`}
-                        />
-                      </button>
-                    ))
-                  ) : (
-                    <span className="text-sm text-gray-400 col-span-8">No fans found for this team.</span>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Connect with Fans */}
-          {selectedTeam && (
-            <div className="mt-4 text-center">
-              <p className="text-lightPurple text-sm mb-2">
-                Connect with fellow {selectedTeam.split('-')[1]} fans!
-              </p>
-              <button
-                disabled={loadingMatches}
-                onClick={async () => {
-                  try {
-                    await sdk.haptics.impactOccurred('heavy');
-                  } catch {
-                    // Ignore haptics errors
-                  }
-                  setLoadingMatches(true);
-                  const context = await sdk.context;
-                  const currentFid = context.user?.fid;
-                  const matches = await getAlikeFanMatches(
-                    currentFid ? Number(currentFid) : undefined,
-                    favoriteTeamFans.map(fan => fan.fid)
-                  );
-                  setMatchUps(matches);
-                  setShowMatchUps(true);
-                  setLoadingMatches(false);
-                }}
-                className={`px-4 py-2 rounded-lg text-white ${
-                  loadingMatches ? 'bg-purple-400 cursor-not-allowed' : 'bg-deepPink hover:bg-fontRed'
-                }`}
-              >
-                {loadingMatches ? 'Loading...' : 'Find Similar Fans'}
-              </button>
-            </div>
-          )}
-
-          {/* Similar Fans Section */}
-          {showMatchUps && matchUps.length > 0 && (
-            <div className="mt-4">
-              <h3 className="text-notWhite font-semibold mb-2">Fans Like You</h3>
-              <ul className="space-y-2">
-                {matchUps.slice(0, 6).map((pair, i) => (
-                  <li key={i} className="flex items-center gap-3">
-                    <button
-                      onClick={() => sdk.actions.viewProfile({ fid: pair.fid2 })}
-                      className="focus:outline-none"
-                    >
-                      <img src={pair.pfp} alt={`Fan ${pair.fid2}`} className="w-8 h-8 rounded-full border" />
-                    </button>
-                    <div className="flex gap-1">
-                      {pair.teamLogos?.map((logo, idx) => (
-                        <img key={idx} src={logo} alt="Team" className="w-5 h-5 rounded-md" />
-                      ))}
-                    </div>
-                  </li>
-                ))}
-              </ul>
             </div>
           )}
         </>
