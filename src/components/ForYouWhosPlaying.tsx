@@ -96,7 +96,7 @@ const ForYouWhosPlaying: React.FC = () => {
           const eventDate = new Date(event.date);
           const now = new Date();
           const twoDaysAgo = new Date();
-          twoDaysAgo.setDate(now.getDate() - 90);
+          twoDaysAgo.setDate(now.getDate() - 14);
 
           if (eventDate < twoDaysAgo) return false;
 

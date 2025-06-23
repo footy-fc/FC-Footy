@@ -5,14 +5,25 @@ import ForYouProfile from "./ForYouProfile";
 import BuyPoints from "./BuyPoints";
 import { usePrivy } from "@privy-io/react-auth";
 import { getTeamPreferences } from "../lib/kvPerferences";
+import { useSearchParams } from "next/navigation";
 
 const ForYou = () => {
   const { user } = usePrivy();
+  const searchParams = useSearchParams();
   const [selectedTab, setSelectedTab] = useState<string>("matches");
   const [showLiveChat, setShowLiveChat] = useState(false);
+  
+  // Get profileFid from URL params (for shared cast context)
+  const profileFid = searchParams?.get("profileFid");
 
   useEffect(() => {
     const checkPreferences = async () => {
+      // If we have a profileFid from share extension, show that profile
+      if (profileFid) {
+        setSelectedTab("forYouProfile");
+        return;
+      }
+      
       const fid = user?.linkedAccounts.find((a) => a.type === "farcaster")?.fid;
       if (fid) {
         const prefs = await getTeamPreferences(fid);
@@ -22,12 +33,14 @@ const ForYou = () => {
       }
     };
     checkPreferences();
-  }, [user]);
+  }, [user, profileFid]);
 
   return (
     <div className="mb-4">
       {/* Horizontal Scrollable Menu for Tabs */}
-      <h2 className="font-2xl text-notWhite font-bold mb-4">Fan Experience</h2>        
+      <h2 className="font-2xl text-notWhite font-bold mb-4">
+        Fan Experience
+      </h2>        
       <div className="flex overflow-x-auto space-x-4 mb-4">
         {/* Conditional if there are fav teams being followed */}
         {showLiveChat ? (
@@ -40,16 +53,6 @@ const ForYou = () => {
         ) : (
             <>
             <button
-              onClick={() => setSelectedTab("buyPoints")}
-              className={`flex-shrink-0 py-1 px-6 text-sm font-semibold cursor-pointer rounded-full border-2 ${
-                selectedTab === "buyPoints"
-                  ? "border-limeGreenOpacity text-lightPurple"
-                  : "border-gray-500 text-gray-500"
-              }`}
-            >
-              Buy $SCORES
-            </button>
-            <button
               onClick={() => setSelectedTab("matches")}
               className={`flex-shrink-0 py-1 px-6 text-sm font-semibold cursor-pointer rounded-full border-2 ${
                 selectedTab === "matches"
@@ -60,6 +63,16 @@ const ForYou = () => {
               Who&apos;s Playing
             </button>
             <button
+              onClick={() => setSelectedTab("forYouProfile")}
+              className={`flex-shrink-0 py-1 px-6 text-sm font-semibold cursor-pointer rounded-full border-2 ${
+                selectedTab === "forYouProfile"
+                ? "border-limeGreenOpacity text-lightPurple"
+                : "border-gray-500 text-gray-500"
+            }`}
+            >
+            {profileFid ? `Trophy Case (FID: ${profileFid})` : "Trophy Case"}
+            </button>
+            <button
             onClick={() => setSelectedTab("fellowFollowers")}
             className={`flex-shrink-0 py-1 px-6 text-sm font-semibold cursor-pointer rounded-full border-2 ${
                 selectedTab === "fellowFollowers"
@@ -67,17 +80,17 @@ const ForYou = () => {
                 : "border-gray-500 text-gray-500"
             }`}
             >
-            Teams & Fans
+            Fan Clubs
             </button>
-             <button
-            onClick={() => setSelectedTab("forYouProfile")}
-            className={`flex-shrink-0 py-1 px-6 text-sm font-semibold cursor-pointer rounded-full border-2 ${
-                selectedTab === "forYouProfile"
-                ? "border-limeGreenOpacity text-lightPurple"
-                : "border-gray-500 text-gray-500"
-            }`}
+            <button
+              onClick={() => setSelectedTab("buyPoints")}
+              className={`flex-shrink-0 py-1 px-6 text-sm font-semibold cursor-pointer rounded-full border-2 ${
+                selectedTab === "buyPoints"
+                  ? "border-limeGreenOpacity text-lightPurple"
+                  : "border-gray-500 text-gray-500"
+              }`}
             >
-            Profile
+              Buy $SCORES
             </button>
             </>
         )}
@@ -105,7 +118,7 @@ const ForYou = () => {
       )}
       {selectedTab === "forYouProfile" && (
         <div>
-          <ForYouProfile />
+          <ForYouProfile profileFid={profileFid ? parseInt(profileFid) : undefined} />
         </div>
       )}
       </div>
