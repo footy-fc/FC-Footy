@@ -449,7 +449,7 @@ useEffect(() => {
           {/* Combined Fan Avatars Section */}
           <div className="mt-4">
             <h3 className="text-notWhite font-semibold mb-1">
-              Following ({combinedFanAvatars.length})
+              Following ({matchFanAvatarsTeam1.length + matchFanAvatarsTeam2.length})
             </h3>
           <div className="flex items-center gap-4 text-xs text-lightPurple mb-2">
             <div className="flex items-center gap-1">
