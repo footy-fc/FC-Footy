@@ -257,7 +257,7 @@ const UserProfile: React.FC<ForYouProfileProps> = ({ profileFid, castHash }) => 
           <h1 className="text-2xl font-bold text-notWhite">{userData.username || 'Footy Fan'}</h1>
           <p className="text-sm text-lightPurple">
             {favoriteTeams.length > 0 
-              ? `Passionate ${favoriteTeams[0].split('-')[1].toUpperCase()} supporter${favoriteTeams.length > 1 ? ` & ${favoriteTeams.length - 1} other teams` : ''}`
+              ? `Passionate ${favoriteTeams[0].split('-')[1].toUpperCase()} supporter${favoriteTeams.length > 1 ? ` & ${favoriteTeams.length - 1} other team(s)` : ''}`
               : 'Passionate football supporter'
             }
           </p>
