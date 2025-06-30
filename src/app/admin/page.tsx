@@ -554,7 +554,7 @@ export default function AdminPage() {
     return (
       <div className="min-h-screen bg-darkPurple flex items-center justify-center p-4">
         <div className="w-full max-w-md bg-purplePanel rounded-xl shadow-lg p-6 transform transition-all duration-300 hover:shadow-xl border border-limeGreenOpacity">
-          <h2 className="text-2xl font-bold text-lightPurple text-center mb-6">
+          <h2 className="text-2xl font-bold text-notWhite text-center mb-6">
             Admin Login
           </h2>
           <input

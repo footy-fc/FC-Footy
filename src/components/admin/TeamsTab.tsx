@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Trash2, Edit, Plus, X } from 'lucide-react';
+import { getFansForTeamWithLeagues } from '../../lib/kvPerferences';
 
 interface Team {
   id: string;
@@ -89,6 +90,12 @@ export default function TeamsTab({
   const [selectedLeague, setSelectedLeague] = useState<string>('');
   const [isAssigningTeams, setIsAssigningTeams] = useState(false);
 
+  // Follower counts state
+  const [followerCounts, setFollowerCounts] = useState<{[teamId: string]: number}>({});
+  const [loadingFollowers, setLoadingFollowers] = useState(false);
+  const [followerCacheTimestamp, setFollowerCacheTimestamp] = useState<number>(0);
+  const followerCacheRef = useRef<{[teamId: string]: { count: number; timestamp: number } }>({});
+
   // Function to get leagues for a specific team - MOVED HERE BEFORE USE
   const getTeamLeagues = (teamId: string): League[] => {
     const teamLeagues: League[] = [];
@@ -122,41 +129,53 @@ export default function TeamsTab({
     team.country.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  // Sort teams by country, then by name
-  const sortedTeams = [...filteredTeams].sort((a, b) => {
-    // First sort by country
-    const countryComparison = a.country.localeCompare(b.country);
-    if (countryComparison !== 0) {
-      return countryComparison;
-    }
-    // Then sort by team name within the same country
-    return a.name.localeCompare(b.name);
-  });
-
-  // Filter to only show one team per unique (name, abbreviation) pair
-  // Prefer teams with leagues assigned
-  const uniqueTeamsMap = new Map();
-  sortedTeams.forEach(team => {
-    const key = `${team.name.toLowerCase()}_${team.abbreviation.toLowerCase()}`;
-    const existingTeam = uniqueTeamsMap.get(key);
-    
-    if (!existingTeam) {
-      // No existing team, add this one
-      uniqueTeamsMap.set(key, team);
-    } else {
-      // Check if current team has leagues and existing doesn't
-      const currentTeamLeagues = getTeamLeagues(team.id);
-      const existingTeamLeagues = getTeamLeagues(existingTeam.id);
-      
-      if (currentTeamLeagues.length > 0 && existingTeamLeagues.length === 0) {
-        // Current team has leagues, existing doesn't - replace
-        uniqueTeamsMap.set(key, team);
+  // Memoize uniqueTeams to prevent unnecessary recalculations
+  const uniqueTeams = useMemo(() => {
+    // Sort teams by country, then by name
+    const sortedTeams = [...filteredTeams].sort((a, b) => {
+      // First sort by country
+      const countryComparison = a.country.localeCompare(b.country);
+      if (countryComparison !== 0) {
+        return countryComparison;
       }
-      // Otherwise keep the existing team
-    }
-  });
-  
-  const uniqueTeams = Array.from(uniqueTeamsMap.values());
+      // Then sort by team name within the same country
+      return a.name.localeCompare(b.name);
+    });
+
+    // Filter to only show one team per unique (name, abbreviation) pair
+    // Prefer teams with leagues assigned
+    const uniqueTeamsMap = new Map();
+    sortedTeams.forEach(team => {
+      const key = `${team.name.toLowerCase()}_${team.abbreviation.toLowerCase()}`;
+      const existingTeam = uniqueTeamsMap.get(key);
+      
+      if (!existingTeam) {
+        // No existing team, add this one
+        uniqueTeamsMap.set(key, team);
+      } else {
+        // Check if current team has leagues and existing doesn't
+        const currentTeamLeagues = getTeamLeagues(team.id);
+        const existingTeamLeagues = getTeamLeagues(existingTeam.id);
+        
+        if (currentTeamLeagues.length > 0 && existingTeamLeagues.length === 0) {
+          // Current team has leagues, existing doesn't - replace
+          uniqueTeamsMap.set(key, team);
+        }
+        // Otherwise keep the existing team
+      }
+    });
+    
+    return Array.from(uniqueTeamsMap.values());
+  }, [filteredTeams, memberships, leagues]);
+
+  // Create a cache key based on team IDs and their league assignments
+  const cacheKey = useMemo(() => {
+    const teamLeaguePairs = uniqueTeams.map(team => {
+      const teamLeagues = getTeamLeagues(team.id);
+      return `${team.id}:${teamLeagues.map(l => l.id).sort().join(',')}`;
+    }).sort().join('|');
+    return teamLeaguePairs;
+  }, [uniqueTeams, memberships, leagues]);
 
   // Debug logging for filtered teams
   console.log('Filtered teams:', {
@@ -340,10 +359,76 @@ export default function TeamsTab({
     });
   };
 
+  // Function to fetch follower counts for teams
+  const fetchFollowerCounts = async (forceRefresh = false) => {
+    const now = Date.now();
+    const cacheAge = now - followerCacheTimestamp;
+    const cacheValid = cacheAge < 300000; // 5 minutes cache
+
+    // Check if we have valid cached data and don't need to force refresh
+    if (!forceRefresh && cacheValid && Object.keys(followerCounts).length > 0) {
+      console.log('Using cached follower counts');
+      return;
+    }
+
+    setLoadingFollowers(true);
+    try {
+      const counts: {[teamId: string]: number} = {};
+      
+      for (const team of uniqueTeams) {
+        const teamLeagues = getTeamLeagues(team.id);
+        if (teamLeagues.length > 0) {
+          const leagueIds = teamLeagues.map(league => league.id);
+          const followers = await getFansForTeamWithLeagues(team.abbreviation, leagueIds);
+          counts[team.id] = followers;
+          
+          // Update cache
+          followerCacheRef.current[team.id] = { count: followers, timestamp: now };
+          
+          console.log(`Followers for ${team.name} (${team.abbreviation}):`, {
+            teamId: team.id,
+            teamName: team.name,
+            teamAbbr: team.abbreviation,
+            leagueIds,
+            followerCount: followers,
+            leagues: teamLeagues.map(l => l.name)
+          });
+        } else {
+          counts[team.id] = 0;
+          followerCacheRef.current[team.id] = { count: 0, timestamp: now };
+          console.log(`No followers for ${team.name} (${team.abbreviation}): No leagues assigned`);
+        }
+      }
+      
+      setFollowerCounts(counts);
+      setFollowerCacheTimestamp(now);
+    } catch (error) {
+      console.error('Error fetching follower counts:', error);
+    } finally {
+      setLoadingFollowers(false);
+    }
+  };
+
+  // Fetch follower counts when teams change
+  useEffect(() => {
+    if (uniqueTeams.length > 0 && !loadingTeams) {
+      fetchFollowerCounts();
+    }
+  }, [cacheKey, loadingTeams]); // Use cacheKey instead of uniqueTeams
+
   return (
     <div>
       <div className="mb-6">
         <h2 className="text-2xl font-bold text-notWhite">Team Management</h2>
+        <div className="flex justify-end mt-2">
+          <button
+            onClick={() => fetchFollowerCounts(true)}
+            disabled={loadingFollowers}
+            className="px-3 py-2 bg-deepPink text-white rounded hover:bg-fontRed disabled:opacity-50 transition-colors"
+          >
+            {loadingFollowers ? 'Loading...' : 'Refresh Followers'}
+          </button>
+        </div>
       </div>
 
       {/* Search Bar */}
@@ -362,15 +447,14 @@ export default function TeamsTab({
         <div className="flex justify-between items-center mb-4">
           <h3 className="text-lg font-semibold text-notWhite">Create New Team</h3>
           <div className="flex items-center space-x-2">
-            <span className="text-sm text-lightPurple">Show form</span>
             <button
               onClick={() => setShowCreateForm(!showCreateForm)}
               className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-deepPink focus:ring-offset-2 ${
-                showCreateForm ? 'bg-deepPink' : 'bg-gray-600'
+                showCreateForm ? 'bg-deepPink' : 'bg-deepPink'
               }`}
             >
               <span
-                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                className={`inline-block h-4 w-4 transform rounded-full bg-lightPurple transition-transform ${
                   showCreateForm ? 'translate-x-6' : 'translate-x-1'
                 }`}
               />
@@ -444,7 +528,6 @@ export default function TeamsTab({
         <div className="flex justify-between items-center mb-4">
           <h3 className="text-lg font-semibold text-notWhite">Assign Teams to Leagues</h3>
           <div className="flex items-center space-x-2">
-            <span className="text-sm text-lightPurple">Show assignment</span>
             <button
               onClick={() => setShowLeagueAssignment(!showLeagueAssignment)}
               className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-deepPink focus:ring-offset-2 ${
@@ -528,7 +611,7 @@ export default function TeamsTab({
           <>
             {/* Group teams by country */}
             {(() => {
-              const teamsByCountry: { [country: string]: typeof sortedTeams } = {};
+              const teamsByCountry: { [country: string]: typeof filteredTeams } = {};
               
               // Group current page teams by country
               currentTeams.forEach(team => {
@@ -581,6 +664,17 @@ export default function TeamsTab({
                         </div>
                         <p className="text-xs text-notWhite mb-1">Short Name: <span className="text-lightPurple">{team.shortName}</span> (<span className="text-lightPurple">{team.abbreviation}</span>)</p>
                         <p className="text-xs text-notWhite mb-2">Country: <span className="text-lightPurple">{team.country}</span></p>
+                        {/* Follower Count */}
+                        <p className="text-xs text-notWhite mb-2">
+                          Followers: <span className="text-lightPurple">
+                            {loadingFollowers ? 'Loading...' : (followerCounts[team.id] || 0)}
+                          </span>
+                          {!loadingFollowers && followerCounts[team.id] !== undefined && (
+                            <span className="text-xs text-gray-400 ml-1">
+                              {Date.now() - followerCacheTimestamp < 300000 ? '✓' : '⏰'}
+                            </span>
+                          )}
+                        </p>
                         
                         {/* League Pills */}
                         {(() => {
