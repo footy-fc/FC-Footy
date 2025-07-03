@@ -330,7 +330,7 @@ export default function NotificationsTab({
 
   return (
     <div>
-      <h2 className="text-2xl font-bold text-lightPurple text-center mb-6">
+      <h2 className="text-2xl font-bold text-notWhite text-center mb-6">
         Send Notification
       </h2>
       <form onSubmit={handleSubmit} className="space-y-6">
