@@ -10,10 +10,12 @@ import ErrorDisplay from './game/ErrorDisplay';
 import NoGameData from './game/NoGameData';
 import RefereeCard from './game/RefereeCard';
 import RefereeControls from './game/RefereeControls';
+import LiveMatchEvents from './game/LiveMatchEvents';
+import NotificationBanner from './game/NotificationBanner';
 import UserInstructions from './UserInstructions';
 import { SCORE_SQUARE_ADDRESS } from '../lib/config';
 import SquareGridPlaceholder from './game/SquareGridPlaceholder';
-import { Info } from 'lucide-react';
+import { Info, RefreshCw, Share2 } from 'lucide-react';
 import sdk from '@farcaster/frame-sdk';
 
 interface BlockchainScoreSquareDisplayProps {
@@ -59,7 +61,18 @@ const ABI = [
 ];
 
 const BlockchainScoreSquareDisplayWrapped: React.FC<BlockchainScoreSquareDisplayProps> = ({ eventId }) => {
-  const { gameDataState, loading, setLoading, error, setError } = useGameContext();
+  const { 
+    gameDataState, 
+    loading, 
+    setLoading, 
+    error, 
+    setError, 
+    refreshGameData, 
+    isRefreshing,
+    isMatchLive,
+    timeUntilMatch,
+    notifications
+  } = useGameContext();
   const [pfpsLoaded, setPfpsLoaded] = useState(false);
   const [showInstructions, setShowInstructions] = useState(false);
   const [cart, setCart] = useState<number[]>([]);
@@ -101,7 +114,6 @@ const BlockchainScoreSquareDisplayWrapped: React.FC<BlockchainScoreSquareDisplay
     : "loading";
 
   // Fetch on-chain tickets
-  
   const { data: onChainTickets, refetch: refetchOnChainTickets } = useContractRead({
     address: SCORE_SQUARE_ADDRESS as `0x${string}`,
     abi: ABI,
@@ -291,7 +303,6 @@ Try your luck. Halftime score gets 25 percent of the pool, final score winner ge
   // window.open(castIntentUrl, '_blank');
   await sdk.actions.openUrl(castIntentUrl)
 };
-// ... (rest of the file code)
 
   const isGridReady =
   gameDataState &&
@@ -303,148 +314,190 @@ Try your luck. Halftime score gets 25 percent of the pool, final score winner ge
     delayedLoadComplete &&
     !!eventId &&
     (!gameDataState || !gameDataState.gameId);
-    return (
-      <div className="container mx-auto px-4 py-8 max-w-7xl">
-        {error ? (
-          <ErrorDisplay
-            error={error}
-            hasValidEventId={!!eventId}
-            refreshGameData={refetchOnChainTickets}
-          />
-        ) : isGameMissing ? (
-          <NoGameData
-            refreshGameData={refetchOnChainTickets}
-            message="Invalid eventID. Either KMac's testing boots got too close to the production pitch again, or another app took a shot with this contract. Either way... it's an own goal: -2 points. Blame KMac."
-            contractAddress={SCORE_SQUARE_ADDRESS}
-            hideRetryButton={true}
-          />
-        ) : !isGameDataReady ? (
-          <div className="relative">
-            <SquareGridPlaceholder />
-            <div className="absolute inset-0 flex items-center justify-center bg-black/60 z-10">
-              <LoadingSpinner
-                gameDataState={gameDataState}
-                loadingStartTime={loadingStartTime}
-                setLoading={setLoading}
-                setError={setError}
-              />
+
+  return (
+    <div className="container mx-auto px-4 py-8 max-w-7xl">
+      {error ? (
+        <ErrorDisplay
+          error={error}
+          hasValidEventId={!!eventId}
+          refreshGameData={refetchOnChainTickets}
+        />
+      ) : isGameMissing ? (
+        <NoGameData
+          refreshGameData={refetchOnChainTickets}
+          message="Invalid eventID. Either KMac's testing boots got too close to the production pitch again, or another app took a shot with this contract. Either way... it's an own goal: -2 points. Blame KMac."
+          contractAddress={SCORE_SQUARE_ADDRESS}
+          hideRetryButton={true}
+        />
+      ) : !isGameDataReady ? (
+        <div className="relative">
+          <SquareGridPlaceholder />
+          <div className="absolute inset-0 flex items-center justify-center bg-black/60 z-10">
+            <LoadingSpinner
+              gameDataState={gameDataState}
+              loadingStartTime={loadingStartTime}
+              setLoading={setLoading}
+              setError={setError}
+            />
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-6">
+          {/* Enhanced Header with Live Status */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              {isMatchLive && (
+                <div className="flex items-center gap-2 px-3 py-1 bg-red-600 rounded-full">
+                  <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
+                  <span className="text-sm text-white font-medium">LIVE MATCH</span>
+                </div>
+              )}
+              {timeUntilMatch && !isMatchLive && (
+                <div className="px-3 py-1 bg-blue-600 rounded-full">
+                  <span className="text-sm text-white font-medium">Starts in {timeUntilMatch}</span>
+                </div>
+              )}
+            </div>
+            
+            <div className="flex items-center gap-2">
+              <button
+                onClick={refreshGameData}
+                disabled={isRefreshing}
+                className="flex items-center gap-2 px-3 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors disabled:opacity-50"
+              >
+                <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+                <span className="text-sm">Refresh</span>
+              </button>
             </div>
           </div>
-        ) : (
-          <div>
-            <div ref={metadataRef}>
-              <GameMetadataCard derivedPlayers={derivedPlayers} />
-            </div>    
-            {!isReferee && gameDataState.ticketsSold < 25 && (
-              <RefereeCard referee={gameDataState.referee} />
-            )}
-            {isReferee && gameDataState.ticketsSold === 0 && (
-              <div className="bg-yellow-100 border border-yellow-300 text-yellow-800 px-4 py-3 rounded-md mb-4 text-sm">
-                You are the referee for this game. Once tickets are sold, you will be responsible for either refunding the game (if it does not sell out) or finalizing and distributing the prize when all 25 tickets are sold.
-              </div>
-            )}
 
-            {txStatus && (
-              <p className="text-center text-lg font-semibold text-blue-500">
-                {txStatus}
-              </p>
-            )}
-    
-            {(isFinalizationRequired || (isRefundEligible && gameDataState.ticketsSold > 0)) && (
-              <RefereeControls
-                gameId={gameDataState.gameId}
-                squareOwners={derivedPlayers}
-                refetchOnChainTickets={() => refetchOnChainTickets().then(() => {})}
-                selectedWinners={selectedWinners}
-                clearWinners={() =>
-                  setSelectedWinners({ halftime: null, final: null })
-                }
-              />
-            )}
+          {/* Game Metadata Card */}
+          <div ref={metadataRef}>
+            <GameMetadataCard derivedPlayers={derivedPlayers} />
+          </div>
 
-            <div className="flex items-center gap-2 mt-2 mb-2 ml-6">
+          {/* Live Match Events Component */}
+          <LiveMatchEvents />
+
+          {/* Notifications Banner */}
+          <NotificationBanner />
+
+          {/* Referee Information */}
+          {!isReferee && gameDataState.ticketsSold < 25 && (
+            <RefereeCard referee={gameDataState.referee} />
+          )}
+          {isReferee && gameDataState.ticketsSold === 0 && (
+            <div className="bg-yellow-100 border border-yellow-300 text-yellow-800 px-4 py-3 rounded-md text-sm">
+              You are the referee for this game. Once tickets are sold, you will be responsible for either refunding the game (if it does not sell out) or finalizing and distributing the prize when all 25 tickets are sold.
+            </div>
+          )}
+
+          {/* Transaction Status */}
+          {txStatus && (
+            <div className="text-center p-4 bg-blue-900/20 border border-blue-500 rounded-lg">
+              <p className="text-lg font-semibold text-blue-300">{txStatus}</p>
+            </div>
+          )}
+
+          {/* Referee Controls */}
+          {(isFinalizationRequired || (isRefundEligible && gameDataState.ticketsSold > 0)) && (
+            <RefereeControls
+              gameId={gameDataState.gameId}
+              squareOwners={derivedPlayers}
+              refetchOnChainTickets={() => refetchOnChainTickets().then(() => {})}
+              selectedWinners={selectedWinners}
+              clearWinners={() =>
+                setSelectedWinners({ halftime: null, final: null })
+              }
+            />
+          )}
+
+          {/* Instructions and Share Section */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
               <Info className="w-5 h-5 text-deepPink" />
-
               <button
                 onClick={() => setShowInstructions(!showInstructions)}
                 className="text-deepPink hover:text-fontRed focus:outline-none transition font-medium"
               >
                 {showInstructions ? "Hide Instructions" : "Show Instructions"}
               </button>
-
-              {/* New Share Button */}
-              <button
-                onClick={handleShareClick}
-                className="bg-deepPink text-white px-3 py-1 rounded hover:bg-fontRed transition font-medium"
-              >
-                Share
-              </button>
             </div>
 
-            {showInstructions && <UserInstructions />}
+            <button
+              onClick={handleShareClick}
+              className="flex items-center gap-2 bg-deepPink text-white px-4 py-2 rounded-lg hover:bg-fontRed transition font-medium"
+            >
+              <Share2 className="w-4 h-4" />
+              Share Game
+            </button>
+          </div>
 
+          {showInstructions && <UserInstructions />}
 
-            {isGridReady ? (
-              <SquareGrid
-                key={forceUpdate}
-                players={derivedPlayers}
-                cart={cart}
-                isReferee={isReferee}
-                gameState={gameState}
-                selectedWinners={selectedWinners}
-                handleSquareClick={(index) => {
-                  const isTaken = derivedPlayers[index] !== null;
-                  if (!isTaken && !cart.includes(index)) {
-                    setCart([...cart, index]);
-                  }
-                }}
-                handleTapSquare={(index) => {
-                  if (isReferee && gameState === "waiting for VAR") {
-                    setSelectedWinners((prev) => {
-                      if (prev.final === null) {
-                        return { ...prev, final: index };
-                      } else if (prev.halftime === null) {
-                        return { ...prev, halftime: index };
-                      } else {
-                        return prev;
-                      }
-                    });
-                  }
-                }}
-              />
-            ) : (
-              <div className="relative">
-                <SquareGridPlaceholder />
-                <div className="absolute inset-0 flex items-center justify-center bg-black/60 z-10">
-                  <LoadingSpinner
-                    gameDataState={gameDataState}
-                    loadingStartTime={loadingStartTime}
-                    setLoading={setLoading}
-                    setError={setError}
-                  />
-                </div>
-              </div>
-            )}
-    
-            {gameDataState.ticketsSold < 25 && (
-              <div className={isGridReady ? "" : "opacity-40 pointer-events-none"}>
-                <CartSection
-                  cart={cart}
-                  squarePrice={BigInt(gameDataState.squarePrice || "0")}
-                  handleBuyTickets={handleBuyTickets}
-                  isBuying={isTxPending}
-                  removeFromCart={(index) =>
-                    setCart(cart.filter((i) => i !== index))
-                  }
-                  clearCart={() => setCart([])}
+          {/* Square Grid */}
+          {isGridReady ? (
+            <SquareGrid
+              key={forceUpdate}
+              players={derivedPlayers}
+              cart={cart}
+              isReferee={isReferee}
+              gameState={gameState}
+              selectedWinners={selectedWinners}
+              handleSquareClick={(index) => {
+                const isTaken = derivedPlayers[index] !== null;
+                if (!isTaken && !cart.includes(index)) {
+                  setCart([...cart, index]);
+                }
+              }}
+              handleTapSquare={(index) => {
+                if (isReferee && gameState === "waiting for VAR") {
+                  setSelectedWinners((prev) => {
+                    if (prev.final === null) {
+                      return { ...prev, final: index };
+                    } else if (prev.halftime === null) {
+                      return { ...prev, halftime: index };
+                    } else {
+                      return prev;
+                    }
+                  });
+                }
+              }}
+            />
+          ) : (
+            <div className="relative">
+              <SquareGridPlaceholder />
+              <div className="absolute inset-0 flex items-center justify-center bg-black/60 z-10">
+                <LoadingSpinner
+                  gameDataState={gameDataState}
+                  loadingStartTime={loadingStartTime}
+                  setLoading={setLoading}
+                  setError={setError}
                 />
               </div>
-            )}
-          </div>
-        )}
-      </div>
-    );
-     
+            </div>
+          )}
+
+          {/* Cart Section */}
+          {gameDataState.ticketsSold < 25 && (
+            <div className={isGridReady ? "" : "opacity-40 pointer-events-none"}>
+              <CartSection
+                cart={cart}
+                squarePrice={BigInt(gameDataState.squarePrice || "0")}
+                handleBuyTickets={handleBuyTickets}
+                isBuying={isTxPending}
+                removeFromCart={(index) =>
+                  setCart(cart.filter((i) => i !== index))
+                }
+                clearCart={() => setCart([])}
+              />
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
 };
 
 export default BlockchainScoreSquareDisplayWrapped;
