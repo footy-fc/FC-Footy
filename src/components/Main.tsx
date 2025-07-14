@@ -7,10 +7,10 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { Dispatch, SetStateAction } from "react";
 import TabNavigation from "./TabNavigation";
 import MatchesTab from "./MatchesTab";
-import Contests from "./Contests";
+// import Contests from "./Contests";
 import ContentTab from "./ContentTab";
 import Settings from "./Settings";
-import MoneyGames from "./MoneyGames";
+// import MoneyGames from "./MoneyGames";
 import ForYou from "./ForYou";
 import { tabDisplayMap } from "../lib/navigation";
 import { Pingem } from 'pingem-sdk';
@@ -75,8 +75,7 @@ export default function Main() {
         const castHash = effectiveSearchParams?.get('castHash');
         const castFid = effectiveSearchParams?.get('castFid');
 
-        console.log('🔍 Share Extension Debug Info:');
-        console.log('URL Parameters:', { castHash, castFid });
+        // Check URL parameters for share extension
 
         if (castHash && castFid) {
           // Redirect to ForYou profile tab with cast author's FID
@@ -87,11 +86,9 @@ export default function Main() {
         // Check SDK context for share
         await sdk.actions.ready();
         const context = await sdk.context;
-        console.log('SDK Context (no URL params):', context);
         
         if (context?.location?.type === 'cast_share') {
           const cast = context.location.cast as SharedCast;
-          console.log('SDK Cast Data:', cast);
           // Redirect to ForYou profile tab with cast author's FID
           router.push(`/?tab=forYou&profileFid=${cast.author.fid}`);
         }
@@ -164,13 +161,13 @@ export default function Main() {
                   setSelectedLeague={handleLeagueChange}
                 />
               )}
-              {selectedTab === "contests" && <Contests />}
-              {selectedTab === "moneyGames" && <MoneyGames />}
+              {/* {selectedTab === "contests" && <Contests />} */}
+              {/* {selectedTab === "moneyGames" && <MoneyGames />} */}
               {selectedTab === "rewards" && <Rewards />}
               {selectedTab === "extraTime" && <ContentTab />}
               {selectedTab === "settings" && <Settings />}
               {selectedTab === "forYou" && <ForYou />}
-              {!["forYou", "matches", "contests", "scoutPlayers", "moneyGames", "rewards", "extraTime", "settings"].includes(selectedTab) && (
+              {!["forYou", "matches", /* "contests", */ "scoutPlayers", /* "moneyGames", */ "rewards", "extraTime", "settings"].includes(selectedTab) && (
                 <div className="text-center text-lg text-fontRed">Coming soon...</div>
               )}
             </div>
@@ -202,13 +199,13 @@ export default function Main() {
                 setSelectedLeague={handleLeagueChange}
               />
             )}
-            {selectedTab === "contests" && <Contests />}
-            {selectedTab === "moneyGames" && <MoneyGames />}
+            {/* {selectedTab === "contests" && <Contests />} */}
+            {/* {selectedTab === "moneyGames" && <MoneyGames />} */}
             {selectedTab === "rewards" && <Rewards />}
             {selectedTab === "extraTime" && <ContentTab />}
             {selectedTab === "settings" && <Settings />}
             {selectedTab === "forYou" && <ForYou />}
-            {!["forYou", "matches", "contests", "scoutPlayers", "moneyGames", "rewards", "extraTime", "settings"].includes(selectedTab) && (
+            {!["forYou", "matches", /* "contests", */ "scoutPlayers", /* "moneyGames", */ "rewards", "extraTime", "settings"].includes(selectedTab) && (
               <div className="text-center text-lg text-fontRed">Coming soon...</div>
             )}
           </div>

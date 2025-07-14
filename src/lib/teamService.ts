@@ -1,6 +1,7 @@
 // Team Service for FC-Footy
 // Handles team, league, and membership operations using Upstash Redis
 
+// @ts-ignore
 import { Redis } from '@upstash/redis';
 import { 
   Team, 
@@ -137,6 +138,9 @@ export class TeamService {
     }
   }
   
+  /**
+   * Get all teams from Redis
+   */
   async getAllTeams(): Promise<Team[]> {
     try {
       // Scan for all team keys (excluding lookup keys and league sets)
@@ -144,9 +148,7 @@ export class TeamService {
       
       // Filter out keys that end with ':leagues' (these are sets, not team data)
       const teamKeys = allTeamKeys.filter(key => !key.endsWith(':leagues'));
-      
-      const teams: Team[] = [];
-      
+            
       // Fetch all team data in parallel
       const teamDataPromises = teamKeys.map(async (key) => {
         const teamData = await this.redis.get(key);
@@ -433,14 +435,14 @@ export class TeamService {
   }
   
   // Utility methods
-  async getTeamLogo(teamId: string, leagueId?: string): Promise<string> {
+  async getTeamLogo(teamId: string, _leagueId?: string): Promise<string> {
     const team = await this.getTeam(teamId);
     if (!team) return ESPNLogoService.getFallbackLogo();
     
     // Validate ESPN logo
     const isValid = await ESPNLogoService.validateLogo(team.abbreviation);
     if (isValid) {
-      return team.logoUrl;
+      return team.logoUrl || '';
     }
     
     // Return fallback

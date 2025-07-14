@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+// @ts-ignore
+import React, { useState, useEffect, useCallback } from 'react';
 import { fetchFanUserData } from '../utils/fetchFCProfile';
 import { getFansForTeamAbbr } from '../../lib/kvPerferences';
 
@@ -29,14 +30,12 @@ interface League {
 interface NotificationsTabProps {
   loading: boolean;
   setLoading: (loading: boolean) => void;
-  responseMessage: string;
   setResponseMessage: (message: string) => void;
 }
 
 export default function NotificationsTab({ 
   loading, 
   setLoading, 
-  responseMessage, 
   setResponseMessage 
 }: NotificationsTabProps) {
   const [title, setTitle] = useState("");
@@ -63,9 +62,9 @@ export default function NotificationsTab({
 
   const categories = [
     { value: "matches", label: "Matches" },
-    { value: "contests", label: "Contests" },
+    // { value: "contests", label: "Contests" },
     { value: "rewards", label: "Rewards" },
-    { value: "moneyGames", label: "Money Games" },
+    // { value: "moneyGames", label: "Money Games" },
     { value: "forYou", label: "For You" },
     { value: "scoutPlayers", label: "Scout Players" },
     { value: "extraTime", label: "Extra Time" },
@@ -73,20 +72,18 @@ export default function NotificationsTab({
   ];
 
   // Fetch leagues and teams data
-  const fetchLeaguesAndTeams = async () => {
+  const fetchLeaguesAndTeams = useCallback(async () => {
     setLoadingLeagues(true);
     setLoadingTeams(true);
     
     try {
-      let leaguesData: any = null;
+      let leaguesData: { leagues?: League[] } | null = null;
       
       // Fetch leagues
       const leaguesResponse = await fetch('/api/leagues');
       if (leaguesResponse.ok) {
         leaguesData = await leaguesResponse.json();
-        setLeagues(leaguesData.leagues || []);
-        console.log('Leagues loaded:', leaguesData.leagues?.length || 0);
-        console.log('Sample leagues:', leaguesData.leagues?.slice(0, 3));
+        setLeagues(leaguesData?.leagues || []);
       }
 
       // Fetch teams
@@ -94,8 +91,6 @@ export default function NotificationsTab({
       if (teamsResponse.ok) {
         const teamsData = await teamsResponse.json();
         setTeams(teamsData.teams || []);
-        console.log('Teams loaded:', teamsData.teams?.length || 0);
-        console.log('Sample teams:', teamsData.teams?.slice(0, 3));
       }
 
       // Fetch memberships using the all endpoint
@@ -108,15 +103,6 @@ export default function NotificationsTab({
       if (membershipsResponse.ok) {
         const membershipsData = await membershipsResponse.json();
         setMemberships(membershipsData.memberships || {});
-        console.log('Memberships loaded:', Object.keys(membershipsData.memberships || {}).length);
-        console.log('Memberships data:', membershipsData.memberships);
-        
-        // Debug: Check for Premier League specifically
-        const premierLeagueId = leaguesData?.leagues?.find((l: any) => l.name === 'Premier League')?.id;
-        if (premierLeagueId) {
-          console.log('Premier League ID:', premierLeagueId);
-          console.log('Premier League teams:', membershipsData.memberships?.[premierLeagueId]);
-        }
       } else {
         console.error('Failed to fetch memberships:', membershipsResponse.status);
       }
@@ -126,18 +112,17 @@ export default function NotificationsTab({
       setLoadingLeagues(false);
       setLoadingTeams(false);
     }
-  };
+  }, []);
 
   // Get teams for selected league
   const getTeamsForLeague = (leagueId: string): Team[] => {
     if (!leagueId || !memberships[leagueId]) {
-      console.log('getTeamsForLeague debug:', { leagueId, memberships: Object.keys(memberships) });
+  
       return [];
     }
     
     const teamIds = memberships[leagueId];
     const leagueTeams = teams.filter(team => teamIds.includes(team.id));
-    console.log('getTeamsForLeague result:', { leagueId, teamIds, leagueTeams: leagueTeams.length });
     return leagueTeams;
   };
 
@@ -147,7 +132,7 @@ export default function NotificationsTab({
   };
 
   // Function to fetch users who will receive notifications
-  const fetchNotificationUsers = async () => {
+  const fetchNotificationUsers = useCallback(async () => {
     setLoadingUsers(true);
     try {
       let userFids: number[] = [];
@@ -158,7 +143,6 @@ export default function NotificationsTab({
         if (selectedTeamData) {
           // Get team follower FIDs using the team abbreviation
           userFids = await getFansForTeamAbbr(selectedTeamData.abbreviation);
-          console.log(`Team ${selectedTeamData.name} (${selectedTeamData.abbreviation}) has ${userFids.length} followers`);
         }
       } else {
         // Fetch all users or admin users
@@ -230,19 +214,19 @@ export default function NotificationsTab({
     } finally {
       setLoadingUsers(false);
     }
-  };
+  }, [adminOnly, notificationMode, selectedTeam, teams]);
 
   // Fetch leagues and teams on component mount
   useEffect(() => {
     fetchLeaguesAndTeams();
-  }, []);
+  }, [fetchLeaguesAndTeams]);
 
   // Fetch users when relevant state changes
   useEffect(() => {
     if (showUserTable) {
       fetchNotificationUsers();
     }
-  }, [adminOnly, showUserTable, notificationMode, selectedTeam]);
+  }, [showUserTable, fetchNotificationUsers]);
 
   // Reset team selection when league changes
   useEffect(() => {
@@ -321,8 +305,9 @@ export default function NotificationsTab({
         const errorData = await response.json();
         setResponseMessage(`Error: ${errorData.error || "Failed to send notification"}`);
       }
-    } catch (error: any) {
-      setResponseMessage(`Error: ${error.message}`);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      setResponseMessage(`Error: ${errorMessage}`);
     } finally {
       setLoading(false);
     }
@@ -546,12 +531,6 @@ export default function NotificationsTab({
                         const availableTeams = selectedLeague 
                           ? getTeamsForLeague(selectedLeague)
                           : getAllTeams();
-                        
-                        console.log('Team dropdown debug:', {
-                          selectedLeague,
-                          availableTeams: availableTeams.length,
-                          teams: availableTeams.slice(0, 3).map(t => ({ id: t.id, name: t.name }))
-                        });
                         
                         return availableTeams.map((team) => (
                           <option key={team.id} value={team.id}>

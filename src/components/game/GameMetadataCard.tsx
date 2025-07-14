@@ -48,14 +48,14 @@ const GameMetadataCard: React.FC<GameMetadataCardProps> = ({ derivedPlayers }) =
   const ticketPrice = squarePrice ? Number(squarePrice) / 1e18 : 0;
   // console.log('gameDataState', gameDataState);
 
-  const shareUrl = `https://147585e1f72a.ngrok.app/?tab=moneyGames&gameType=scoreSquare&eventId=${gameDataState.eventId}`;
+  // const shareUrl = `https://147585e1f72a.ngrok.app/?tab=moneyGames&gameType=scoreSquare&eventId=${gameDataState.eventId}`;
   // console.log('shareUrl', shareUrl);
   
   // Encode the URL for use in both warpcast links
-  const encodedShareUrl = encodeURIComponent(shareUrl);
+  // const encodedShareUrl = encodeURIComponent(shareUrl);
   
   // Warpcast Frame Launcher URL
-  const warpcastUrl = `https://warpcast.com/~/launch/frames?url=${encodedShareUrl}`;
+  // const warpcastUrl = `https://warpcast.com/~/launch/frames?url=${encodedShareUrl}`;
   // console.log('warpcastUrl', warpcastUrl);
   
   // Optional: custom cast message

@@ -3,7 +3,7 @@ import { teamService } from '../../../../lib/teamService';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // Validate API key
@@ -15,7 +15,8 @@ export async function GET(
       );
     }
 
-    const team = await teamService.getTeam(params.id);
+    const { id } = await params;
+    const team = await teamService.getTeam(id);
     
     if (!team) {
       return NextResponse.json(
@@ -45,7 +46,7 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // Validate API key
@@ -57,9 +58,10 @@ export async function PUT(
       );
     }
 
+    const { id } = await params;
     const updates = await request.json();
     
-    const updatedTeam = await teamService.updateTeam(params.id, updates);
+    const updatedTeam = await teamService.updateTeam(id, updates);
     
     if (!updatedTeam) {
       return NextResponse.json(
@@ -90,10 +92,12 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
+  
   try {
-    console.log(`DELETE request for team: ${params.id}`);
+    console.log(`DELETE request for team: ${id}`);
     
     // Validate API key
     const apiKey = request.headers.get("x-api-key");
@@ -105,18 +109,18 @@ export async function DELETE(
       );
     }
 
-    console.log(`Attempting to delete team: ${params.id}`);
-    const success = await teamService.deleteTeam(params.id);
+    console.log(`Attempting to delete team: ${id}`);
+    const success = await teamService.deleteTeam(id);
     
     if (!success) {
-      console.log(`Team not found for deletion: ${params.id}`);
+      console.log(`Team not found for deletion: ${id}`);
       return NextResponse.json(
         { success: false, error: "Team not found" },
         { status: 404 }
       );
     }
 
-    console.log(`Successfully deleted team: ${params.id}`);
+    console.log(`Successfully deleted team: ${id}`);
     return NextResponse.json({
       success: true,
       message: 'Team deleted successfully'
@@ -125,7 +129,7 @@ export async function DELETE(
   } catch (error) {
     console.error('Team deletion failed:', error);
     console.error('Error details:', {
-      teamId: params.id,
+      teamId: id,
       errorMessage: error instanceof Error ? error.message : 'Unknown error',
       errorStack: error instanceof Error ? error.stack : undefined
     });

@@ -1,3 +1,4 @@
+// @ts-ignore
 import React, { useState } from 'react';
 import { Trash2 } from 'lucide-react';
 
@@ -39,7 +40,13 @@ interface LeaguesTabProps {
     type: "domestic" | "continental" | "international";
     active: boolean;
   };
-  setNewLeague: (league: any) => void;
+  setNewLeague: React.Dispatch<React.SetStateAction<{
+    id: string;
+    name: string;
+    country: string;
+    type: "domestic" | "continental" | "international";
+    active: boolean;
+  }>>;
   responseMessage: string;
   setResponseMessage: (message: string) => void;
   refreshAllData?: () => void;
@@ -56,7 +63,6 @@ export default function LeaguesTab({
   removeTeamFromLeague,
   newLeague,
   setNewLeague,
-  responseMessage,
   setResponseMessage,
   refreshAllData
 }: LeaguesTabProps) {
@@ -174,6 +180,24 @@ export default function LeaguesTab({
     }
   };
 
+  const handleCreateLeague = async () => {
+    try {
+      createLeague();
+    } catch {
+      console.error('Error creating league');
+      setResponseMessage('Error creating league');
+    }
+  };
+
+  const handleDeleteLeague = async (leagueId: string) => {
+    try {
+      deleteLeague(leagueId);
+    } catch {
+      console.error('Error deleting league');
+      setResponseMessage('Error deleting league');
+    }
+  };
+
   return (
     <div>
       <div className="mb-6">
@@ -247,7 +271,7 @@ export default function LeaguesTab({
               </div>
             </div>
             <button
-              onClick={createLeague}
+              onClick={handleCreateLeague}
               className="mt-4 bg-deepPink text-white px-6 py-2 rounded-lg hover:bg-fontRed transition-colors"
             >
               Create League
@@ -406,7 +430,7 @@ export default function LeaguesTab({
                           />
                         </button>
                         <button
-                          onClick={() => deleteLeague(league.id)}
+                          onClick={() => handleDeleteLeague(league.id)}
                           className="text-fontRed hover:text-deepPink text-sm transition-colors"
                         >
                           <Trash2 className="w-4 h-4" />

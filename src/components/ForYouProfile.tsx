@@ -321,7 +321,9 @@ const UserProfile: React.FC<ForYouProfileProps> = ({ profileFid, castHash }) => 
         </div>
       ) : (
         <>
-          <h2 className="text-notWhite text-lg font-semibold mb-2">Select Team</h2>
+          <h2 className="text-notWhite text-lg font-semibold mb-2">
+            {favoriteTeams.length === 0 ? 'Select Team' : 'Follows'}
+          </h2>
           <div className="flex overflow-x-auto gap-4 mb-4">
             {favoriteTeams.map(teamId => (
               <div

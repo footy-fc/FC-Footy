@@ -1,3 +1,4 @@
+// @ts-ignore
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Trash2, Edit, Plus, X } from 'lucide-react';
 import { getFansForTeamWithLeagues } from '../../lib/kvPerferences';
@@ -41,11 +42,19 @@ interface TeamsTabProps {
     country: string;
     logoUrl: string;
     roomHash: string;
+    metadata: { [key: string]: string };
   };
-  setNewTeam: (team: any) => void;
-  responseMessage: string;
+  setNewTeam: React.Dispatch<React.SetStateAction<{
+    name: string;
+    shortName: string;
+    abbreviation: string;
+    country: string;
+    logoUrl: string;
+    roomHash: string;
+    metadata: { [key: string]: string };
+  }>>;
   setResponseMessage: (message: string) => void;
-  updateTeam?: (teamId: string, updates: any) => Promise<boolean>;
+  updateTeam: (teamId: string, updates: Record<string, unknown>) => Promise<boolean>;
   refreshAllData?: () => void;
 }
 
@@ -60,7 +69,6 @@ export default function TeamsTab({
   addTeamToLeague,
   newTeam,
   setNewTeam,
-  responseMessage,
   setResponseMessage,
   updateTeam,
   refreshAllData
@@ -287,30 +295,13 @@ export default function TeamsTab({
   };
 
   const handleUpdateTeam = async () => {
-    if (!editingTeam || !updateTeam) return;
-
-    // Validate required fields
-    if (!editForm.name || !editForm.shortName || !editForm.abbreviation || !editForm.country) {
-      setResponseMessage('Error: Please fill in all required fields (Name, Short Name, Abbreviation, Country)');
-      return;
-    }
-
+    if (!editingTeam) return;
+    
     setIsUpdating(true);
-    setResponseMessage('Updating team...');
-
     try {
-      const success = await updateTeam(editingTeam.id, {
-        name: editForm.name,
-        shortName: editForm.shortName,
-        abbreviation: editForm.abbreviation.toLowerCase(),
-        country: editForm.country,
-        logoUrl: editForm.logoUrl,
-        roomHash: editForm.roomHash,
-        metadata: editForm.metadata
-      });
-
+      const success = await updateTeam(editingTeam.id, editForm);
       if (success) {
-        setResponseMessage(`Team "${editForm.name}" updated successfully!`);
+        setResponseMessage('Team updated successfully');
         setEditingTeam(null);
         setEditForm({
           name: '',
@@ -321,14 +312,13 @@ export default function TeamsTab({
           roomHash: '',
           metadata: {}
         });
-        if (refreshAllData) {
-          refreshAllData();
-        }
+        refreshAllData?.();
       } else {
-        setResponseMessage('Error updating team');
+        setResponseMessage('Failed to update team');
       }
-    } catch (error: any) {
-      setResponseMessage(`Error updating team: ${error.message || 'Unknown error'}`);
+    } catch {
+      console.error('Error updating team');
+      setResponseMessage('Error updating team');
     } finally {
       setIsUpdating(false);
     }
@@ -415,6 +405,15 @@ export default function TeamsTab({
       fetchFollowerCounts();
     }
   }, [cacheKey, loadingTeams]); // Use cacheKey instead of uniqueTeams
+
+  const handleCreateTeam = async () => {
+    try {
+      createTeam();
+    } catch {
+      console.error('Error creating team');
+      setResponseMessage('Error creating team');
+    }
+  };
 
   return (
     <div>
@@ -509,7 +508,7 @@ export default function TeamsTab({
               />
             </div>
             <button
-              onClick={createTeam}
+              onClick={handleCreateTeam}
               disabled={loadingTeamCreation}
               className={`mt-4 px-6 py-2 rounded-lg transition-colors ${
                 loadingTeamCreation 

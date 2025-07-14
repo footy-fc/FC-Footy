@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useGameContext } from '../../context/GameContext';
-import { Bell, X, CheckCircle, AlertTriangle, Info, XCircle } from 'lucide-react';
+import { CheckCircle, AlertTriangle, XCircle, Info, X } from 'lucide-react';
 
 interface NotificationBannerProps {
   className?: string;

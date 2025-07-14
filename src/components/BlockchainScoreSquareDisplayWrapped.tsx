@@ -16,7 +16,7 @@ import UserInstructions from './UserInstructions';
 import { SCORE_SQUARE_ADDRESS } from '../lib/config';
 import SquareGridPlaceholder from './game/SquareGridPlaceholder';
 import { Info, RefreshCw, Share2 } from 'lucide-react';
-import sdk from '@farcaster/frame-sdk';
+// import sdk from '@farcaster/frame-sdk';
 
 interface BlockchainScoreSquareDisplayProps {
   eventId: string;
@@ -71,7 +71,7 @@ const BlockchainScoreSquareDisplayWrapped: React.FC<BlockchainScoreSquareDisplay
     isRefreshing,
     isMatchLive,
     timeUntilMatch,
-    notifications
+    matchEvents,
   } = useGameContext();
   const [pfpsLoaded, setPfpsLoaded] = useState(false);
   const [showInstructions, setShowInstructions] = useState(false);
@@ -264,7 +264,7 @@ const handleShareClick = async () => {
       
       // Construct the image URL (adjust the gateway URL as needed)
       
-      imageUrl = encodeURIComponent(`https://tan-hidden-whippet-249.mypinata.cloud/ipfs/${uploadResult.ipfsHash}`);
+      // imageUrl = encodeURIComponent(`https://tan-hidden-whippet-249.mypinata.cloud/ipfs/${uploadResult.ipfsHash}`);
     } catch (error) {
       console.error("Error generating image: ", error);
       alert("Failed to generate image for sharing.");
@@ -273,8 +273,8 @@ const handleShareClick = async () => {
   }
 
   // Construct the share URL as before
-  const baseUrl = window.location.origin + window.location.pathname;
-  const shareUrl = `${baseUrl}?tab=moneyGames&gameType=scoreSquare&gameId=${gameDataState.gameId}`;
+  // const baseUrl = window.location.origin + window.location.pathname;
+  // const shareUrl = `${baseUrl}?tab=moneyGames&gameType=scoreSquare&gameId=${gameDataState.gameId}`;
   
   
   const ticketsAvailable = gameDataState.ticketsSold !== undefined ? 25 - gameDataState.ticketsSold : 0;
@@ -293,15 +293,15 @@ Try your luck. Halftime score gets 25 percent of the pool, final score winner ge
   
   const text = encodeURIComponent(funText);
   console.log("Text to share: ", text);
-  const encodedShareUrl = encodeURIComponent(shareUrl);
+  // const encodedShareUrl = encodeURIComponent(shareUrl);
   
   // Build the Warpcast intent URL including both the share URL and the generated image URL (if available)
-  const castIntentUrl = `https://warpcast.com/~/compose?text=${text}&embeds[]=${encodedShareUrl}${
-    imageUrl ? `&embeds[]=${imageUrl}` : ''
-  }`;
+  // const castIntentUrl = `https://warpcast.com/~/compose?text=${text}&embeds[]=${encodedShareUrl}${
+  //   imageUrl ? `&embeds[]=${imageUrl}` : ''
+  // }`;
   
   // window.open(castIntentUrl, '_blank');
-  await sdk.actions.openUrl(castIntentUrl)
+  // await sdk.actions.openUrl(castIntentUrl)
 };
 
   const isGridReady =
@@ -378,7 +378,7 @@ Try your luck. Halftime score gets 25 percent of the pool, final score winner ge
           </div>
 
           {/* Live Match Events Component */}
-          <LiveMatchEvents />
+          <LiveMatchEvents events={matchEvents} />
 
           {/* Notifications Banner */}
           <NotificationBanner />

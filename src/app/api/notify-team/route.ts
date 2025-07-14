@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
     });
   }
 
-  const notificationResults: Array<{ fid: number; result: any }> = [];
+  const notificationResults: Array<{ fid: number; result: string | unknown }> = [];
   const chunkSize = 35;
 
   // Process keys in batches of 35

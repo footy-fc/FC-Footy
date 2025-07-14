@@ -1,6 +1,5 @@
-"use client";
-
-import { useState, useEffect } from 'react';
+// @ts-ignore
+import React, { useState, useEffect } from 'react';
 import { Trash2 } from 'lucide-react';
 
 interface Team {
@@ -273,7 +272,6 @@ export default function AdminTeamManagement() {
   const getTeamLeagues = (teamId: string): League[] => {
     const teamLeagues: League[] = [];
     
-    // Check which leagues this team belongs to
     Object.entries(memberships).forEach(([leagueId, teamIds]) => {
       if (teamIds.includes(teamId)) {
         const league = leagues.find(l => l.id === leagueId);

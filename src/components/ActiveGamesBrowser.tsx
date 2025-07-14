@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Info, ChevronDown, Clock, Users, Trophy, TrendingUp, Flame } from "lucide-react";
+import React, { useState } from 'react';
+import { Info, ChevronDown, Users, Trophy, Flame, Clock } from "lucide-react";
 import { useGames } from '../hooks/useSubgraphData';
 import { formatEther } from 'viem';
 import BlockchainScoreSquareDisplay from './BlockchainScoreSquareDisplay';

@@ -53,7 +53,7 @@ export default function AdminPage() {
   const [loadingTeams, setLoadingTeams] = useState(false);
   const [loadingTeamCreation, setLoadingTeamCreation] = useState(false);
   const [loadingLeagues, setLoadingLeagues] = useState(false);
-  const [loadingMemberships, setLoadingMemberships] = useState(false);
+  // const [loadingMemberships, setLoadingMemberships] = useState(false);
   
   const [dataLoaded, setDataLoaded] = useState({
     teams: false,
@@ -76,7 +76,7 @@ export default function AdminPage() {
     id: "",
     name: "",
     country: "",
-    type: "domestic" as const,
+    type: "domestic" as "domestic" | "continental" | "international",
     active: true
   });
   
@@ -184,82 +184,61 @@ export default function AdminPage() {
   const refreshLeagues = async () => {
     setLoadingLeagues(true);
     try {
-      const activeLeagues = await redis.smembers('league:active');
-      
-      // Fetch all league data in parallel
-      const leagueDataPromises = activeLeagues.map(leagueId => 
-        redis.get(`league:${leagueId}`)
-      );
-      const leagueDataResults = await Promise.all(leagueDataPromises);
-      
-      const leaguesData: League[] = [];
-      leagueDataResults.forEach(leagueData => {
-        if (leagueData) {
-          const league = typeof leagueData === 'string' ? JSON.parse(leagueData) : leagueData;
-          leaguesData.push(league);
-        }
-      });
-      
-      setLeagues(leaguesData);
+      const response = await fetch('/api/leagues');
+      if (response.ok) {
+        const data = await response.json();
+        setLeagues(data.leagues || []);
+        setDataLoaded(prev => ({ ...prev, leagues: true }));
+      } else {
+        console.error('Failed to fetch leagues:', response.status);
+      }
     } catch (error) {
-      console.error('Error refreshing leagues:', error);
+      console.error('Error fetching leagues:', error);
     } finally {
       setLoadingLeagues(false);
     }
   };
 
   const fetchMemberships = async () => {
-    if (dataLoaded.memberships && Object.keys(memberships).length > 0) {
-      return; // Skip if already loaded
-    }
-    
-    setLoadingMemberships(true);
     try {
-      const activeLeagues = await redis.smembers('league:active');
-      
-      // Fetch all team IDs from all leagues in parallel
-      const teamIdsPromises = activeLeagues.map(leagueId => 
-        redis.smembers(`league:${leagueId}:teams`)
-      );
-      const teamIdsArrays = await Promise.all(teamIdsPromises);
-      
-      const membershipsData: {[leagueId: string]: string[]} = {};
-      activeLeagues.forEach((leagueId, index) => {
-        membershipsData[leagueId] = teamIdsArrays[index];
+      const response = await fetch('/api/memberships/all', {
+        headers: {
+          'x-api-key': process.env.NEXT_PUBLIC_NOTIFICATION_API_KEY || "",
+        },
       });
       
-      setMemberships(membershipsData);
-      setDataLoaded(prev => ({ ...prev, memberships: true }));
+      if (response.ok) {
+        const data = await response.json();
+        setMemberships(data.memberships || {});
+        setDataLoaded(prev => ({ ...prev, memberships: true }));
+      } else {
+        console.error('Failed to fetch memberships:', response.status);
+      }
     } catch (error) {
       console.error('Error fetching memberships:', error);
-    } finally {
-      setLoadingMemberships(false);
     }
   };
 
   const refreshMemberships = async () => {
-    setLoadingMemberships(true);
     try {
-      const activeLeagues = await redis.smembers('league:active');
-      
-      // Fetch all team IDs from all leagues in parallel
-      const teamIdsPromises = activeLeagues.map(leagueId => 
-        redis.smembers(`league:${leagueId}:teams`)
-      );
-      const teamIdsArrays = await Promise.all(teamIdsPromises);
-      
-      const membershipsData: {[leagueId: string]: string[]} = {};
-      activeLeagues.forEach((leagueId, index) => {
-        membershipsData[leagueId] = teamIdsArrays[index];
+      const response = await fetch('/api/memberships/all', {
+        headers: {
+          'x-api-key': process.env.NEXT_PUBLIC_NOTIFICATION_API_KEY || "",
+        },
       });
       
-      setMemberships(membershipsData);
+      if (response.ok) {
+        const data = await response.json();
+        setMemberships(data.memberships || {});
+      } else {
+        console.error('Failed to refresh memberships:', response.status);
+      }
     } catch (error) {
       console.error('Error refreshing memberships:', error);
-    } finally {
-      setLoadingMemberships(false);
     }
   };
+
+
 
   const createTeam = async () => {
     // Validate required fields
@@ -382,34 +361,6 @@ export default function AdminPage() {
     }
   };
 
-  const addTeamToLeagueWithRefresh = async (teamId: string, leagueId: string) => {
-    try {
-      const response = await fetch('/api/memberships', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': process.env.NEXT_PUBLIC_NOTIFICATION_API_KEY || "",
-        },
-        body: JSON.stringify({ 
-          teamId,
-          leagueId,
-          season: "2024-25",
-          startDate: new Date().toISOString().split('T')[0]
-        }),
-      });
-
-      if (response.ok) {
-        // Refresh data after single team assignment
-        await Promise.all([refreshTeams(), refreshLeagues(), refreshMemberships()]);
-        return true;
-      } else {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to add team to league');
-      }
-    } catch (error: any) {
-      throw error;
-    }
-  };
 
   const addTeamToLeagueFromForm = async () => {
     try {
@@ -625,7 +576,6 @@ export default function AdminPage() {
             <NotificationsTab
               loading={loading}
               setLoading={setLoading}
-              responseMessage={responseMessage}
               setResponseMessage={setResponseMessage}
             />
           )}
@@ -644,7 +594,6 @@ export default function AdminPage() {
               updateTeam={updateTeam}
               newTeam={newTeam}
               setNewTeam={setNewTeam}
-              responseMessage={responseMessage}
               setResponseMessage={setResponseMessage}
               refreshAllData={refreshAllData}
             />

@@ -3,7 +3,7 @@ import { teamService } from '../../../../../lib/teamService';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { abbr: string } }
+  { params }: { params: Promise<{ abbr: string }> }
 ) {
   try {
     // Validate API key
@@ -15,7 +15,7 @@ export async function GET(
       );
     }
 
-    const { abbr } = params;
+    const { abbr } = await params;
     
     if (!abbr) {
       return NextResponse.json(
@@ -55,7 +55,7 @@ export async function GET(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { abbr: string } }
+  { params }: { params: Promise<{ abbr: string }> }
 ) {
   try {
     // Validate API key
@@ -67,7 +67,7 @@ export async function DELETE(
       );
     }
 
-    const { abbr } = params;
+    const { abbr } = await params;
     
     if (!abbr) {
       return NextResponse.json(

@@ -3,7 +3,7 @@ import { teamService } from '../../../../lib/teamService';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // Validate API key
@@ -15,7 +15,8 @@ export async function GET(
       );
     }
 
-    const league = await teamService.getLeague(params.id);
+    const { id } = await params;
+    const league = await teamService.getLeague(id);
     
     if (!league) {
       return NextResponse.json(
@@ -45,7 +46,7 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // Validate API key
@@ -57,9 +58,10 @@ export async function PUT(
       );
     }
 
+    const { id } = await params;
     const updates = await request.json();
     
-    const updatedLeague = await teamService.updateLeague(params.id, updates);
+    const updatedLeague = await teamService.updateLeague(id, updates);
     
     if (!updatedLeague) {
       return NextResponse.json(
@@ -90,7 +92,7 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // Validate API key
@@ -102,8 +104,9 @@ export async function DELETE(
       );
     }
 
+    const { id } = await params;
     // Note: We don't have a deleteLeague method in teamService, so we'll deactivate it
-    const success = await teamService.updateLeague(params.id, { active: false });
+    const success = await teamService.updateLeague(id, { active: false });
     
     if (!success) {
       return NextResponse.json(

@@ -3,7 +3,7 @@
 
 import { teamService } from './teamService';
 import { ESPNLogoService } from './espnLogoService';
-import { MigrationResult, LogoValidationResult, CreateTeamData, CreateLeagueData } from '../types/teamTypes';
+import { MigrationResult, CreateLeagueData } from '../types/teamTypes';
 
 // Import existing team data structure
 const teamsByLeague: Record<string, { team: string; abbr: string; roomHash?: string; logoUrl?: string }[]> = {
@@ -255,100 +255,51 @@ export class TeamMigrationService {
   /**
    * Validate and fix ESPN logos for all teams
    */
-  static async validateAndFixLogos(): Promise<LogoValidationResult> {
-    const result: LogoValidationResult = {
-      validLogos: 0,
-      invalidLogos: 0,
-      fallbackLogos: 0,
-      errors: []
-    };
-
-    console.log('🔍 Starting logo validation...');
+  static async validateAndFixTeamLogos(): Promise<{ valid: number; invalid: number; fixed: number }> {
+    console.log('🔍 Validating and fixing team logos...');
+    
+    let valid = 0;
+    let invalid = 0;
+    let fixed = 0;
 
     try {
       // Get all teams
-      const allTeams = await this.getAllTeams();
-      const abbreviations = allTeams.map(team => team.abbreviation);
-
-      // Batch validate logos
-      const logoResults = await ESPNLogoService.validateMultipleLogos(abbreviations);
-
-      for (const logoData of logoResults) {
-        if (logoData.isValid) {
-          result.validLogos++;
-        } else {
-          result.invalidLogos++;
+      const allTeams = await teamService.getAllTeams();
+      
+      for (const team of allTeams) {
+        try {
+          // Check if current logo is valid
+          const isValid = await ESPNLogoService.validateLogo(team.abbreviation);
           
-          // Try to find alternative logo
-          const alternatives = ESPNLogoService.getAlternativeLogoSources(logoData.abbreviation);
-          let foundAlternative = false;
-          
-          for (const alternativeUrl of alternatives) {
-            try {
-              const response = await fetch(alternativeUrl, { method: 'HEAD' });
-              if (response.ok) {
-                // Update team with alternative logo
-                const team = await teamService.getTeamByAbbr(logoData.abbreviation);
-                if (team) {
-                  await teamService.updateTeam(team.id, { logoUrl: alternativeUrl });
-                  result.fallbackLogos++;
-                  foundAlternative = true;
-                  console.log(`✅ Found alternative logo for ${logoData.abbreviation}: ${alternativeUrl}`);
-                  break;
-                }
-              }
-            } catch (error) {
-              // Continue to next alternative
+          if (isValid) {
+            valid++;
+          } else {
+            invalid++;
+            
+            // Try to fix with fallback
+            const fallbackUrl = ESPNLogoService.getLogoUrl(team.abbreviation);
+            if (fallbackUrl && fallbackUrl !== team.logoUrl) {
+              await teamService.updateTeam(team.id, { logoUrl: fallbackUrl });
+              fixed++;
+              console.log(`✅ Fixed logo for ${team.name} (${team.abbreviation})`);
             }
           }
-          
-          if (!foundAlternative) {
-            const errorMsg = `No valid logo found for ${logoData.abbreviation}`;
-            result.errors.push(errorMsg);
-            console.warn(`⚠️  ${errorMsg}`);
-          }
+        } catch {
+          console.error(`❌ Error validating logo for ${team.name} (${team.abbreviation})`);
+          invalid++;
         }
       }
-
-      console.log(`🎉 Logo validation completed!`);
-      console.log(`📊 Results:`);
-      console.log(`   - Valid logos: ${result.validLogos}`);
-      console.log(`   - Invalid logos: ${result.invalidLogos}`);
-      console.log(`   - Fallback logos found: ${result.fallbackLogos}`);
-      console.log(`   - Errors: ${result.errors.length}`);
-
+      
+      console.log(`📊 Logo validation complete: ${valid} valid, ${invalid} invalid, ${fixed} fixed`);
+      return { valid, invalid, fixed };
+      
     } catch (error) {
       console.error('💥 Logo validation failed:', error);
-      result.errors.push(`Logo validation failed: ${error}`);
+      throw error;
     }
-
-    return result;
   }
 
-  /**
-   * Get all teams from the system
-   */
-  private static async getAllTeams(): Promise<any[]> {
-    // This is a simplified version - in a real implementation,
-    // you'd want to scan Redis keys to get all teams
-    const teams: any[] = [];
-    
-    // For now, we'll collect from the migration data
-    for (const [leagueId, leagueTeams] of Object.entries(teamsByLeague)) {
-      for (const teamData of leagueTeams) {
-        const existingTeam = teams.find(t => t.abbreviation === teamData.abbr.toLowerCase());
-        if (!existingTeam) {
-          teams.push({
-            name: teamData.team,
-            abbreviation: teamData.abbr.toLowerCase(),
-            country: this.getCountryFromLeague(leagueId)
-          });
-        }
-      }
-    }
-    
-    return teams;
-  }
+
 
   /**
    * Get country code from league ID

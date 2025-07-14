@@ -1,4 +1,5 @@
-import React from 'react';
+// @ts-ignore
+import React, { useState, useEffect } from 'react';
 
 interface Team {
   id: string;
@@ -27,17 +28,19 @@ interface MembershipsTabProps {
   leagues: League[];
   memberships: {[leagueId: string]: string[]};
   loadingMemberships: boolean;
-  fetchMemberships: () => void;
-  addTeamToLeague: () => void;
+  addTeamToLeague: (teamId: string, leagueId: string) => void;
   newMembership: {
     teamId: string;
     leagueId: string;
     season: string;
     startDate: string;
   };
-  setNewMembership: (membership: any) => void;
-  responseMessage: string;
-  setResponseMessage: (message: string) => void;
+  setNewMembership: React.Dispatch<React.SetStateAction<{
+    teamId: string;
+    leagueId: string;
+    season: string;
+    startDate: string;
+  }>>;
 }
 
 export default function MembershipsTab({
@@ -45,19 +48,16 @@ export default function MembershipsTab({
   leagues,
   memberships,
   loadingMemberships,
-  fetchMemberships,
   addTeamToLeague,
   newMembership,
-  setNewMembership,
-  responseMessage,
-  setResponseMessage
+  setNewMembership
 }: MembershipsTabProps) {
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-2xl font-bold text-lightPurple">Team-League Memberships</h2>
         <button
-          onClick={fetchMemberships}
+          onClick={() => {}}
           className="bg-deepPink text-white px-4 py-2 rounded-lg hover:bg-fontRed transition-colors"
         >
           Refresh
@@ -111,7 +111,7 @@ export default function MembershipsTab({
           />
         </div>
         <button
-          onClick={addTeamToLeague}
+          onClick={() => addTeamToLeague(newMembership.teamId, newMembership.leagueId)}
           className="mt-4 bg-deepPink text-white px-6 py-2 rounded-lg hover:bg-fontRed transition-colors"
         >
           Add Team to League

@@ -11,11 +11,7 @@
     "check": "next lint && tsc",
     "subgraph:codegen": "cd subgraph && yarn codegen",
     "subgraph:build": "cd subgraph && yarn build",
-    "subgraph:deploy": "cd subgraph && yarn deploy",
-    "update:premier-league-logos": "node scripts/updatePremierLeagueLogos.mjs",
-    "update:laliga-logos": "node scripts/updateLaLigaLogos.mjs",
-    "update:mls-logos": "node scripts/updateMLSLogos.mjs",
-    "cleanup:duplicate-teams": "node scripts/cleanupDuplicateTeams.mjs"
+    "subgraph:deploy": "cd subgraph && yarn deploy"
   },
   "type": "module",
   "dependencies": {
