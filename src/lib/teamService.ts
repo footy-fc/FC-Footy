@@ -1,7 +1,6 @@
 // Team Service for FC-Footy
 // Handles team, league, and membership operations using Upstash Redis
 
-// @ts-ignore
 import { Redis } from '@upstash/redis';
 import { 
   Team, 
@@ -435,8 +434,9 @@ export class TeamService {
   }
   
   // Utility methods
-  async getTeamLogo(teamId: string, _leagueId?: string): Promise<string> {
+  async getTeamLogo(teamId: string, leagueId?: string): Promise<string> {
     const team = await this.getTeam(teamId);
+    console.log('leagueId', team, leagueId);
     if (!team) return ESPNLogoService.getFallbackLogo();
     
     // Validate ESPN logo
