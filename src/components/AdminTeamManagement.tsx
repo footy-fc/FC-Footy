@@ -1,4 +1,3 @@
-// @ts-ignore
 import React, { useState, useEffect } from 'react';
 import { Trash2 } from 'lucide-react';
 
