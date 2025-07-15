@@ -24,6 +24,8 @@ interface League {
   updatedAt: string;
 }
 
+type LeagueType = League["type"];
+
 export default function AdminTeamManagement() {
   const [activeTab, setActiveTab] = useState("teams");
   const [teams, setTeams] = useState<Team[]>([]);
@@ -277,7 +279,7 @@ export default function AdminTeamManagement() {
     }
   };
 
-  const getTeamLeagues = (teamId: string): League[] => {
+/*   const getTeamLeagues = (teamId: string): League[] => {
     const teamLeagues: League[] = [];
     
     Object.entries(memberships).forEach(([leagueId, teamIds]) => {
@@ -290,7 +292,7 @@ export default function AdminTeamManagement() {
     });
     
     return teamLeagues.sort((a, b) => a.name.localeCompare(b.name));
-  };
+  }; */
 
   useEffect(() => {
     fetchTeams();
@@ -482,7 +484,7 @@ export default function AdminTeamManagement() {
               />
               <select
                 value={newLeague.type}
-                onChange={(e) => setNewLeague({...newLeague, type: e.target.value as any})}
+                onChange={(e) => setNewLeague({...newLeague, type: e.target.value as LeagueType})}
                 className="p-2 border rounded"
               >
                 <option value="domestic">Domestic</option>
