@@ -100,7 +100,7 @@ const SettingsFollowClubs: React.FC<SettingsFollowClubsProps> = ({ onSave }) => 
           setHasPromptedMiniApp(true);
           console.log('Prompted user to add mini app for notifications');
         } catch (error) {
-          console.log('User rejected mini app prompt or already has it added');
+          console.log('User rejected mini app prompt or already has it added', error);
           setHasPromptedMiniApp(true);
         }
       }
