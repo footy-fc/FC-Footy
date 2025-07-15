@@ -6,6 +6,7 @@ import {
   setTeamPreferences,
 } from "../lib/kvPerferences";
 import { sdk } from "@farcaster/frame-sdk";
+import { useMiniAppDetection } from "../hooks/useMiniAppDetection";
 
 interface Team {
   name: string;
@@ -30,6 +31,9 @@ const SettingsFollowClubs: React.FC<SettingsFollowClubsProps> = ({ onSave }) => 
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [loadingTeamIds, setLoadingTeamIds] = useState<string[]>([]);
   const [transactionError, setTransactionError] = useState<string | null>(null);
+  const [hasPromptedMiniApp, setHasPromptedMiniApp] = useState<boolean>(false);
+  
+  const { isMiniApp, isLoading: isMiniAppLoading } = useMiniAppDetection();
 
   useEffect(() => {
     const fetchContext = async () => {
@@ -83,6 +87,22 @@ const SettingsFollowClubs: React.FC<SettingsFollowClubsProps> = ({ onSave }) => 
       setFavTeams(updatedFavTeams);
       onSave?.(updatedFavTeams);
       setTransactionError(null); // Clear error on success
+
+      // Prompt to add mini app if this is their first team and they're not already in a mini app
+      if (
+        !hasPromptedMiniApp && 
+        updatedFavTeams.length === 1 && 
+        !isMiniApp && 
+        !isMiniAppLoading
+      ) {
+        try {
+          await sdk.actions.addMiniApp();
+          setHasPromptedMiniApp(true);
+        } catch (error) {
+          console.log('User rejected mini app prompt or already has it added', error);
+          setHasPromptedMiniApp(true);
+        }
+      }
 
       // Clear search term if needed
       if (searchTerm.trim() !== "") {

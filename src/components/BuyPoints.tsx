@@ -8,7 +8,7 @@ import { useWriteJbMultiTerminalPay, useJBRulesetContext } from 'juice-sdk-react
 import { parseEther } from 'viem';
 import { TERMINAL_ADDRESS, PROJECT_ID } from '~/constants/contracts';
 import { waitForTransactionReceipt } from 'wagmi/actions';
-import ContestScoresPoints from "./ContestScoresPoints";
+// import ContestScoresPoints from "./ContestScoresPoints";
 import { sdk } from "@farcaster/frame-sdk";
 import { getTeamPreferences } from '~/lib/kvPerferences';
 
@@ -206,7 +206,7 @@ export default function BuyPoints() {
       </div>
       <div className="w-full h-full mt-6">
         <p className="text-lightPurple text-sm mb-2">{tvl} in treasury</p>
-         <ContestScoresPoints />  
+         {/* <ContestScoresPoints /> */}  
       </div>
     </div>
   );

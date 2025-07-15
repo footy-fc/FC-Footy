@@ -9,6 +9,7 @@ import SettingsFollowClubs from './SettingsFollowClubs';
 import { getAlikeFanMatches } from './utils/getAlikeFanMatches';
 import type { FanPair } from './utils/getAlikeFanMatches';
 import { fetchFanUserData } from './utils/fetchFCProfile';
+import { useMiniAppDetection } from "../hooks/useMiniAppDetection";
 
 type TeamLink = {
   href: string;
@@ -38,6 +39,8 @@ const UserProfile: React.FC<ForYouProfileProps> = ({ profileFid, castHash }) => 
   const [loadingMatches, setLoadingMatches] = useState(false);
   const [viewingOwnProfile, setViewingOwnProfile] = useState<boolean>(!profileFid);
   const [currentProfileFid, setCurrentProfileFid] = useState<number | undefined>(profileFid);
+  const [hasPromptedMiniApp, setHasPromptedMiniApp] = useState<boolean>(false);
+  const { isMiniApp, isLoading: isMiniAppLoading } = useMiniAppDetection();
 
   // Initialize SDK and fetch user context
   useEffect(() => {
@@ -279,10 +282,26 @@ const UserProfile: React.FC<ForYouProfileProps> = ({ profileFid, castHash }) => 
         <div className="p-4 border border-dashed border-limeGreen rounded-lg">
           <h2 className="text-notWhite mb-2">Select Your Favorite Teams</h2>
           <SettingsFollowClubs
-            onSave={(newFavorites: string[]) => {
+            onSave={async (newFavorites: string[]) => {
               setFavoriteTeams(newFavorites);
               setSelectedTeam(newFavorites[0] ?? null);
               setShowSettings(false);
+              
+              // Prompt to add mini app if this is their first team and they're not already in a mini app
+              if (
+                !hasPromptedMiniApp && 
+                newFavorites.length === 1 && 
+                !isMiniApp && 
+                !isMiniAppLoading
+              ) {
+                try {
+                  await sdk.actions.addMiniApp();
+                  setHasPromptedMiniApp(true);
+                } catch (error) {
+                  console.log('User rejected mini app prompt or already has it added');
+                  setHasPromptedMiniApp(true);
+                }
+              }
             }}
           />
           <button
@@ -321,7 +340,9 @@ const UserProfile: React.FC<ForYouProfileProps> = ({ profileFid, castHash }) => 
         </div>
       ) : (
         <>
-          <h2 className="text-notWhite text-lg font-semibold mb-2">Select Team</h2>
+          <h2 className="text-notWhite text-lg font-semibold mb-2">
+            {favoriteTeams.length === 0 ? 'Select Team' : 'Follows'}
+          </h2>
           <div className="flex overflow-x-auto gap-4 mb-4">
             {favoriteTeams.map(teamId => (
               <div

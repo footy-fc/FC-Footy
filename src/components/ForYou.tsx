@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import ForYouTeamsFans from "./ForYouTeamsFans";
 import ForYouWhosPlaying from "./ForYouWhosPlaying";
-import ForYouProfile from "./ForYouProfile";
+// import ForYouProfile from "./ForYouProfile";
 import BuyPoints from "./BuyPoints";
 import { usePrivy } from "@privy-io/react-auth";
 import { getTeamPreferences } from "../lib/kvPerferences";
@@ -10,30 +10,59 @@ import { useSearchParams } from "next/navigation";
 const ForYou = () => {
   const { user } = usePrivy();
   const searchParams = useSearchParams();
-  const [selectedTab, setSelectedTab] = useState<string>("matches");
+  const [selectedTab, setSelectedTab] = useState<string>(""); // Start empty
   const [showLiveChat, setShowLiveChat] = useState(false);
+  const [isLoading, setIsLoading] = useState(true); // Add loading state
   
   // Get profileFid from URL params (for shared cast context)
   const profileFid = searchParams?.get("profileFid");
 
   useEffect(() => {
     const checkPreferences = async () => {
+      setIsLoading(true);
+      
       // If we have a profileFid from share extension, show that profile
       if (profileFid) {
-        setSelectedTab("forYouProfile");
+        setSelectedTab("fellowFollowers");
+        setIsLoading(false);
         return;
       }
       
       const fid = user?.linkedAccounts.find((a) => a.type === "farcaster")?.fid;
       if (fid) {
-        const prefs = await getTeamPreferences(fid);
-        if (!prefs || prefs.length === 0) {
-          setSelectedTab("fellowFollowers");
+        try {
+          const prefs = await getTeamPreferences(fid);
+          if (!prefs || prefs.length === 0) {
+            setSelectedTab("fellowFollowers"); // Show Fan Clubs for users with no teams
+          } else {
+            setSelectedTab("matches"); // Show Who's Playing for users with teams
+          }
+        } catch (error) {
+          console.error("Error checking team preferences:", error);
+          setSelectedTab("fellowFollowers"); // Default to Fan Clubs on error
         }
+      } else {
+        // No user or FID, default to Fan Clubs
+        setSelectedTab("fellowFollowers");
       }
+      
+      setIsLoading(false);
     };
+    
     checkPreferences();
   }, [user, profileFid]);
+
+  // Show loading state while determining the correct tab
+  if (isLoading) {
+    return (
+      <div className="mb-4">
+        <h2 className="font-2xl text-notWhite font-bold mb-4">Fan Experience</h2>
+        <div className="bg-purplePanel text-lightPurple rounded-lg p-4 text-center">
+          Loading...
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="mb-4">
@@ -61,16 +90,6 @@ const ForYou = () => {
               }`}
             >
               Who&apos;s Playing
-            </button>
-            <button
-              onClick={() => setSelectedTab("forYouProfile")}
-              className={`flex-shrink-0 py-1 px-6 text-sm font-semibold cursor-pointer rounded-full border-2 ${
-                selectedTab === "forYouProfile"
-                ? "border-limeGreenOpacity text-lightPurple"
-                : "border-gray-500 text-gray-500"
-            }`}
-            >
-            {profileFid ? `Trophy Case (FID: ${profileFid})` : "Trophy Case"}
             </button>
             <button
             onClick={() => setSelectedTab("fellowFollowers")}
@@ -107,18 +126,12 @@ const ForYou = () => {
       )}
       {selectedTab === "matches" && (
         <div>
-          <ForYouWhosPlaying
-        />
+          <ForYouWhosPlaying />
         </div>
       )}
       {selectedTab === "buyPoints" && (
         <div>
           <BuyPoints />
-        </div>
-      )}
-      {selectedTab === "forYouProfile" && (
-        <div>
-          <ForYouProfile profileFid={profileFid ? parseInt(profileFid) : undefined} />
         </div>
       )}
       </div>

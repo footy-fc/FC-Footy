@@ -152,7 +152,7 @@ const ScoreSquareCreate: React.FC<ScoreSquareCreateProps> = ({
       // Detect the correct league prefix based on team names
       // This ensures MLS teams get "usa" prefix, Premier League teams get "eng", etc.
       const detectedLeague = detectLeagueFromTeams(homeTeam, awayTeam, 'custom');
-      console.log(`[DEBUG] Detected league prefix "${detectedLeague}" for teams ${homeTeam} vs ${awayTeam}`);
+      
       
       // Create a shorter timestamp without milliseconds for better readability
       const now = new Date();
