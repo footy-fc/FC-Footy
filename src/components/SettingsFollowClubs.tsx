@@ -96,6 +96,8 @@ const SettingsFollowClubs: React.FC<SettingsFollowClubsProps> = ({ onSave }) => 
         !isMiniAppLoading
       ) {
         try {
+          if (!sdk || !sdk?.actions?.addMiniApp) return;
+          await sdk.actions.ready();
           await sdk.actions.addMiniApp();
           setHasPromptedMiniApp(true);
         } catch (error) {
