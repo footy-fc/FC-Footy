@@ -1,5 +1,5 @@
 // @ts-ignore
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 
 interface Team {
   id: string;

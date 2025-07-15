@@ -150,6 +150,7 @@ export default function LeaguesTab({
       }
     } catch (error) {
       setResponseMessage('Error assigning teams to league');
+      console.error('Error assigning teams to league', error);
     } finally {
       setIsAssigningTeams(false);
     }
@@ -171,6 +172,7 @@ export default function LeaguesTab({
       }, 500);
     } catch (error) {
       setResponseMessage(`Error removing ${teamName} from league`);
+      console.error('Error removing team from league', error);
     } finally {
       setRemovingTeams(prev => {
         const newSet = new Set(prev);

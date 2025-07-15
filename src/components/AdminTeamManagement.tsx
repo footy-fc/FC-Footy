@@ -70,8 +70,9 @@ export default function AdminTeamManagement() {
         const data = await response.json();
         setTeams(data.teams || []);
       }
-    } catch (error) {
-      console.error('Error fetching teams:', error);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+      setMessage(`Error: ${errorMessage}`);
     } finally {
       setLoading(false);
     }
@@ -90,8 +91,9 @@ export default function AdminTeamManagement() {
         const data = await response.json();
         setLeagues(data.leagues || []);
       }
-    } catch (error) {
-      console.error('Error fetching leagues:', error);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+      setMessage(`Error: ${errorMessage}`);
     } finally {
       setLoading(false);
     }
@@ -127,8 +129,9 @@ export default function AdminTeamManagement() {
         
         setMemberships(membershipsData);
       }
-    } catch (error) {
-      console.error('Error fetching memberships:', error);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+      setMessage(`Error: ${errorMessage}`);
     } finally {
       setLoading(false);
     }
@@ -154,8 +157,9 @@ export default function AdminTeamManagement() {
         const error = await response.json();
         setMessage(`Error: ${error.error}`);
       }
-    } catch (error: any) {
-      setMessage(`Error: ${error.message}`);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+      setMessage(`Error: ${errorMessage}`);
     } finally {
       setLoading(false);
     }
@@ -181,8 +185,9 @@ export default function AdminTeamManagement() {
         const error = await response.json();
         setMessage(`Error: ${error.error}`);
       }
-    } catch (error: any) {
-      setMessage(`Error: ${error.message}`);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+      setMessage(`Error: ${errorMessage}`);
     } finally {
       setLoading(false);
     }
@@ -210,8 +215,9 @@ export default function AdminTeamManagement() {
         const error = await response.json();
         setMessage(`Error: ${error.error}`);
       }
-    } catch (error: any) {
-      setMessage(`Error: ${error.message}`);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+      setMessage(`Error: ${errorMessage}`);
     } finally {
       setLoading(false);
     }
@@ -236,8 +242,9 @@ export default function AdminTeamManagement() {
         const error = await response.json();
         setMessage(`Error: ${error.error}`);
       }
-    } catch (error: any) {
-      setMessage(`Error: ${error.message}`);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+      setMessage(`Error: ${errorMessage}`);
     } finally {
       setLoading(false);
     }
@@ -262,8 +269,9 @@ export default function AdminTeamManagement() {
         const error = await response.json();
         setMessage(`Error: ${error.error}`);
       }
-    } catch (error: any) {
-      setMessage(`Error: ${error.message}`);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+      setMessage(`Error: ${errorMessage}`);
     } finally {
       setLoading(false);
     }

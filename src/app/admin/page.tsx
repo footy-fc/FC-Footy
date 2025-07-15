@@ -385,7 +385,8 @@ export default function AdminPage() {
       setResponseMessage(`Error: ${error.message}`);
     }
   };
-
+  console.log('addTeamToLeagueFromForm', addTeamToLeagueFromForm);
+  
   const deleteTeam = async (teamId: string) => {
     if (!confirm('Are you sure you want to delete this team?')) return;
     

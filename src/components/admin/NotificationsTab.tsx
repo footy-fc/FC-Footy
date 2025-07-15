@@ -1,4 +1,3 @@
-// @ts-ignore
 import React, { useState, useEffect, useCallback } from 'react';
 import { fetchFanUserData } from '../utils/fetchFCProfile';
 import { getFansForTeamAbbr } from '../../lib/kvPerferences';

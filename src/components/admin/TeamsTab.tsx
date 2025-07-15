@@ -1,4 +1,3 @@
-// @ts-ignore
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Trash2, Edit, Plus, X } from 'lucide-react';
 import { getFansForTeamWithLeagues } from '../../lib/kvPerferences';
@@ -276,6 +275,7 @@ export default function TeamsTab({
       }
     } catch (error) {
       setResponseMessage('Error assigning teams to league');
+      console.error('Error assigning teams to league', error);
     } finally {
       setIsAssigningTeams(false);
     }

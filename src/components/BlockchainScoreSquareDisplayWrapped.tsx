@@ -247,7 +247,7 @@ const handleShareClick = async () => {
   }
 
   // Generate an image from the GameMetadataCard using html-to-image
-  let imageUrl = "";
+  // let imageUrl = "";
   if (metadataRef.current) {
     try {
       const dataUrl = await toPng(metadataRef.current, { cacheBust: true });
@@ -259,7 +259,7 @@ const handleShareClick = async () => {
         method: 'POST',
         body: blob,
       });
-      const uploadResult = await uploadRes.json();
+      // const uploadResult = await uploadRes.json();
       if (!uploadRes.ok) throw new Error('Image upload failed');
       
       // Construct the image URL (adjust the gateway URL as needed)
