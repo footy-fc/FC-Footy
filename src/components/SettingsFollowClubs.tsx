@@ -88,18 +88,19 @@ const SettingsFollowClubs: React.FC<SettingsFollowClubsProps> = ({ onSave }) => 
       onSave?.(updatedFavTeams);
       setTransactionError(null); // Clear error on success
 
-      // Prompt to add mini app if this is their first team and they're not already in a mini app
+      // Prompt to add mini app for notifications if this is their first team
       if (
         !hasPromptedMiniApp && 
         updatedFavTeams.length === 1 && 
-        !isMiniApp && 
         !isMiniAppLoading
       ) {
         try {
+          // Always prompt to add mini app for notifications, regardless of current environment
           await sdk.actions.addMiniApp();
           setHasPromptedMiniApp(true);
+          console.log('Prompted user to add mini app for notifications');
         } catch (error) {
-          console.log('User rejected mini app prompt or already has it added', error);
+          console.log('User rejected mini app prompt or already has it added');
           setHasPromptedMiniApp(true);
         }
       }
