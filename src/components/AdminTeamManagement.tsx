@@ -47,7 +47,7 @@ export default function AdminTeamManagement() {
     id: "",
     name: "",
     country: "",
-    type: "domestic" as const,
+    type: "domestic" as LeagueType,
     active: true
   });
   
