@@ -138,6 +138,14 @@ export default function Main() {
       load();
     }
   }, [isSDKLoaded]);
+    useEffect(() => {
+    const load = async () => {
+      if (!sdk || !sdk?.actions?.addFrame) return;
+      sdk.actions.ready({});
+      await sdk.actions.addMiniApp();
+    };
+    load();
+  }, []);
 
   // Render main app UI
   return (
