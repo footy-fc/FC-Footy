@@ -33,7 +33,7 @@ const SettingsFollowClubs: React.FC<SettingsFollowClubsProps> = ({ onSave }) => 
   const [transactionError, setTransactionError] = useState<string | null>(null);
   const [hasPromptedMiniApp, setHasPromptedMiniApp] = useState<boolean>(false);
   
-  const { isMiniApp, isLoading: isMiniAppLoading } = useMiniAppDetection();
+  const { isLoading: isMiniAppLoading } = useMiniAppDetection();
 
   useEffect(() => {
     const fetchContext = async () => {
