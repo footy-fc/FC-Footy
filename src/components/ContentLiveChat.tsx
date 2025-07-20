@@ -8,7 +8,7 @@ import { getTeamPreferences } from "~/lib/kv";
 import { teamsByLeague, getTeamFullName } from "./utils/fetchTeamLogos";
 import { useFetchCastsParentUrl } from "./utils/useFetchCastsParentUrls";
 import { fetchFanUserData } from "./utils/fetchFCProfile";
-// import TestSubmitCast from "./TestSigner";
+
 
 interface CastType {
   timestamp: number;
@@ -544,42 +544,7 @@ const ContentLiveChat = ({ teamId }: { teamId: string }) => {
             isPosting={isPosting}
           />
         </div>
-           {/*     <TestSubmitCast />
 
-        <div className="flex justify-around">
-          <button className="flex-1 py-3 px-2 text-center text-gray-500">
-            <div className="flex flex-col items-center">
-              <div className="mb-1">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 9a3 3 0 1 1 6 0c0 1.5-1.5 2.5-2 3l-1 1"></path>
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 18h.01"></path>
-                </svg>
-              </div>
-              <span className="text-xs">Find match</span>
-            </div>
-          </button>
-          <button className="flex-1 py-3 px-2 text-center text-gray-500">
-            <div className="flex flex-col items-center">
-              <div className="mb-1">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 9a3 3 0 1 1 6 0c0 1.5-1.5 2.5-2 3l-1 1"></path>
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 18h.01"></path>
-                </svg>
-              </div>
-              <span className="text-xs">Create room</span>
-            </div>
-          </button>
-          <button className="flex-1 py-3 px-2 text-center text-gray-500">
-            <div className="flex flex-col items-center">
-              <div className="mb-1">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 1.343-3 3 0 .432.112.83.304 1.184M12 8c1.657 0 3 1.343 3 3 0 .432-.112.83-.304 1.184M12 2v2m0 16v2m-4-4h-2m10 0h-2m-4-4H6m12 0h-2"/>
-              </svg>
-              </div>
-              <span className="text-xs">Tip host</span>
-            </div>
-          </button>
-        </div> */}
       </div>
     </div>
   );

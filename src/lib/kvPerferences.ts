@@ -131,3 +131,37 @@ export async function getFanCountForTeam(teamId: string): Promise<number> {
   const count = await redis.scard(`fc-footy:team-fans:${teamId}`);
   return count;
 }
+
+/**
+ * Get follower count for a team based on its abbreviation and league assignments.
+ * This is more efficient than getFansForTeamAbbr() as it only checks the leagues
+ * the team is actually assigned to.
+ * @param teamAbbr - Team abbreviation (e.g., "ars" for Arsenal)
+ * @param leagueIds - Array of league IDs the team is assigned to (e.g., ["eng.1", "uefa.champions"])
+ * @returns The total count of unique fans following this team across all assigned leagues
+ */
+export async function getFansForTeamWithLeagues(teamAbbr: string, leagueIds: string[]): Promise<number> {
+  if (leagueIds.length === 0) {
+    return 0; // No leagues assigned, no followers
+  }
+
+  const fanFidsSet = new Set<number>();
+  
+  // Generate team IDs for the specific leagues this team is assigned to
+  const teamIds = leagueIds.map((leagueId) => `${leagueId}-${teamAbbr.toLowerCase()}`);
+  
+  // console.log(`Fetching fans for team "${teamAbbr}" in leagues: ${leagueIds}`, teamIds);
+
+  for (const teamId of teamIds) {
+    try {
+      const teamFans = await redis.smembers<number[]>(`fc-footy:team-fans:${teamId}`);
+      teamFans.forEach((fid) => fanFidsSet.add(fid));
+    } catch (err) {
+      console.error(`Error fetching fans for ${teamId}:`, err);
+    }
+  }
+
+  const fanCount = fanFidsSet.size;
+  // console.log(`Found ${fanCount} unique fans for "${teamAbbr}" across ${leagueIds.length} leagues`);
+  return fanCount;
+}

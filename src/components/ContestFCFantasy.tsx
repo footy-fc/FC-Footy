@@ -310,7 +310,6 @@ const ContestFCFantasy = () => {
       }
   
       if (testing) {
-        console.log('🚫 Skipping minting (testing mode).');
         setStatusMessage('🧪 Test mode: Image and metadata uploaded. Minting skipped.');
         return;
       }
@@ -476,16 +475,16 @@ const ContestFCFantasy = () => {
                   const castText = `🏆 Fantasy Football Card for @${cardEntry?.manager}!\n📊 Rank: ${cardEntry?.rank}\n⚽ Points: ${cardEntry?.total}\nCheck out the latest dickbutt FC Fantasy League manager cards. \nFC Fantasy League is on @base 🚀`;
                   const encodedText = encodeURIComponent(castText);
                   const encodedEmbed1 = encodeURIComponent(`https://tan-hidden-whippet-249.mypinata.cloud/ipfs/${localImageCid}`);
-                  const encodedEmbed2 = encodeURIComponent(`https://fc-footy.vercel.app?tab=contests`);
+                  // const encodedEmbed2 = encodeURIComponent(`https://fc-footy.vercel.app?tab=contests`);
 
-                  const warpcastUrl = `https://warpcast.com/~/compose?text=${encodedText}&channelKey=football&embeds[]=${encodedEmbed1}&embeds[]=${encodedEmbed2}`;
+                  // const warpcastUrl = `https://warpcast.com/~/compose?text=${encodedText}&channelKey=football&embeds[]=${encodedEmbed1}&embeds[]=${encodedEmbed2}`;
 
-                  if (isContextLoaded) {
-                    frameSdk.actions.openUrl(warpcastUrl);
-                  } else {
-                    // window.open(warpcastUrl, '_blank');
-                        await sdk.actions.openUrl(warpcastUrl);
-                  }
+                  // if (isContextLoaded) {
+                  //   frameSdk.actions.openUrl(warpcastUrl);
+                  // } else {
+                  //   // window.open(warpcastUrl, '_blank');
+                  //       await sdk.actions.openUrl(warpcastUrl);
+                  // }
                   
                   setStatusMessage('🚀 Shared on Warpcast! (check popup blocker)');
                 } catch (error) {

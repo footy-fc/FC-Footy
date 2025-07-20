@@ -6,15 +6,12 @@ interface CountryData {
 }
 
 export async function fetchCountryFromGeo(geoString: string): Promise<CountryData | null> {
-  console.log("Received geoString:", geoString); // Debugging log
-
   // Regex to extract latitude and longitude from geoString
   const match = geoString.match(/([-.\d]+),([-.\d]+)/);
   if (!match) {
     console.error("Invalid geoString format:", geoString);
     return null;
   }
-  console.log("Extracted lat/lng:", match); // Debugging
   const lat = parseFloat(match[1]);
   const lng = parseFloat(match[2]);
 
@@ -25,7 +22,6 @@ export async function fetchCountryFromGeo(geoString: string): Promise<CountryDat
     if (!response.ok) throw new Error(`Nominatim error: ${response.status}`);
 
     const data = await response.json();
-    console.log("Received country data:", data); // Debugging
     return {
       name: data.address?.country || "Unknown",
       code: data.address?.country_code?.toUpperCase() || "",
@@ -47,12 +43,10 @@ export const CountryFlag: React.FC<{ geoString?: string }> = ({ geoString }) => 
     }
 
     setLoading(true);
-    console.log(loading); // Debugging
     fetchCountryFromGeo(geoString)
       .then((data) => setCountry(data))
       .finally(() => setLoading(false));
   }, [geoString]);
-  console.log("Country data:", country?.code.toLowerCase()); // Debugging
   // If no geoString is provided or country data is missing, return null
   if (!geoString || !country) return null;
 

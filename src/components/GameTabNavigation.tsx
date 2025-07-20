@@ -10,7 +10,7 @@ const GameTabNavigation: React.FC<GameTabNavigationProps> = ({ selectedTab = 'sc
   const searchParams = useSearchParams();
   
   // Define the tabs for game type navigation
-  const tabs = [
+  const tabs: Array<{ id: string; label: string; path: string }> = [
     { id: 'scoreSquare', label: 'Score Square', path: '/?tab=moneyGames&gameType=scoreSquare' },
     { id: 'oCaptain', label: 'O Captain!', path: '/?tab=moneyGames&gameType=oCaptain' },
   ];

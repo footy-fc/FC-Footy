@@ -1,18 +1,18 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useApolloClient } from '@apollo/client';
 import Image from 'next/image';
-import Link from 'next/link';
-import { FaTrophy, FaTicketAlt } from 'react-icons/fa';
-import RefereeIcon from '../components/ui/RefereeIcon';
+// import Link from 'next/link';
+// import { FaTrophy, FaTicketAlt } from 'react-icons/fa';
+// import RefereeIcon from '../components/ui/RefereeIcon';
 import RAGameContext from './ai/RAGameContext';
 import { WarpcastShareButton } from './ui/WarpcastShareButton';
 import { getFansForTeam } from '../lib/kvPerferences';
 import { fetchFanUserData } from './utils/fetchFCProfile';
 import { fetchTeamLogos } from './utils/fetchTeamLogos';
 import { GET_SS_GAMES } from '../lib/graphql/queries';
-import FarcasterAvatar from './FarcasterAvatar';
+// import FarcasterAvatar from './FarcasterAvatar';
 import sdk from '@farcaster/frame-sdk';
-import { fetchNativeTokenPrice } from '~/utils/fetchUsdPrice';
+// import { fetchNativeTokenPrice } from '~/utils/fetchUsdPrice';
 // import ContestScoreSquare from './ContestScoreSquare';
 // import ContestScoreSquareCreate from './ContestScoreSquareCreate';
 
@@ -88,9 +88,9 @@ const MatchEventCard: React.FC<EventCardProps> = ({ event, sportId }) => {
   const hasLoadedFans = useRef(false);
   const client = useApolloClient();
   const [hasQueried, setHasQueried] = useState(false);
-  const [ethPrice, setEthPrice] = useState<number | null>(null);
-  const [ssGames, setSsGames] = useState<
-    Array<{ eventId: string; gameId: string; referee: string; prizePool: string; squarePrice: string; deployerFeePercent: string }>>([]);
+  // const [ethPrice, setEthPrice] = useState<number | null>(null);
+  // const [ssGames, setSsGames] = useState<
+  //   Array<{ eventId: string; gameId: string; referee: string; prizePool: string; squarePrice: string; deployerFeePercent: string }>>([]);
   useEffect(() => {
     setHasQueried(false);
   }, [event.id]);
@@ -107,20 +107,20 @@ const MatchEventCard: React.FC<EventCardProps> = ({ event, sportId }) => {
   useEffect(() => {
     fetchTeamLogos().then((data) => setTeams(data));
   }, []);
-   useEffect(() => {
-    const fetchPrice = async () => {
-      try {
-        const price = await fetchNativeTokenPrice('base');
-        setEthPrice(price);
-      } catch (error) {
-        console.error('Failed to fetch ETH price:', error);
-        setEthPrice(null);
-        // Consider adding retry logic here
-      }
-    };
-    
-    fetchPrice();
-  }, []);
+   // useEffect(() => {
+   //   const fetchPrice = async () => {
+   //     try {
+   //       const price = await fetchNativeTokenPrice('base');
+   //       setEthPrice(price);
+   //     } catch (error) {
+   //       console.error('Failed to fetch ETH price:', error);
+   //       setEthPrice(null);
+   //       // Consider adding retry logic here
+   //     }
+   //   };
+   
+   //   fetchPrice();
+   // }, []);
 
   // Extract match info from event data.
   const competitorsLong = event.name;
@@ -197,7 +197,7 @@ const MatchEventCard: React.FC<EventCardProps> = ({ event, sportId }) => {
           .then((result) => {
             console.log("Subgraph GET_SS_GAMES:", result.data);
             setHasQueried(true);
-            setSsGames(result.data.games); // Store subgraph results
+            // setSsGames(result.data.games); // Store subgraph results
           })
           .catch((err) => {
             console.error("Subgraph query error:", err);
@@ -449,7 +449,7 @@ useEffect(() => {
           {/* Combined Fan Avatars Section */}
           <div className="mt-4">
             <h3 className="text-notWhite font-semibold mb-1">
-              Following ({combinedFanAvatars.length})
+              Following ({matchFanAvatarsTeam1.length + matchFanAvatarsTeam2.length})
             </h3>
           <div className="flex items-center gap-4 text-xs text-lightPurple mb-2">
             <div className="flex items-center gap-1">
@@ -462,7 +462,11 @@ useEffect(() => {
             </div>
             <div className="flex items-center gap-1">
               <span className="w-3 h-3 border-2 border-purple-500 rounded-full"></span>
-              <span>Both ({combinedFanAvatars.length})</span>
+              Both ({
+                matchFanAvatarsTeam1.filter(fan1 =>
+                  matchFanAvatarsTeam2.some(fan2 => fan2.fid === fan1.fid)
+                ).length
+              })
             </div>
           </div>
           <div className="grid grid-cols-10 gap-1">
@@ -488,14 +492,14 @@ useEffect(() => {
         <button
           key={fan.fid}
           onClick={() => sdk.actions.viewProfile({ fid: fan.fid })}
-          className={`rounded-full border-2 ${getBorderColor(fan.fid)} focus:outline-none`}
+          className={`rounded-full border-2 ${getBorderColor(fan.fid)} focus:outline-none w-6 h-6 flex items-center justify-center`}
         >
           <Image
             src={fan.pfp}
             alt={`Fan ${fan.fid}`}
             width={20}
             height={20}
-            className="rounded-full aspect-square object-cover"
+            className="rounded-full aspect-square object-cover w-5 h-5"
           />
         </button>
       ))
@@ -571,7 +575,7 @@ useEffect(() => {
               <pre className="text-sm whitespace-pre-wrap break-words mb-4">{gameContext}</pre>
             </div>
           )}
-          {ssGames.length > 0 && (
+          {/* {ssGames.length > 0 && (
             <div className="mt-4 space-y-2">
               <h4 className="text-notWhite font-semibold mb-2">ScoreSquare Games:</h4>
               {ssGames.map((game) => (
@@ -679,7 +683,7 @@ useEffect(() => {
                 </Link>
               ))}
             </div>
-          )}
+          )} */}
           {/* <div className="mt-4">
             <ContestScoreSquare 
               home={event.competitions?.[0]?.competitors?.[0]?.team?.abbreviation || ''} 
