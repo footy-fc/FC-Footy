@@ -95,7 +95,8 @@ const SettingsFollowClubs: React.FC<SettingsFollowClubsProps> = ({ onSave }) => 
         !isMiniAppLoading
       ) {
         try {
-          // Always prompt to add mini app for notifications, regardless of current environment
+          if (!sdk || !sdk?.actions?.addMiniApp) return;
+          await sdk.actions.ready();
           await sdk.actions.addMiniApp();
           setHasPromptedMiniApp(true);
           console.log('Prompted user to add mini app for notifications');
