@@ -33,7 +33,7 @@ const SettingsFollowClubs: React.FC<SettingsFollowClubsProps> = ({ onSave }) => 
   const [transactionError, setTransactionError] = useState<string | null>(null);
   const [hasPromptedMiniApp, setHasPromptedMiniApp] = useState<boolean>(false);
   
-  const { isMiniApp, isLoading: isMiniAppLoading } = useMiniAppDetection();
+  const { isLoading: isMiniAppLoading } = useMiniAppDetection();
 
   useEffect(() => {
     const fetchContext = async () => {
@@ -88,11 +88,10 @@ const SettingsFollowClubs: React.FC<SettingsFollowClubsProps> = ({ onSave }) => 
       onSave?.(updatedFavTeams);
       setTransactionError(null); // Clear error on success
 
-      // Prompt to add mini app if this is their first team and they're not already in a mini app
+      // Prompt to add mini app for notifications if this is their first team
       if (
         !hasPromptedMiniApp && 
         updatedFavTeams.length === 1 && 
-        !isMiniApp && 
         !isMiniAppLoading
       ) {
         try {
@@ -100,6 +99,7 @@ const SettingsFollowClubs: React.FC<SettingsFollowClubsProps> = ({ onSave }) => 
           await sdk.actions.ready();
           await sdk.actions.addMiniApp();
           setHasPromptedMiniApp(true);
+          console.log('Prompted user to add mini app for notifications');
         } catch (error) {
           console.log('User rejected mini app prompt or already has it added', error);
           setHasPromptedMiniApp(true);
