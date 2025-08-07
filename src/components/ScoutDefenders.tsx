@@ -23,15 +23,26 @@ interface ScoutDefendersProps {
 const ScoutDefenders: React.FC<ScoutDefendersProps> = ({ playersIn }) => {
   const BASE_URL = 'fc-footy.vercel.app'; // Example base URL for embedding
 
-  const handleCastClick = (player: Players, rank: number) => {
+  const handleCastClick = async (player: Players, rank: number) => {
     const summary = `FC-FEPL: ${player.webName} from ${player.team} is #${rank} in defender rank with an enhanced expected goals conceded (xGC) of ${
       ((player.xgi90 * 5) - player.xgc90).toFixed(2)
     }.\n\nThe ExGC is calculated as 5x expected goal involvement (xGI) per 90 minutes minus expected goals conceded (xGC) per 90 minutes. Higher numbers are better. \n\nCheck out the full list of top defenders in the FC Footy app cc @gabedev.eth @kmacb.eth`;
 
-    const encodedSummary = encodeURIComponent(summary);
-    const url = `https://warpcast.com/~/compose?text=${encodedSummary}&channelKey=football&embeds[]=${BASE_URL}/?tab=scout%20Players&embeds[]=https://resources.premierleague.com/premierleague/photos/players/250x250/p${player.photo.replace(/\.[^/.]+$/, '.png')}`;
-    console.log(url);
-    sdk.actions.openUrl(url); // Use the Farcaster SDK to open the URL
+    const shareUrl = `${BASE_URL}/?tab=scout%20Players`;
+
+    try {
+      // Validate player photo URL before using it
+      const photoUrl = player.photo && player.photo !== '/defifa_spinner.gif' 
+        ? player.photo 
+        : undefined;
+      
+      await sdk.actions.composeCast({
+        text: summary,
+        embeds: photoUrl ? [shareUrl, photoUrl] : [shareUrl],
+      });
+    } catch (error) {
+      console.error('Failed to compose cast:', error);
+    }
   };
 
   // Filter players based on minutes and position (Defenders only)

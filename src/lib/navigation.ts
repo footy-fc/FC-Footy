@@ -5,6 +5,7 @@ export const tabDisplayMap: Record<string, string> = {
     rewards: "Rewards",
     scoutPlayers: "Scout Players",
     // moneyGames: "Money Games",
+    oCaptain: "O'Captain",
     extraTime: "Extra Time",
     settings: "Settings",
   };

@@ -60,6 +60,8 @@ export const fetchPlayerElements = async () => {
       acc[team.id] = team.name;
       return acc;
     }, {});
+    
+
 
     // Process the players and add necessary data
     const playersWithStats = data.elements.map((player: Player) => {
@@ -76,8 +78,7 @@ export const fetchPlayerElements = async () => {
         expected_assists_per_90: player.expected_assists_per_90,
         minutes: player.minutes,
         position: positionNames[player.element_type],
-        photo: player.photo,
-        code: player.code
+        photo: player.code
           ? `https://resources.premierleague.com/premierleague/photos/players/250x250/p${player.code}.png`
           : '/defifa_spinner.gif',
         team: teamName,

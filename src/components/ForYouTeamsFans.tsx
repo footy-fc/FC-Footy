@@ -9,6 +9,7 @@ import ContentLiveChat from './ContentLiveChat';
 import { getAlikeFanMatches } from "./utils/getAlikeFanMatches";
 import type { FanPair } from "./utils/getAlikeFanMatches";
 import { fetchFanUserData } from './utils/fetchFCProfile';
+import OCaptainFPLPrompt from './ocaptain/OCaptainFPLPrompt';
 
 type TeamLink = {
   href: string;
@@ -303,7 +304,7 @@ const ForYouTeamsFans: React.FC<{ showLiveChat: boolean; setShowLiveChat: (val: 
               )}
             </div>
                     {/* New affordance added below the team followers */}
-        <div className="mt-4 text-center">
+{/*         <div className="mt-4 text-center">
           <p className="text-lightPurple text-sm">
             Connect with fellow fans and share your passion for the beautiful game!
           </p>
@@ -344,6 +345,11 @@ const ForYouTeamsFans: React.FC<{ showLiveChat: boolean; setShowLiveChat: (val: 
               {loadingMatches ? 'Loading...' : 'Fans like you'}
             </button>
           </div>
+        </div> */}
+        
+        {/* FPL League Section */}
+        <div className="mt-6">
+          <OCaptainFPLPrompt />
         </div>
         {showMatchUps && (
           <div className="mt-4">

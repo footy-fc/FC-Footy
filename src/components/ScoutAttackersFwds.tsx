@@ -23,7 +23,7 @@ interface ScoutAttackersFwdsProps {
 const ScoutAttackersFwds: React.FC<ScoutAttackersFwdsProps> = ({ playersIn }) => {
   // const BASE_URL = 'fc-footy.vercel.app'; // Example base URL for embedding
 
-  const handleCastClick = (player: Players, rank: number) => {
+  const handleCastClick = async (player: Players, rank: number) => {
     // Construct the base URL dynamically using window.location
     const baseUrl = window.location.origin + window.location.pathname;
     
@@ -35,20 +35,19 @@ const ScoutAttackersFwds: React.FC<ScoutAttackersFwdsProps> = ({ playersIn }) =>
       (player.expected_assists_per_90 * 3 + player.expected_goals_per_90 * 5).toFixed(2)
     }. \n \nThe xGI for a player per 90 minutes is calculated by weighting assists (x3) and goals (x5). Larger values are better.\n \nCheck out the full list of top attackers in the FC Footy app cc @gabedev.eth @kmacb.eth`;
   
-    // Encode the summary and share URL
-    const encodedSummary = encodeURIComponent(summary);
-    const encodedShareUrl = encodeURIComponent(shareUrl);
-    
-    // Construct the player image URL
-    const playerImageUrl = encodeURIComponent(`https://resources.premierleague.com/premierleague/photos/players/250x250/p${player.photo.replace(/\.[^/.]+$/, '.png')}`);
-    
-    // Build the Warpcast intent URL with the share URL and player image
-    const castIntentUrl = `https://warpcast.com/~/compose?text=${encodedSummary}&channelKey=football&embeds[]=${encodedShareUrl}&embeds[]=${playerImageUrl}`;
-    
-    console.log("Cast Intent URL: ", castIntentUrl);
-    
-    // Open the URL using the Farcaster SDK
-    sdk.actions.openUrl(castIntentUrl);
+    try {
+      // Validate player photo URL before using it
+      const photoUrl = player.photo && player.photo !== '/defifa_spinner.gif' 
+        ? player.photo 
+        : undefined;
+      
+      await sdk.actions.composeCast({
+        text: summary,
+        embeds: photoUrl ? [shareUrl, photoUrl] : [shareUrl],
+      });
+    } catch (error) {
+      console.error('Failed to compose cast:', error);
+    }
   };
 
   const filteredPlayers = playersIn.filter(player => player.minutes > 400 && player.position === 'Fwd');
