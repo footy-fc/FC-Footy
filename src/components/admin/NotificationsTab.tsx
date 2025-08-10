@@ -63,7 +63,7 @@ export default function NotificationsTab({
     { value: "matches", label: "Matches" },
     // { value: "contests", label: "Contests" },
     { value: "rewards", label: "Rewards" },
-    // { value: "moneyGames", label: "Money Games" },
+    { value: "moneyGames", label: "ScoreSquare" },
     { value: "forYou", label: "For You" },
     { value: "scoutPlayers", label: "Scout Players" },
     { value: "extraTime", label: "Extra Time" },
