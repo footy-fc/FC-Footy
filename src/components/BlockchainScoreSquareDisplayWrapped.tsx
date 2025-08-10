@@ -386,6 +386,7 @@ useEffect(() => {
                   buttonText="Share"
                   compositeImage={true}
                   leagueId={leagueId}
+                  moneyGamesParams={{ eventId: gameDataState?.eventId || '' }}
                 />
               );
             })()}

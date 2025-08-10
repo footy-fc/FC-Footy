@@ -115,9 +115,13 @@ interface WarpcastShareButtonProps {
   compositeImage?: boolean;
   fallbackLeague?: string;
   leagueId?: string;
+  moneyGamesParams?: {
+    eventId: string;
+    gameId?: string;
+  };
 }
 
-export function WarpcastShareButton({ selectedMatch, buttonText, compositeImage, fallbackLeague, leagueId }: WarpcastShareButtonProps) {
+export function WarpcastShareButton({ selectedMatch, buttonText, compositeImage, fallbackLeague, leagueId, moneyGamesParams }: WarpcastShareButtonProps) {
   const [context, setContext] = useState<unknown>(undefined);
   const [isContextLoaded, setIsContextLoaded] = useState(false);
   const searchParams = useSearchParams();
@@ -168,9 +172,22 @@ export function WarpcastShareButton({ selectedMatch, buttonText, compositeImage,
 
       const search = new URLSearchParams();
 
-      search.set("tab", "matches");
-      if (leagueId) {
-        search.set("league", leagueId);
+      if (moneyGamesParams) {
+        search.set("tab", "moneyGames");
+        search.set("gameType", "scoreSquare");
+        search.set("gameState", "active");
+        search.set("eventId", moneyGamesParams.eventId);
+        if (moneyGamesParams.gameId) {
+          search.set("gameId", moneyGamesParams.gameId);
+        }
+        if (leagueId) {
+          search.set("league", leagueId);
+        }
+      } else {
+        search.set("tab", "matches");
+        if (leagueId) {
+          search.set("league", leagueId);
+        }
       }
 
       const currentQuery = search.toString() ? `?${search.toString()}` : "";
@@ -212,7 +229,7 @@ export function WarpcastShareButton({ selectedMatch, buttonText, compositeImage,
         console.error('composeCast failed:', e);
       }
     }
-  }, [selectedMatch, context, searchParams, compositeImage, fallbackLeague, leagueId]);
+  }, [selectedMatch, context, searchParams, compositeImage, fallbackLeague, leagueId, moneyGamesParams]);
 
   return (
     <button
