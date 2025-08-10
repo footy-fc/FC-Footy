@@ -454,13 +454,45 @@ Try your luck. Halftime score gets 25 percent of the pool, final score winner ge
               handleTapSquare={(index) => {
                 if (isReferee && gameState === "waiting for VAR") {
                   setSelectedWinners((prev) => {
-                    if (prev.final === null) {
-                      return { ...prev, final: index };
-                    } else if (prev.halftime === null) {
-                      return { ...prev, halftime: index };
-                    } else {
+                    // Prevent duplicate selection
+                    if (prev.halftime === index || prev.final === index) {
                       return prev;
                     }
+
+                    // Always select halftime first
+                    if (prev.halftime === null) {
+                      return { ...prev, halftime: index };
+                    }
+
+                    // Selecting final second: validate halftime <= final component-wise
+                    if (prev.final === null) {
+                      const decode = (i: number) => ({ h: Math.floor(i / 5), a: i % 5 });
+                      const normalize = (v: number) => (v === 4 ? 100 : v); // 4 represents 4+
+                      const ht = decode(prev.halftime);
+                      const ft = decode(index);
+                      const htHome = normalize(ht.h);
+                      const htAway = normalize(ht.a);
+                      const ftHome = normalize(ft.h);
+                      const ftAway = normalize(ft.a);
+
+                      // If equal, follow rule: only select one square (do not set final)
+                      const isEqual = htHome === ftHome && htAway === ftAway;
+                      if (isEqual) {
+                        alert("Halftime and final are the same. Only select one square.");
+                        return prev;
+                      }
+
+                      // Enforce halftime <= final for both teams
+                      const isValidProgression = htHome <= ftHome && htAway <= ftAway;
+                      if (!isValidProgression) {
+                        alert("Invalid selection: halftime score must be less than or equal to final for both teams.");
+                        return prev;
+                      }
+
+                      return { ...prev, final: index };
+                    }
+
+                    return prev;
                   });
                 }
               }}

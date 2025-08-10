@@ -108,8 +108,11 @@ const BlockchainScoreSquareCreateDetails: React.FC<BlockchainScoreSquareCreateDe
   const [squarePrice, setSquarePrice] = useState<string>("0.001");
   const [deployerFeePercent, setDeployerFeePercent] = useState<number>(4);
   const [referee, setReferee] = useState<string>("");
-  const [selectedSportId, setSelectedSportId] = useState<string>(sportId);
+  // Restrict to EPL only for now, but keep as a dropdown for future leagues
+  const [selectedSportId, setSelectedSportId] = useState<string>('eng.1');
   const [latestSportId, setLatestSportId] = useState(selectedSportId);
+  const [ethUsdPrice, setEthUsdPrice] = useState<number>(0);
+  const [priceError, setPriceError] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -118,6 +121,7 @@ const BlockchainScoreSquareCreateDetails: React.FC<BlockchainScoreSquareCreateDe
   const [selectedMatchId, setSelectedMatchId] = useState<string>("");
   const [availableMatches, setAvailableMatches] = useState<Match[]>([]);
   const [showInstructions, setShowInstructions] = useState(false);
+  const [currentFid, setCurrentFid] = useState<number | null>(null);
 
   const { address } = useAccount();
   const { events, loading: eventsLoading, error: eventsError } = useEventsData(selectedSportId);
@@ -166,6 +170,58 @@ const BlockchainScoreSquareCreateDetails: React.FC<BlockchainScoreSquareCreateDe
       setReferee(address);
     }
   }, [address, referee]);
+
+  // Fetch Farcaster FID for gating
+  useEffect(() => {
+    const loadFid = async () => {
+      try {
+        await sdk.actions.ready({});
+        const context = await sdk.context;
+        const fid = context?.user?.fid;
+        if (typeof fid === 'number') setCurrentFid(fid);
+      } catch {
+        // ignore
+      }
+    };
+    loadFid();
+  }, []);
+
+  const canDeploy = currentFid === 4163 || currentFid === 420564;
+
+  const handleRequestReferee = async () => {
+    try {
+      await sdk.haptics.impactOccurred('medium');
+    } catch {}
+    try {
+      await sdk.actions.composeCast({
+        text: "Hey @kmacb.eth, I'd like to be a ScoreSquare referee on Footy.",
+        embeds: [],
+      });
+    } catch (e) {
+      console.error('composeCast failed:', e);
+    }
+  };
+
+  // Fetch ETH -> USD price for display
+  useEffect(() => {
+    let cancelled = false;
+    const fetchEthUsd = async () => {
+      try {
+        setPriceError(null);
+        const res = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd');
+        if (!res.ok) throw new Error('Failed to fetch ETH price');
+        const data = await res.json();
+        if (!cancelled) {
+          const price = Number(data?.ethereum?.usd || 0);
+          if (price > 0) setEthUsdPrice(price);
+        }
+      } catch (e) {
+        if (!cancelled) setPriceError('');
+      }
+    };
+    fetchEthUsd();
+    return () => { cancelled = true; };
+  }, []);
 
   // Process events data to get available matches
   useEffect(() => {
@@ -355,6 +411,11 @@ const BlockchainScoreSquareCreateDetails: React.FC<BlockchainScoreSquareCreateDe
         )}
 
         {message && <div className="mb-4 text-sm text-center text-green-500">{message}</div>}
+        {!canDeploy && (
+          <div className="mb-4 text-sm text-center text-yellow-500">
+            Only approved referees can create games.
+          </div>
+        )}
         {error && (
           <div className="mb-4 text-sm text-center text-deepPink">
             <p className="font-bold">Error:</p>
@@ -381,10 +442,24 @@ const BlockchainScoreSquareCreateDetails: React.FC<BlockchainScoreSquareCreateDe
             </a>
           </div>
         )}
+        {!canDeploy ? (
+          <div className="p-3 bg-gray-800/60 border border-gray-700 rounded text-center text-sm text-lightPurple space-y-3">
+            <div>
+              You don’t have permission to create ScoreSquare games. Please contact an admin to be added as a referee.
+            </div>
+            <button
+              type="button"
+              onClick={handleRequestReferee}
+              className="inline-flex items-center justify-center px-4 py-2 rounded bg-deepPink hover:bg-fontRed text-white"
+            >
+              Request referee access
+            </button>
+          </div>
+        ) : (
         <form onSubmit={handleSubmit} className="space-y-4">
         <div>
           <label className="block text-notWhite font-semibold mb-1">League/Competition:</label>
-          <select 
+          <select
             value={selectedSportId}
             onChange={(e) => {
               setSelectedSportId(e.target.value);
@@ -394,14 +469,8 @@ const BlockchainScoreSquareCreateDetails: React.FC<BlockchainScoreSquareCreateDe
               setBlockchainEventId("");
             }}
             className="bg-darkPurple text-lightPurple border border-limeGreenOpacity p-2 rounded w-full focus:outline-none focus:ring-2 focus:ring-limeGreenOpacity"
-            required
           >
-            <option className="text-lightPurple" value="">-- Select a League/Competition --</option>
-            <option className="text-lightPurple" value="fifa.worldq.afc">World Cup Qualifiers (Asia)</option>
-            <option className="text-lightPurple" value="fifa.worldq.conmebol">World Cup Qualifiers (S.America)</option>
-            <option className="text-lightPurple" value="fifa.worldq.uefa">World Cup Qualifiers (Europe)</option>
-            <option className="text-lightPurple" value="fifa.worldq.concacaf">World Cup Qualifiers (N.America)</option>
-            <option className="text-lightPurple" value="fifa.worldq.caf">World Cup Qualifiers (Africa)</option>
+            <option className="text-lightPurple" value="eng.1">Premier League (EPL)</option>
           </select>
         </div>
         
@@ -439,6 +508,11 @@ const BlockchainScoreSquareCreateDetails: React.FC<BlockchainScoreSquareCreateDe
             className="bg-darkPurple text-lightPurple border border-limeGreenOpacity p-2 rounded w-full focus:outline-none focus:ring-2 focus:ring-limeGreenOpacity" 
             required 
           />
+          {ethUsdPrice > 0 && !Number.isNaN(parseFloat(squarePrice)) && (
+            <div className="mt-1 text-xs text-gray-400">
+              ≈ ${ (parseFloat(squarePrice || '0') * ethUsdPrice).toFixed(2) } USD
+            </div>
+          )}
         </div>
         
       <div className="hidden">
@@ -497,7 +571,7 @@ const BlockchainScoreSquareCreateDetails: React.FC<BlockchainScoreSquareCreateDe
           </label>
         </div>
 
-     <button 
+      <button 
           type="submit"
           onClick={async () => {
             try {
@@ -506,9 +580,9 @@ const BlockchainScoreSquareCreateDetails: React.FC<BlockchainScoreSquareCreateDe
               // ignore haptics errors
             }
           }}
-          disabled={loading || isConfirming || !address || (!homeTeam && !awayTeam) || !instructionsAcknowledged}
+          disabled={loading || isConfirming || !address || (!homeTeam && !awayTeam) || !instructionsAcknowledged || !canDeploy}
           className={`w-full px-4 py-2 rounded font-semibold ${
-            loading || isConfirming || !address || (!homeTeam && !awayTeam)
+            loading || isConfirming || !address || (!homeTeam && !awayTeam) || !canDeploy
               ? 'bg-gray-500 cursor-not-allowed' 
               : 'bg-deepPink hover:bg-fontRed'
           } text-white`}
@@ -519,9 +593,12 @@ const BlockchainScoreSquareCreateDetails: React.FC<BlockchainScoreSquareCreateDe
               ? 'Confirming Transaction...'
               : !address 
                 ? 'Connect Wallet to Deploy' 
-                : 'Deploy Game'}
+                : !canDeploy
+                  ? 'Not Authorized'
+                  : 'Deploy Game'}
         </button>
         </form>
+        )}
       </div>
     </>
   );

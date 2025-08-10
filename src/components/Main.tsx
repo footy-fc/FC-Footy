@@ -10,7 +10,7 @@ import MatchesTab from "./MatchesTab";
 // import Contests from "./Contests";
 import ContentTab from "./ContentTab";
 import Settings from "./Settings";
-// import MoneyGames from "./MoneyGames";
+import MoneyGames from "./MoneyGames";
 import OCaptain from "./OCaptain";
 import ForYou from "./ForYou";
 import { tabDisplayMap } from "../lib/navigation";
@@ -176,14 +176,14 @@ export default function Main() {
                 />
               )}
               {/* {selectedTab === "contests" && <Contests />} */}
-              {/* {selectedTab === "moneyGames" && <MoneyGames />} */}
+              {selectedTab === "moneyGames" && <MoneyGames />}
               {selectedTab === "oCaptain" && <OCaptain />}
               {selectedTab === "rewards" && <Rewards />}
               {selectedTab === "extraTime" && <ContentTab />}
               {selectedTab === "settings" && <Settings />}
               {selectedTab === "forYou" && <ForYou />}
               {selectedTab === "scoutPlayers" && <Scout />}
-              {!["forYou", "matches", /* "contests", */ "scoutPlayers", "oCaptain", "rewards", "extraTime", "settings"].includes(selectedTab) && (
+              {!["forYou", "matches", /* "contests", */ "scoutPlayers", "moneyGames", "oCaptain", "rewards", "extraTime", "settings"].includes(selectedTab) && (
                 <div className="text-center text-lg text-fontRed">Coming soon...</div>
               )}
             </div>
@@ -216,14 +216,14 @@ export default function Main() {
               />
             )}
             {/* {selectedTab === "contests" && <Contests />} */}
-            {/* {selectedTab === "moneyGames" && <MoneyGames />} */}
+            {selectedTab === "moneyGames" && <MoneyGames />}
             {selectedTab === "oCaptain" && <OCaptain />}
             {selectedTab === "rewards" && <Rewards />}
             {selectedTab === "extraTime" && <ContentTab />}
             {selectedTab === "settings" && <Settings />}
             {selectedTab === "forYou" && <ForYou />}
             {selectedTab === "scoutPlayers" && <Scout />}
-            {!["forYou", "matches", /* "contests", */ "scoutPlayers", "oCaptain", "rewards", "extraTime", "settings"].includes(selectedTab) && (
+            {!["forYou", "matches", /* "contests", */ "scoutPlayers", "moneyGames", "oCaptain", "rewards", "extraTime", "settings"].includes(selectedTab) && (
               <div className="text-center text-lg text-fontRed">Coming soon...</div>
             )}
           </div>

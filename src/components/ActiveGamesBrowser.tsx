@@ -67,7 +67,7 @@ const getGameStatus = (game: SubgraphGame) => {
   if (ticketsLeft <= 5) return { status: 'Almost Full', color: 'text-orange-400', bgColor: 'bg-orange-400/20' };
   if (progressPercentage >= 50) return { status: 'Half Full', color: 'text-yellow-400', bgColor: 'bg-yellow-400/20' };
   if (progressPercentage >= 25) return { status: 'Getting Busy', color: 'text-blue-400', bgColor: 'bg-blue-400/20' };
-  return { status: 'Just Started', color: 'text-green-400', bgColor: 'bg-green-400/20' };
+  return { status: 'Recently Deployed', color: 'text-green-400', bgColor: 'bg-green-400/20' };
 };
 
 const ActiveGamesBrowser: React.FC<ActiveGamesBrowserProps> = ({ initialGameId }) => {
@@ -79,8 +79,9 @@ const ActiveGamesBrowser: React.FC<ActiveGamesBrowserProps> = ({ initialGameId }
   );
   const [isLoadingGame, setIsLoadingGame] = useState<boolean>(false);
   const [showInstructions, setShowInstructions] = useState(false);
-  const [sortBy, setSortBy] = useState<'recent' | 'popular' | 'ending'>('recent');
-  const [filterLeague, setFilterLeague] = useState<string>('all');
+  // Hide sort/filter affordances for now; keep defaults internally
+  const [sortBy] = useState<'recent' | 'popular' | 'ending'>('recent');
+  const [filterLeague] = useState<string>('all');
 
   const { data, loading, error } = useGames(20, 0);
   
@@ -145,6 +146,29 @@ const ActiveGamesBrowser: React.FC<ActiveGamesBrowserProps> = ({ initialGameId }
     });
     return Array.from(leagues).sort();
   }, [data?.games]);
+
+  // Simple USD price fetcher for ETH affordance
+  const [ethUsdPrice, setEthUsdPrice] = React.useState<number>(0);
+  React.useEffect(() => {
+    let cancelled = false;
+    const fetchPrice = async () => {
+      try {
+        const res = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd');
+        const data = await res.json();
+        if (!cancelled) setEthUsdPrice(Number(data?.ethereum?.usd || 0));
+      } catch {}
+    };
+    fetchPrice();
+    return () => { cancelled = true; };
+  }, []);
+
+  const PrizeUsdHint: React.FC<{ ethAmount: number }> = ({ ethAmount }) => {
+    if (!ethUsdPrice || isNaN(ethAmount)) return null;
+    const usd = ethAmount * ethUsdPrice;
+    return (
+      <div className="text-xs text-gray-400">≈ ${usd.toFixed(2)} USD</div>
+    );
+  };
 
   const handleGameSelect = (gameId: string) => {
     setSelectedGame(gameId);
@@ -218,40 +242,10 @@ const ActiveGamesBrowser: React.FC<ActiveGamesBrowserProps> = ({ initialGameId }
   
       {showInstructions && <UserInstructions />}
 
-      {/* Filters and Sorting */}
-      <div className="flex flex-wrap gap-4 mb-6">
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-gray-400">Sort by:</span>
-          <select
-            value={sortBy}
-            onChange={(e) => setSortBy(e.target.value as 'recent' | 'popular' | 'ending')}
-            className="bg-gray-700 text-white text-sm rounded-lg px-3 py-1 border border-gray-600"
-          >
-            <option value="recent">Most Recent</option>
-            <option value="popular">Most Popular</option>
-            <option value="ending">Ending Soon</option>
-          </select>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-gray-400">League:</span>
-          <select
-            value={filterLeague}
-            onChange={(e) => setFilterLeague(e.target.value)}
-            className="bg-gray-700 text-white text-sm rounded-lg px-3 py-1 border border-gray-600"
-          >
-            <option value="all">All Leagues</option>
-            {availableLeagues.map(league => (
-              <option key={league} value={league}>
-                {getLeagueDisplayName(league)}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
+      {/* Filters and Sorting hidden for now (limited referees/games) */}
   
       <div className="grid grid-cols-1 gap-4">
-        {activeGames.map((game: SubgraphGame) => {
+        {activeGames.map((game: SubgraphGame, idx: number) => {
           const eventDetails = parseEventId(game.eventId) || { homeTeam: "", awayTeam: "", leagueId: "" };
           const squarePriceEth = parseFloat(formatEther(BigInt(game.squarePrice)));
           const deployerFee = (game.deployerFeePercent / 100) * (25 * squarePriceEth);
@@ -267,7 +261,7 @@ const ActiveGamesBrowser: React.FC<ActiveGamesBrowserProps> = ({ initialGameId }
 
           return (
             <div
-              key={game.id}
+              key={`${game.id}-${idx}`}
               className="bg-gray-800 rounded-lg p-4 border border-gray-700 hover:border-limeGreenOpacity transition-all duration-300 cursor-pointer flex flex-col justify-between shadow-lg hover:shadow-xl"
               onClick={() => handleGameSelect(game.gameId)}
             >
@@ -370,6 +364,7 @@ const ActiveGamesBrowser: React.FC<ActiveGamesBrowserProps> = ({ initialGameId }
                     Prize Pool
                   </div>
                   <div className="text-lg font-bold text-limeGreenOpacity">{finalPrizePool.toFixed(4)} ETH</div>
+                  <PrizeUsdHint ethAmount={finalPrizePool} />
                   <div className="text-xs text-gray-400 mt-1">Game ID: {game.gameId}</div>
                 </div>
   

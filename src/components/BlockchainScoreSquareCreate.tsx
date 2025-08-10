@@ -23,7 +23,7 @@ const BlockchainScoreSquareCreate: React.FC = () => {
           Connect
         </button>
       )}
-      <div className="mt-6 text-center text-xs text-gray-400">
+{/*       <div className="mt-6 text-center text-xs text-gray-400">
         <p>All games are stored on the Base blockchain.</p>
         <p>
           Contract:{" "}
@@ -36,7 +36,7 @@ const BlockchainScoreSquareCreate: React.FC = () => {
             0x6147b9AB63496aCE7f3D270F8222e09038FD0870
           </a>
         </p>
-      </div>
+      </div> */}
     </div>
   );
 };

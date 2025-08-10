@@ -13,7 +13,7 @@ const ContentTab = () => {
   return (
     <div className="mb-4">
       {/* Horizontal Scrollable Menu for Tabs */}
-      <h2 className="font-2xl text-notWhite font-bold mb-4"> Live match chat and deep dives</h2>        
+      <h2 className="font-2xl text-notWhite font-bold mb-4"> Community builders</h2>        
       <div className="flex overflow-x-auto space-x-4 mb-4">
 {/*         <button
           onClick={() => handleTabSelect("liveChat")}
@@ -30,7 +30,7 @@ const ContentTab = () => {
             selectedTab === "falseNine" ? "border-limeGreenOpacity text-lightPurple" : "border-gray-500 text-gray-500"
           }`}
         >
-          The False Nine
+          FalseNine
         </button>
 
         <button
@@ -39,7 +39,7 @@ const ContentTab = () => {
           }}
           className="flex-shrink-0 py-1 px-6 text-sm font-semibold cursor-pointer rounded-full border-2 border-gray-500 text-gray-500"
         >
-          Fantasy Managers
+          FML
         </button>
       </div>
 
