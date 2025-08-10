@@ -283,19 +283,16 @@ const ForYouTeamsFans: React.FC<Props> = ({ showLiveChat }) => {
                       <button
                         key={fan.fid}
                         onClick={() => sdk.actions.viewProfile({ fid: fan.fid })}
-                        className="focus:outline-none"
+                        className={`rounded-full border-2 focus:outline-none w-6 h-6 flex items-center justify-center ${
+                          fan.mutual ? 'border-purple-500' : fan.youFollow ? 'border-limeGreen' : 'border-fontRed'
+                        }`}
                       >
                         <Image
                           src={fan.pfp}
                           alt={`Fan ${fan.fid}`}
-                          width={28}
-                          height={28}
-                          className={`rounded-full ${
-                            fan.fid === undefined ? '' :
-                            fan.mutual ? 'ring-2 ring-purple-500' :
-                            fan.youFollow ? 'ring-2 ring-limeGreen' :
-                            'ring-2 ring-fontRed'
-                          }`}
+                          width={20}
+                          height={20}
+                          className="rounded-full aspect-square object-cover w-5 h-5"
                         />
                       </button>
                     ))

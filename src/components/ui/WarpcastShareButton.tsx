@@ -179,57 +179,39 @@ export function WarpcastShareButton({ selectedMatch, buttonText, compositeImage,
 
       // Build the match summary and encode it
       const matchSummary = `${competitorsLong} ${keyMomentsText}\n\n@gabedev.eth @kmacb.eth are you watching this one?`;
-      const encodedSummary = encodeURIComponent(matchSummary);
 
-      let url = '';
-      let encodedMiniAppUrl = "";
+      let imageUrl = '';
 
       if (compositeImage) {
         try {
           const dataUrl = await generateCompositeImage(homeLogo, awayLogo, homeScore, awayScore, clock);
           const blob = await (await fetch(dataUrl)).blob();
-          const uploadRes = await fetch('/api/upload', {
-            method: 'POST',
-            body: blob,
-          });
+          const uploadRes = await fetch('/api/upload', { method: 'POST', body: blob });
           const uploadResult = await uploadRes.json();
           if (!uploadRes.ok) throw new Error('Image upload failed');
-          
+
+          const gateway = (process.env.NEXT_PUBLIC_PINATAGATEWAY || 'https://gateway.pinata.cloud/ipfs').replace(/\/$/, '');
+          imageUrl = `${gateway}/${uploadResult.ipfsHash}`;
+
           const ipfsHashParam = `ipfsHash=${uploadResult.ipfsHash}`;
-          if (currentQuery) {
-            miniAppUrl += `&${ipfsHashParam}`;
-          } else {
-            miniAppUrl += `?${ipfsHashParam}`;
-          }
-          // Ensure the URL has the current origin.
-          const currentOrigin = window.location.origin;
-          const miniAppUrlObj = new URL(miniAppUrl);
-          if (miniAppUrlObj.origin !== currentOrigin) {
-            // Use a relative URL if origins differ.
-            const relativeUrl = miniAppUrlObj.pathname + miniAppUrlObj.search;
-            window.history.replaceState({}, '', relativeUrl);
-          } else {
-            window.history.replaceState({}, '', miniAppUrl);
-          }
-          // console.log("Updated miniAppUrl:", miniAppUrl);
-          encodedMiniAppUrl = encodeURIComponent(miniAppUrl);
-          url = `https://warpcast.com/~/compose?text=${encodedSummary}&channelKey=football&embeds[]=${encodedMiniAppUrl}`;
+          miniAppUrl += currentQuery ? `&${ipfsHashParam}` : `?${ipfsHashParam}`;
+          window.history.replaceState({}, '', miniAppUrl);
         } catch (error) {
           console.error("Error generating composite image:", error);
-          encodedMiniAppUrl = encodeURIComponent(miniAppUrl);
-          url = `https://warpcast.com/~/compose?text=${encodedSummary}&channelKey=football&embeds[]=${encodedMiniAppUrl}&embeds[]=${homeLogo}&embeds[]=${awayLogo}`;
         }
-      } else {
-        encodedMiniAppUrl = encodeURIComponent(miniAppUrl);
-        url = `https://warpcast.com/~/compose?text=${encodedSummary}&channelKey=football&embeds[]=${encodedMiniAppUrl}&embeds[]=${homeLogo}&embeds[]=${awayLogo}`;
       }
 
-      // console.log(context);
-      if (context === undefined) {
-        // window.open(url, '_blank');
-        sdk.actions.openUrl(url);
-      } else {
-        sdk.actions.openUrl(url);
+      let embeds: [] | [string] | [string, string] = [miniAppUrl];
+      if (imageUrl) {
+        embeds = [miniAppUrl, imageUrl];
+      } else if (homeLogo) {
+        embeds = [miniAppUrl, homeLogo];
+      }
+      try {
+        await sdk.actions.ready({});
+        await sdk.actions.composeCast({ text: matchSummary, embeds });
+      } catch (e) {
+        console.error('composeCast failed:', e);
       }
     }
   }, [selectedMatch, context, searchParams, compositeImage, fallbackLeague, leagueId]);

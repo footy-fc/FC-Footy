@@ -25,7 +25,7 @@ const fetchRevnetShields = async (projectId: number, chainId: number) => {
 export default function BuyPoints() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const baseMemo = 'score square contribution';
-  const [ethAmount, setEthAmount] = useState('0.1');
+  const [ethAmount, setEthAmount] = useState('0.01');
   const [showInstructions, setShowInstructions] = useState(false);
   const { address } = useAccount();
   const { writeContractAsync } = useWriteJbMultiTerminalPay();
@@ -236,12 +236,12 @@ export default function BuyPoints() {
             className="form-checkbox text-limeGreen rounded"
           />
           <label htmlFor="agree" className="text-sm text-lightPurple">
-            I have read and agree to the <button onClick={() => setShowInstructions(true)} className="underline text-deepPink hover:text-fontRed">rules</button>.
+            I have read and agree to the <button onClick={() => setShowInstructions(true)} className="underline text-deepPink hover:text-fontRed">terms</button>.
           </label>
         </div>
         {isPrivileged && (
           <div className="flex items-center mt-3 gap-2">
-            <label htmlFor="toggleAddToBalance" className="text-sm text-lightPurple">Use addToBalanceOf</label>
+            <label htmlFor="toggleAddToBalance" className="text-sm text-lightPurple">Contribute ScoreSquare fees</label>
             <button
               id="toggleAddToBalance"
               type="button"
@@ -274,6 +274,8 @@ export default function BuyPoints() {
             ? 'Confirmed ✅'
             : txStatus === 'failed'
             ? 'Failed ❌ — Try again'
+            : (isPrivileged && useAddToBalance)
+            ? 'ScoreSquare contribution'
             : `Buy for ${ethAmount || '...'} ETH`}
         </button>
       </div>

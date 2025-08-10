@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useAccount, useWriteContract, useWaitForTransactionReceipt, useContractRead } from 'wagmi';
-import { toPng } from 'html-to-image';
 import { useGameContext } from '../context/GameContext';
 import GameMetadataCard from './game/GameMetadataCard';
 import SquareGrid from './game/SquareGrid';
@@ -15,8 +14,10 @@ import NotificationBanner from './game/NotificationBanner';
 import UserInstructions from './UserInstructions';
 import { SCORE_SQUARE_ADDRESS } from '../lib/config';
 import SquareGridPlaceholder from './game/SquareGridPlaceholder';
-import { Info, RefreshCw, Share2 } from 'lucide-react';
-// import sdk from '@farcaster/frame-sdk';
+import { Info, RefreshCw } from 'lucide-react';
+import { WarpcastShareButton } from './ui/WarpcastShareButton';
+import { parseEventId } from '../utils/eventIdParser';
+import { getTeamLogo, getLeagueCode } from './utils/fetchTeamLogos';
 
 interface BlockchainScoreSquareDisplayProps {
   eventId: string;
@@ -73,6 +74,7 @@ const BlockchainScoreSquareDisplayWrapped: React.FC<BlockchainScoreSquareDisplay
     timeUntilMatch,
     matchEvents,
   } = useGameContext();
+  const { homeScore, awayScore } = useGameContext();
   const [pfpsLoaded, setPfpsLoaded] = useState(false);
   const [showInstructions, setShowInstructions] = useState(false);
   const [cart, setCart] = useState<number[]>([]);
@@ -240,70 +242,6 @@ useEffect(() => {
     }
   };
 
-const handleShareClick = async () => {
-  if (!gameDataState || !gameDataState.gameId) {
-    alert("Game ID is not available.");
-    return;
-  }
-
-  // Generate an image from the GameMetadataCard using html-to-image
-  // let imageUrl = "";
-  if (metadataRef.current) {
-    try {
-      const dataUrl = await toPng(metadataRef.current, { cacheBust: true });
-      // Convert the dataUrl to a blob
-      const blob = await (await fetch(dataUrl)).blob();
-      
-      // Upload the blob to your image upload endpoint
-      const uploadRes = await fetch('/api/upload', {
-        method: 'POST',
-        body: blob,
-      });
-      // const uploadResult = await uploadRes.json();
-      if (!uploadRes.ok) throw new Error('Image upload failed');
-      
-      // Construct the image URL (adjust the gateway URL as needed)
-      
-      // imageUrl = encodeURIComponent(`https://tan-hidden-whippet-249.mypinata.cloud/ipfs/${uploadResult.ipfsHash}`);
-    } catch (error) {
-      console.error("Error generating image: ", error);
-      alert("Failed to generate image for sharing.");
-      return;
-    }
-  }
-
-  // Construct the share URL as before
-  // const baseUrl = window.location.origin + window.location.pathname;
-  // const shareUrl = `${baseUrl}?tab=moneyGames&gameType=scoreSquare&gameId=${gameDataState.gameId}`;
-  
-  
-  const ticketsAvailable = gameDataState.ticketsSold !== undefined ? 25 - gameDataState.ticketsSold : 0;
-  
-  let fomoMessage = "Grab yours now before they're gone!";
-  if (ticketsAvailable <= 5) {
-    fomoMessage = "Hurry up, almost sold out!";
-  }
-  
-  // Prepare the share text
-  const funText = `⚽ Score Square - The Footy Final Score Lottery! ⚽
-
-Don't miss out only ${ticketsAvailable} tickets remaining 
-${fomoMessage}
-Try your luck. Halftime score gets 25 percent of the pool, final score winner gets 75 percent.`;
-  
-  const text = encodeURIComponent(funText);
-  console.log("Text to share: ", text);
-  // const encodedShareUrl = encodeURIComponent(shareUrl);
-  
-  // Build the Warpcast intent URL including both the share URL and the generated image URL (if available)
-  // const castIntentUrl = `https://warpcast.com/~/compose?text=${text}&embeds[]=${encodedShareUrl}${
-  //   imageUrl ? `&embeds[]=${imageUrl}` : ''
-  // }`;
-  
-  // window.open(castIntentUrl, '_blank');
-  // await sdk.actions.openUrl(castIntentUrl)
-};
-
   const isGridReady =
   gameDataState &&
   Array.isArray(derivedPlayers) &&
@@ -425,13 +363,32 @@ Try your luck. Halftime score gets 25 percent of the pool, final score winner ge
               </button>
             </div>
 
-            <button
-              onClick={handleShareClick}
-              className="flex items-center gap-2 bg-deepPink text-white px-4 py-2 rounded-lg hover:bg-fontRed transition font-medium"
-            >
-              <Share2 className="w-4 h-4" />
-              Share Game
-            </button>
+            {(() => {
+              const details = parseEventId(gameDataState?.eventId || '');
+              const home = details?.homeTeam || '';
+              const away = details?.awayTeam || '';
+              const leagueId = details?.leagueId || '';
+              const selectedMatch = {
+                homeTeam: home,
+                awayTeam: away,
+                competitorsLong: `${home} vs ${away}`,
+                homeLogo: getTeamLogo(home, getLeagueCode(leagueId)),
+                awayLogo: getTeamLogo(away, getLeagueCode(leagueId)),
+                homeScore: Number(homeScore) || 0,
+                awayScore: Number(awayScore) || 0,
+                clock: isMatchLive ? 'LIVE' : (timeUntilMatch || ''),
+                eventStarted: !!isMatchLive,
+                keyMoments: [],
+              };
+              return (
+                <WarpcastShareButton
+                  selectedMatch={selectedMatch}
+                  buttonText="Share"
+                  compositeImage={true}
+                  leagueId={leagueId}
+                />
+              );
+            })()}
           </div>
 
           {showInstructions && <UserInstructions />}
