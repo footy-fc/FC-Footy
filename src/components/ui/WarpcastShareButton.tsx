@@ -195,8 +195,11 @@ export function WarpcastShareButton({ selectedMatch, buttonText, compositeImage,
       // Build the base mini app URL from frameUrl and current query string.
       const miniAppUrl = `${frameUrl}${currentQuery}`;
 
-      // Build the match summary and encode it
-      const matchSummary = `${competitorsLong} ${keyMomentsText}\n\n@gabedev.eth @kmacb.eth are you watching this one?`;
+      // Build the cast text
+      const isMoneyGame = Boolean(moneyGamesParams);
+      const matchSummary = isMoneyGame
+        ? `${selectedMatch.homeTeam} v ${selectedMatch.awayTeam} ScoreSquare Lottery 🎟️ 25 squares, 2 winners.`
+        : `${competitorsLong} ${keyMomentsText}\n\n@gabedev.eth @kmacb.eth are you in on this one?`;
 
       //let imageUrl = '';
 

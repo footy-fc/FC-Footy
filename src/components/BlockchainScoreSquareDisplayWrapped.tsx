@@ -359,7 +359,7 @@ useEffect(() => {
                 onClick={() => setShowInstructions(!showInstructions)}
                 className="text-deepPink hover:text-fontRed focus:outline-none transition font-medium"
               >
-                {showInstructions ? "Hide Instructions" : "Show Instructions"}
+                {showInstructions ? "Hide Instructions" : "Need help?"}
               </button>
             </div>
 
