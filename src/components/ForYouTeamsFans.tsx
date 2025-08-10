@@ -351,7 +351,7 @@ const ForYouTeamsFans: React.FC<Props> = ({ showLiveChat }) => {
         
         {/* FPL League Section */}
         <div className="mt-6">
-          <OCaptainFPLPrompt />
+          {/* <OCaptainFPLPrompt /> */}
         </div>
         {showMatchUps && (
           <div className="mt-4">
