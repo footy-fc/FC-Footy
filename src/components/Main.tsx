@@ -142,9 +142,13 @@ export default function Main() {
   }, [isSDKLoaded]);
     useEffect(() => {
     const load = async () => {
-      if (!sdk || !sdk?.actions?.addFrame) return;
-      sdk.actions.ready({});
-      await sdk.actions.addMiniApp();
+      try {
+        if (!sdk || !sdk?.actions?.addMiniApp) return;
+        await sdk.actions.ready({});
+        // await sdk.actions.addMiniApp();
+      } catch (err) {
+        console.warn('addMiniApp failed (likely non-miniapp or dev env):', err);
+      }
     };
     load();
   }, []);

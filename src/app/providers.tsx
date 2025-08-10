@@ -8,7 +8,7 @@ import { base, degen, mainnet, optimism } from 'wagmi/chains';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ApolloProvider } from '@apollo/client';
 import { apolloClient } from '../lib/apollo-client';
-import { farcasterFrame as miniAppConnector } from '@farcaster/frame-wagmi-connector'
+import { farcasterMiniApp as miniAppConnector } from '@farcaster/miniapp-wagmi-connector';
 
 export const config = createConfig({
   chains: [base, optimism, mainnet, degen],
@@ -18,7 +18,9 @@ export const config = createConfig({
     [mainnet.id]: http(),
     [degen.id]: http(),
   },
-  connectors: [miniAppConnector()],
+  connectors: [
+    miniAppConnector()
+  ],
 });
 
 export function Providers({

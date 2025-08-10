@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { sdk } from "@farcaster/frame-sdk";
 import ContentFalseNine from "./ContentFalseNine";
 // import ContentLiveChat from "./ContentLiveChat";
 
@@ -30,6 +31,15 @@ const ContentTab = () => {
           }`}
         >
           The False Nine
+        </button>
+
+        <button
+          onClick={async () => {
+            await sdk.actions.openUrl("https://farcaster.xyz/miniapps/Zak_J0bS0z03/fantasy-manager-league");
+          }}
+          className="flex-shrink-0 py-1 px-6 text-sm font-semibold cursor-pointer rounded-full border-2 border-gray-500 text-gray-500"
+        >
+          Fantasy Managers
         </button>
       </div>
 

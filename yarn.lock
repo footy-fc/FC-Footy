@@ -678,54 +678,36 @@
     neverthrow "^6.0.0"
     viem "^2.17.4"
 
-"@farcaster/frame-core@0.1.8":
-  version "0.1.8"
-  resolved "https://registry.yarnpkg.com/@farcaster/frame-core/-/frame-core-0.1.8.tgz#8c56c2ef083c80ff146fa785e8367a54f0c1a515"
-  integrity sha512-Y0JATQXa/iaqH3pCp8Dby4iCQbwqw7JJaGtfzUazdr7R+zs3EDP8DYQCkqJu6iGjE9gqgecB+b+DOZpnqMTDNw==
+"@farcaster/frame-core@^0.3.7":
+  version "0.3.7"
+  resolved "https://registry.yarnpkg.com/@farcaster/frame-core/-/frame-core-0.3.7.tgz#733d64169b12869a50fec280c24616f5d93b556d"
+  integrity sha512-tDoKh9qcSVXldiHxYSsxyOBnwgtlfngRESb0/GovmLLJ/EL9WHHkkpb6Q/IDhQk9dBO/IspmsQaX4x+KYThMCg==
   dependencies:
+    "@farcaster/miniapp-core" "0.3.7"
     "@solana/web3.js" "^1.98.2"
     ox "^0.4.4"
     zod "^3.24.1"
 
-"@farcaster/frame-core@^0.0.19":
-  version "0.0.19"
-  resolved "https://registry.yarnpkg.com/@farcaster/frame-core/-/frame-core-0.0.19.tgz#76621fe6e207c3a5c78a22aa679bbbd7beafdd11"
-  integrity sha512-/0XjVZa/rUuUR16GVhhKnAQI33SXI61bB24jNA1DD0L0ytcKsM14wBptW9CF4RDiYIXxtt4mXmnQ+rMhO38RcA==
+"@farcaster/frame-node@^0.1.7":
+  version "0.1.7"
+  resolved "https://registry.yarnpkg.com/@farcaster/frame-node/-/frame-node-0.1.7.tgz#e3a01b6842e61dede15c2ef9d1ae2b54eaf286a2"
+  integrity sha512-HOh/YP1j6/hyYbsYKdy6KQUeLyfOF6TE7ZqZcx+kqAk4gxlOPFDRmO0TAhsZp8MAz0Q/bg4p/qxp8mDHO25JMQ==
   dependencies:
-    ox "^0.4.0"
-    zod "^3.23.8"
-
-"@farcaster/frame-core@^0.0.22":
-  version "0.0.22"
-  resolved "https://registry.yarnpkg.com/@farcaster/frame-core/-/frame-core-0.0.22.tgz#c5b91f3d7bb27b55873348b1b878472b3e5e5d5d"
-  integrity sha512-VervdgEXn3wfU+CLFsPMiLiOAXmXY4g+CPAcQ7g1771KW2SdfgLpOmHwvHvGRadfvvZxnPV84h1EwjooSvdsUA==
-  dependencies:
+    "@farcaster/miniapp-node" "0.1.7"
+    "@noble/curves" "^1.7.0"
     ox "^0.4.4"
     zod "^3.24.1"
 
-"@farcaster/frame-node@^0.0.7":
-  version "0.0.7"
-  resolved "https://registry.yarnpkg.com/@farcaster/frame-node/-/frame-node-0.0.7.tgz#cebbafa2f7def65c0800bdcca47ce86096e4bb4c"
-  integrity sha512-jhQI3p6gJGKm+3LknShQmC/oVRw8DHq/y2RI6PttFTTBK3OJhxbldLsqUAdIPicjUYUOnoW6tvT/3ToYPyyysA==
+"@farcaster/frame-sdk@^0.1.8":
+  version "0.1.8"
+  resolved "https://registry.yarnpkg.com/@farcaster/frame-sdk/-/frame-sdk-0.1.8.tgz#0cea025f971eff2ea77c934127b19268a4b870fb"
+  integrity sha512-tUZwoscn9ai9gXAKmfL+CAbquYuDHynH2b0SXys1wu4D4RYZysApYAnyXMBM3HZp8tBb0zgQdNZ5MNySfyXy/g==
   dependencies:
-    "@farcaster/frame-core" "^0.0.19"
-    ox "^0.4.0"
-
-"@farcaster/frame-sdk@^0.0.60":
-  version "0.0.60"
-  resolved "https://registry.yarnpkg.com/@farcaster/frame-sdk/-/frame-sdk-0.0.60.tgz#394f331721259bf55386811ffc857210ca1a63b2"
-  integrity sha512-MHQwdFT1VPe3kS0NvnORBPb/DQXr8qpdSDgIgfrdVCB8byQ5uFELlr3gQMuFYFyLFQVXgbMl75z8O6+hvorqow==
-  dependencies:
-    "@farcaster/frame-core" "0.1.8"
-    "@farcaster/quick-auth" "^0.0.5"
+    "@farcaster/miniapp-sdk" "0.1.8"
+    "@farcaster/quick-auth" "^0.0.6"
     comlink "^4.4.2"
     eventemitter3 "^5.0.1"
     ox "^0.4.4"
-
-"@farcaster/frame-wagmi-connector@^0.0.6":
-  version "0.0.6"
-  resolved "https://registry.yarnpkg.com/@farcaster/frame-wagmi-connector/-/frame-wagmi-connector-0.0.6.tgz#a67cec6cfcbaa8e15de70ce3d0f2a5c01cc07638"
-  integrity sha512-5Ta8vDs6cJygvg9cs20E29bJZcLWPQRSaUyHuLt+biA1YHbRkzRNr/tDmBd1DV/Y59OXIaNdyBxXb6NNX7wung==
 
 "@farcaster/hub-web@^0.9.5":
   version "0.9.7"
@@ -736,10 +718,45 @@
     "@improbable-eng/grpc-web" "^0.15.0"
     rxjs "^7.8.0"
 
-"@farcaster/quick-auth@^0.0.5":
-  version "0.0.5"
-  resolved "https://registry.yarnpkg.com/@farcaster/quick-auth/-/quick-auth-0.0.5.tgz#580db82618b9db353cd25e8a8f4fd0f1cad4df31"
-  integrity sha512-Z8hWz/7c33zlmII2AJHja/Wz0C03mm2o+CEBtBylmiun1wC4FMgx1Fal699VQvBUG1lpcJ662WxuRNxKogktDw==
+"@farcaster/miniapp-core@0.3.7":
+  version "0.3.7"
+  resolved "https://registry.yarnpkg.com/@farcaster/miniapp-core/-/miniapp-core-0.3.7.tgz#95f590d212096049f7c77b6d020bb7229ea1d872"
+  integrity sha512-a38q/nKJGjs6dSBadMhgqCQIDEFJ4nJpy7MX5rgOpJg8+62h8hj8cEdjHJpPsestH0n7tlXkpB8uv1Dq7IzW3g==
+  dependencies:
+    "@solana/web3.js" "^1.98.2"
+    ox "^0.4.4"
+    zod "^3.25.0"
+
+"@farcaster/miniapp-node@0.1.7":
+  version "0.1.7"
+  resolved "https://registry.yarnpkg.com/@farcaster/miniapp-node/-/miniapp-node-0.1.7.tgz#4b5f4ce2a0f743e5c956342720c7756b0140500d"
+  integrity sha512-odaXxUKs7R+n8I/TdrPIDA83HXHq29a1phTwW5ncK53o0iwOoXKZ58fCy+51lfcGSPpLDh81+BSIG4JQA0OcSA==
+  dependencies:
+    "@farcaster/miniapp-core" "0.3.7"
+    "@noble/curves" "^1.7.0"
+    ox "^0.4.4"
+    zod "^3.24.1"
+
+"@farcaster/miniapp-sdk@0.1.8", "@farcaster/miniapp-sdk@^0.1.8":
+  version "0.1.8"
+  resolved "https://registry.yarnpkg.com/@farcaster/miniapp-sdk/-/miniapp-sdk-0.1.8.tgz#3536dda2cb5915dc734a09e067477d7b33809797"
+  integrity sha512-izvv3k8FdDZM0pl2lGDzr9WWuiakmjhO5h9Jz+gJ7nXsHs5JmQXBnyE9XnCpNMCifk/bVxwsN3G/XpxWMyyJzA==
+  dependencies:
+    "@farcaster/miniapp-core" "0.3.7"
+    "@farcaster/quick-auth" "^0.0.6"
+    comlink "^4.4.2"
+    eventemitter3 "^5.0.1"
+    ox "^0.4.4"
+
+"@farcaster/miniapp-wagmi-connector@^1.0.0":
+  version "1.0.0"
+  resolved "https://registry.yarnpkg.com/@farcaster/miniapp-wagmi-connector/-/miniapp-wagmi-connector-1.0.0.tgz#77454ffd4c70772a40d2480b2d59cfe9439182d0"
+  integrity sha512-vMRZbekUUctnAUvBFhNoEsJlujRRdxop94fDy5LrKiRR9ax0wtp8gCvLYO+LpaP2PtGs0HFpRwlHNDJWvBR8bg==
+
+"@farcaster/quick-auth@^0.0.6":
+  version "0.0.6"
+  resolved "https://registry.yarnpkg.com/@farcaster/quick-auth/-/quick-auth-0.0.6.tgz#f59583041ad3591afe4a27e3c196be11a7ab21fb"
+  integrity sha512-tiZndhpfDtEhaKlkmS5cVDuS+A/tafqZT3y9I44rC69m3beJok6e8dIH2JhxVy3EvOWTyTBnrmNn6GOOh+qK6A==
   dependencies:
     jose "^5.2.3"
     zod "^3.25.1"
@@ -2809,7 +2826,7 @@
     "@walletconnect/ethereum-provider" "2.21.1"
     cbw-sdk "npm:@coinbase/wallet-sdk@3.9.3"
 
-"@wagmi/core@2.18.1":
+"@wagmi/core@2.18.1", "@wagmi/core@^2.18.1":
   version "2.18.1"
   resolved "https://registry.yarnpkg.com/@wagmi/core/-/core-2.18.1.tgz#ddcd90b7f9d26c55f4eb05a5cb4a1d9e4d49db6b"
   integrity sha512-mU+qXeeY2/0lq8bf4uFm5RtMrc8FgOToqzMVMf6MzNdNbKxpNlmlbuTyRbyd9cxn4UnYa6+S6Bmx1x42FV7w3g==
@@ -7204,7 +7221,7 @@ ox@0.8.6:
     abitype "^1.0.8"
     eventemitter3 "5.0.1"
 
-ox@^0.4.0, ox@^0.4.2, ox@^0.4.4:
+ox@^0.4.2, ox@^0.4.4:
   version "0.4.4"
   resolved "https://registry.yarnpkg.com/ox/-/ox-0.4.4.tgz#9d1757c026406e60097680d98ffedf9e3bc1fa0b"
   integrity sha512-oJPEeCDs9iNiPs6J0rTx+Y0KGeCGyCAA3zo94yZhm8G5WpOxrwUtn2Ie/Y8IyARSqqY/j9JTKA3Fc1xs1DvFnw==
@@ -9574,7 +9591,7 @@ zod@3.22.4:
   resolved "https://registry.yarnpkg.com/zod/-/zod-3.22.4.tgz#f31c3a9386f61b1f228af56faa9255e845cf3fff"
   integrity sha512-iC+8Io04lddc+mVqQ9AZ7OQ2MrUKGN+oIQyq1vemgt46jwCwLfhq7/pwnBnNXXXZb8VTVLKwp9EDkx+ryxIWmg==
 
-zod@^3.23.8, zod@^3.24.1, zod@^3.24.3, zod@^3.25.1:
+zod@^3.23.8, zod@^3.24.1, zod@^3.24.3, zod@^3.25.0, zod@^3.25.1:
   version "3.25.76"
   resolved "https://registry.yarnpkg.com/zod/-/zod-3.25.76.tgz#26841c3f6fd22a6a2760e7ccb719179768471e34"
   integrity sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ==
