@@ -176,7 +176,7 @@ export function WarpcastShareButton({ selectedMatch, buttonText, compositeImage,
       const currentQuery = search.toString() ? `?${search.toString()}` : "";
 
       // Build the base mini app URL from frameUrl and current query string.
-      let miniAppUrl = `${frameUrl}${currentQuery}`;
+      const miniAppUrl = `${frameUrl}${currentQuery}`;
 
       // Build the match summary and encode it
       const matchSummary = `${competitorsLong} ${keyMomentsText}\n\n@gabedev.eth @kmacb.eth are you watching this one?`;
@@ -203,7 +203,7 @@ export function WarpcastShareButton({ selectedMatch, buttonText, compositeImage,
         }
       }
 
-      let embeds: [] | [string] | [string, string] = [shareUrl];
+      const embeds: [] | [string] | [string, string] = [shareUrl];
    
       try {
         await sdk.actions.ready({});
