@@ -207,7 +207,7 @@ export function WarpcastShareButton({ selectedMatch, buttonText, compositeImage,
    
       try {
         await sdk.actions.ready({});
-        await sdk.actions.composeCast({ text: matchSummary, embeds, channelKey: 'footbal' });
+        await sdk.actions.composeCast({ text: matchSummary, embeds, channelKey: 'football' });
       } catch (e) {
         console.error('composeCast failed:', e);
       }
