@@ -150,7 +150,8 @@ export function WarpcastShareButton({ selectedMatch, buttonText, compositeImage,
       // Ignore haptics errors
     }
     if (selectedMatch) {
-      const frameUrl = BASE_URL || 'fc-footy.vercel.app';
+      const frameUrlRaw = BASE_URL || 'https://fc-footy.vercel.app';
+      const frameUrl = frameUrlRaw.startsWith('http') ? frameUrlRaw : `https://${frameUrlRaw}`;
       const {
         competitorsLong,
         homeScore,
@@ -182,6 +183,7 @@ export function WarpcastShareButton({ selectedMatch, buttonText, compositeImage,
 
       //let imageUrl = '';
 
+      let shareUrl = miniAppUrl;
       if (compositeImage) {
         try {
           const dataUrl = await generateCompositeImage(homeLogo, awayLogo, homeScore, awayScore, clock);
@@ -193,20 +195,19 @@ export function WarpcastShareButton({ selectedMatch, buttonText, compositeImage,
           //const gateway = (process.env.NEXT_PUBLIC_PINATAGATEWAY || 'https://gateway.pinata.cloud/ipfs').replace(/\/$/, '');
           //imageUrl = `${gateway}/${uploadResult.ipfsHash}`;
 
-          const ipfsHashParam = `ipfsHash=${uploadResult.ipfsHash}`;
-          miniAppUrl += currentQuery ? `&${ipfsHashParam}` : `?${ipfsHashParam}`;
-          window.history.replaceState({}, '', miniAppUrl);
+          const urlObj = new URL(miniAppUrl);
+          urlObj.searchParams.set('ipfsHash', uploadResult.ipfsHash);
+          shareUrl = urlObj.toString();
         } catch (error) {
           console.error("Error generating composite image:", error);
         }
       }
 
-      let embeds: [] | [string] | [string, string] = [miniAppUrl];
-      embeds = [miniAppUrl];
+      let embeds: [] | [string] | [string, string] = [shareUrl];
    
       try {
         await sdk.actions.ready({});
-        await sdk.actions.composeCast({ text: matchSummary, embeds });
+        await sdk.actions.composeCast({ text: matchSummary, embeds, channelKey: 'footbal' });
       } catch (e) {
         console.error('composeCast failed:', e);
       }
