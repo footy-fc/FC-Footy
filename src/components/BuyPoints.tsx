@@ -2,7 +2,7 @@ import { config } from '~/components/providers/WagmiProvider';
 import React, { useState, useEffect } from 'react';
 import { PriceIncreaseCountdown } from '~/components/points/PriceIncreaseCountdown';
 import ScoresInfo from '~/components/ScoresInfo';
-import { useAccount } from 'wagmi';
+import { useAccount, useWriteContract } from 'wagmi';
 import { useFormattedTokenIssuance } from '~/hooks/useFormattedTokenIssuance';
 import { useWriteJbMultiTerminalPay, useJBRulesetContext } from 'juice-sdk-react';
 import { parseEther } from 'viem';
@@ -24,7 +24,7 @@ const fetchRevnetShields = async (projectId: number, chainId: number) => {
 
 export default function BuyPoints() {
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const memo = '';
+  const baseMemo = 'score square contribution';
   const [ethAmount, setEthAmount] = useState('0.1');
   const [showInstructions, setShowInstructions] = useState(false);
   const { address } = useAccount();
@@ -39,6 +39,11 @@ export default function BuyPoints() {
   const [hasAgreed, setHasAgreed] = useState(false);
   const [txStatus, setTxStatus] = useState<'idle' | 'pending' | 'confirmed' | 'failed'>('idle');
   const [isMiniApp, setIsMiniApp] = useState<boolean>(false);
+  const [currentFid, setCurrentFid] = useState<number | null>(null);
+  const [useAddToBalance, setUseAddToBalance] = useState<boolean>(false);
+  const isPrivileged = currentFid === 4163;
+  const { writeContractAsync: writeTerminalContractAsync } = useWriteContract();
+  const [ethUsdPrice, setEthUsdPrice] = useState<number>(0);
 
   useEffect(() => {
     const checkMiniApp = async () => {
@@ -46,6 +51,19 @@ export default function BuyPoints() {
       setIsMiniApp(result);
     };
     checkMiniApp();
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    const fetchPrice = async () => {
+      try {
+        const res = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd');
+        const data = await res.json();
+        if (!cancelled) setEthUsdPrice(Number(data?.ethereum?.usd || 0));
+      } catch {}
+    };
+    fetchPrice();
+    return () => { cancelled = true; };
   }, []);
 
   useEffect(() => {
@@ -67,6 +85,7 @@ export default function BuyPoints() {
       console.log('context now', context.user);
       const fid = context.user?.fid;
       if (!fid) return;
+      setCurrentFid(Number(fid));
       const prefs = await getTeamPreferences(fid);
       const rawTeam = prefs?.[0]; // e.g. 'eng.1-liv'
       const clubCode = rawTeam?.split('-')?.[1]; // → 'liv'
@@ -93,23 +112,59 @@ export default function BuyPoints() {
 
     try {
       const weiAmount = parseEther(ethAmount);
-      // Always allow transaction, even if favClub is null
-      const finalMemo = favClub ? `${memo} I support ${favClub}` : `${memo} I support Footy App`;
-      console.log("Transaction memo:", finalMemo);
+      // Memo
+      const payMemo = favClub ? `I support ${favClub}` : 'I support Footy App';
+      const addToBalanceMemo = favClub ? `${baseMemo} - I support ${favClub}` : baseMemo;
+      const selectedMemo = (isPrivileged && useAddToBalance) ? addToBalanceMemo : payMemo;
+      console.log("Transaction memo:", selectedMemo);
 
-      const txHash = await writeContractAsync({
-        args: [
-          PROJECT_ID,
-          '0x000000000000000000000000000000000000EEEe',
-          weiAmount,
-          address,
-          0n,
-          finalMemo,
-          '0x0',
-        ],
-        address: TERMINAL_ADDRESS,
-        value: weiAmount,
-      });
+      let txHash: `0x${string}`;
+      if (isPrivileged && useAddToBalance) {
+        // Call addToBalanceOf(projectId, token, amount, shouldReturnHeldFees, memo, metadata)
+        txHash = await writeTerminalContractAsync({
+          address: TERMINAL_ADDRESS,
+          abi: [
+            {
+              name: 'addToBalanceOf',
+              type: 'function',
+              stateMutability: 'payable',
+              inputs: [
+                { name: 'projectId', type: 'uint256' },
+                { name: 'token', type: 'address' },
+                { name: 'amount', type: 'uint256' },
+                { name: 'shouldReturnHeldFees', type: 'bool' },
+                { name: 'memo', type: 'string' },
+                { name: 'metadata', type: 'bytes' },
+              ],
+              outputs: [],
+            },
+          ],
+          functionName: 'addToBalanceOf',
+          args: [
+            PROJECT_ID,
+            '0x000000000000000000000000000000000000EEEe',
+            weiAmount,
+            false,
+            addToBalanceMemo,
+            '0x0',
+          ],
+          value: weiAmount,
+        });
+      } else {
+        txHash = await writeContractAsync({
+          args: [
+            PROJECT_ID,
+            '0x000000000000000000000000000000000000EEEe',
+            weiAmount,
+            address,
+            0n,
+            payMemo,
+            '0x0',
+          ],
+          address: TERMINAL_ADDRESS,
+          value: weiAmount,
+        });
+      }
 
       await waitForTransactionReceipt(config, { hash: txHash });
       setTxStatus('confirmed');
@@ -167,6 +222,11 @@ export default function BuyPoints() {
           onChange={(e) => setEthAmount(e.target.value)}
           disabled={isSubmitting}
         />
+        {ethUsdPrice > 0 && !!ethAmount && !Number.isNaN(parseFloat(ethAmount)) && (
+          <div className="mt-1 text-xs text-gray-400">
+            ≈ ${ (parseFloat(ethAmount) * ethUsdPrice).toFixed(2) } USD
+          </div>
+        )}
         <div className="flex items-center mt-4 space-x-2">
           <input
             type="checkbox"
@@ -179,6 +239,19 @@ export default function BuyPoints() {
             I have read and agree to the <button onClick={() => setShowInstructions(true)} className="underline text-deepPink hover:text-fontRed">rules</button>.
           </label>
         </div>
+        {isPrivileged && (
+          <div className="flex items-center mt-3 gap-2">
+            <label htmlFor="toggleAddToBalance" className="text-sm text-lightPurple">Use addToBalanceOf</label>
+            <button
+              id="toggleAddToBalance"
+              type="button"
+              onClick={() => setUseAddToBalance(v => !v)}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full ${useAddToBalance ? 'bg-limeGreenOpacity' : 'bg-gray-600'}`}
+            >
+              <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition ${useAddToBalance ? 'translate-x-6' : 'translate-x-1'}`} />
+            </button>
+          </div>
+        )}
         <button
           onClick={async () => {
             try {
