@@ -1,4 +1,3 @@
-import { FrameNotificationDetails } from "@farcaster/frame-sdk";
 import { Redis } from "@upstash/redis";
 
 const redis = new Redis({
@@ -10,10 +9,15 @@ function getUserNotificationDetailsKey(fid: number): string {
   return `fc-footy:user:${fid}`;
 }
 
+export type UserNotificationDetails = {
+  url: string;
+  token: string;
+};
+
 export async function getUserNotificationDetails(
   fid: number
-): Promise<FrameNotificationDetails | null> {
-  const res = await redis.get<FrameNotificationDetails>(
+): Promise<UserNotificationDetails | null> {
+  const res = await redis.get<UserNotificationDetails>(
     getUserNotificationDetailsKey(fid)
   );
   console.log(res);
@@ -22,7 +26,7 @@ export async function getUserNotificationDetails(
 
 export async function setUserNotificationDetails(
   fid: number,
-  notificationDetails: FrameNotificationDetails
+  notificationDetails: UserNotificationDetails
 ): Promise<void> {
   console.log(notificationDetails,fid);
   await redis.set(getUserNotificationDetailsKey(fid), notificationDetails);

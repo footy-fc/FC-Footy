@@ -1,12 +1,11 @@
 import React, { useEffect, useState } from 'react';
+import Image from 'next/image';
 import { sdk } from '@farcaster/frame-sdk';
-import { getTeamPreferences, getFanCountForTeam } from "../lib/kvPerferences";
+import { getTeamPreferences, getFanCountForTeam, getFansForTeam } from "../lib/kvPerferences";
 import { getTeamLogo } from "./utils/fetchTeamLogos";
-import { getFansForTeam } from '../lib/kvPerferences'; // Assuming these functions are imported from a relevant file
 import { fetchMutualFollowers } from './utils/fetchCheckIfFollowing';
 import SettingsFollowClubs from './SettingsFollowClubs';
 import ContentLiveChat from './ContentLiveChat';
-import { getAlikeFanMatches } from "./utils/getAlikeFanMatches";
 import type { FanPair } from "./utils/getAlikeFanMatches";
 import { fetchFanUserData } from './utils/fetchFCProfile';
 import OCaptainFPLPrompt from './ocaptain/OCaptainFPLPrompt';
@@ -17,7 +16,9 @@ type TeamLink = {
   shortText?: string;
 };
 
-const ForYouTeamsFans: React.FC<{ showLiveChat: boolean; setShowLiveChat: (val: boolean) => void }> = ({ showLiveChat, setShowLiveChat }) => {
+type Props = { showLiveChat: boolean; setShowLiveChat?: (val: boolean) => void };
+
+const ForYouTeamsFans: React.FC<Props> = ({ showLiveChat }) => {
   const [favoriteTeams, setFavoriteTeams] = useState<string[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -30,8 +31,6 @@ const ForYouTeamsFans: React.FC<{ showLiveChat: boolean; setShowLiveChat: (val: 
   const [cachedTeamFollowers, setCachedTeamFollowers] = useState<Record<string, Array<{ fid: number; pfp: string; mutual: boolean; youFollow?: boolean }>>>({});
   const [showMatchUps, setShowMatchUps] = useState(false);
   const [matchUps, setMatchUps] = useState<FanPair[]>([]);
-  const [loadingMatches, setLoadingMatches] = useState(false);
-  const showChatFeature = false;
 
   const fetchFavoriteTeams = async () => {
     try {
@@ -88,7 +87,6 @@ const ForYouTeamsFans: React.FC<{ showLiveChat: boolean; setShowLiveChat: (val: 
     setFavoriteTeamFans([]);
     setShowMatchUps(false);
     setMatchUps([]);
-    setLoadingMatches(false);
     setLoadingFollowers(true);
 
     const fetchFans = async () => {
@@ -162,13 +160,13 @@ const ForYouTeamsFans: React.FC<{ showLiveChat: boolean; setShowLiveChat: (val: 
     Object.entries(leagueMap).forEach(([league, abbrs]) => {
       fetchTeamLinksByLeague(league, abbrs);
     });
-  }, [favoriteTeams]);
+  }, [favoriteTeams, selectedTeam]);
 
   useEffect(() => {
     if (!selectedTeam && favoriteTeams.length > 0) {
       setSelectedTeam(favoriteTeams[0]);
     }
-  }, [favoriteTeams]);
+  }, [favoriteTeams, selectedTeam]);
 
   const getTeamLogoUrl = (teamId: string): string => {
     const [league, abbr] = teamId.split("-");
@@ -239,10 +237,12 @@ const ForYouTeamsFans: React.FC<{ showLiveChat: boolean; setShowLiveChat: (val: 
                   : "border-lightPurple"
               } rounded-lg p-2 text-center bg-purplePanel cursor-pointer`}
             >
-              <img
+              <Image
                 src={getTeamLogoUrl(teamId)}
                 alt={teamId}
-                className="w-[60px] h-[60px] object-contain mb-2 mx-auto"
+                width={60}
+                height={60}
+                className="object-contain mb-2 mx-auto"
               />
             </div>
           );
@@ -285,10 +285,12 @@ const ForYouTeamsFans: React.FC<{ showLiveChat: boolean; setShowLiveChat: (val: 
                         onClick={() => sdk.actions.viewProfile({ fid: fan.fid })}
                         className="focus:outline-none"
                       >
-                        <img
+                        <Image
                           src={fan.pfp}
                           alt={`Fan ${fan.fid}`}
-                          className={`rounded-full w-7 h-7 ${
+                          width={28}
+                          height={28}
+                          className={`rounded-full ${
                             fan.fid === undefined ? '' :
                             fan.mutual ? 'ring-2 ring-purple-500' :
                             fan.youFollow ? 'ring-2 ring-limeGreen' :
@@ -361,17 +363,21 @@ const ForYouTeamsFans: React.FC<{ showLiveChat: boolean; setShowLiveChat: (val: 
                     onClick={() => sdk.actions.viewProfile({ fid: pair.fid2 })}
                     className="focus:outline-none"
                   >
-                    <img
-                      src={pair.pfp}
+                    <Image
+                      src={pair.pfp ?? '/defifa_spinner.gif'}
                       alt={`Fan ${pair.fid2}`}
-                      className="w-8 h-8 rounded-full border"
+                      width={32}
+                      height={32}
+                      className="rounded-full border"
                     />
                   </button>
                   <div>
                     <div className="flex gap-1">
-                      {pair.teamLogos?.map((logo, idx) => (
-                        <img key={idx} src={logo} alt="Team" className="w-5 h-5 rounded-md" />
-                      ))}
+                        {pair.teamLogos?.map((logo, idx) => (
+                          typeof logo === 'string' ? (
+                            <Image key={idx} src={logo} alt="Team" width={20} height={20} className="rounded-md" />
+                          ) : null
+                        ))}
                     </div>
                   </div>
                 </li>

@@ -18,7 +18,7 @@ const OCaptainFPLPrompt: React.FC = () => {
 
   return (
     <div className="bg-purplePanel p-4 rounded-lg">
-      <h3 className="text-lightPurple font-semibold mb-2">O'Captain Challenge</h3>
+      <h3 className="text-lightPurple font-semibold mb-2">O&apos;Captain Challenge</h3>
       <p className="text-gray-400 text-sm mb-3">
         Select your captain and vice-captain from the best players in the league. 
         Stake USDC and compete for prizes!
@@ -27,7 +27,7 @@ const OCaptainFPLPrompt: React.FC = () => {
         onClick={handleOCaptainClick}
         className="w-full bg-limeGreenOpacity text-darkPurple py-2 px-4 rounded-lg font-semibold hover:bg-limeGreenOpacity/80 transition-colors"
       >
-        Play O'Captain
+        Play O&apos;Captain
       </button>
     </div>
   );

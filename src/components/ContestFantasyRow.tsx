@@ -3,7 +3,6 @@ import React, { useEffect, useState } from 'react';
 import Image from 'next/image';
 import frameSdk from "@farcaster/frame-sdk";
 // import { BASE_URL } from '~/lib/config';
-import { FrameContext } from '@farcaster/frame-node';
 
 export interface FantasyEntry {
   rank: number;
@@ -29,14 +28,14 @@ interface FantasyRowProps {
 
 const FantasyRow: React.FC<FantasyRowProps> = ({ entry, onRowClick }) => {
   const { manager, total, team } = entry;
-  const [context, setContext] = useState<FrameContext | undefined>(undefined);
+  const [context, setContext] = useState<unknown>(undefined);
   const [isContextLoaded, setIsContextLoaded] = useState(false);
   //const frameUrl = BASE_URL || 'fc-footy.vercel.app';
 
   useEffect(() => {
     const loadContext = async () => {
       try {
-        setContext((await frameSdk.context) as FrameContext);
+        setContext(await frameSdk.context);
         setIsContextLoaded(true);
       } catch (error) {
         console.error("Failed to load Farcaster context:", error);

@@ -53,7 +53,6 @@ const OCaptain: React.FC = () => {
 
   // Double-tap detection state
   const [lastTapTime, setLastTapTime] = useState(0);
-  const [tapCount, setTapCount] = useState(0);
 
   const cardRef = useRef<HTMLDivElement>(null);
 
@@ -207,31 +206,20 @@ const OCaptain: React.FC = () => {
   const handleDoubleTap = async () => {
     const now = Date.now();
     const timeDiff = now - lastTapTime;
-    
     if (timeDiff < 300 && timeDiff > 0) {
-      // Double-tap detected - harsh haptic feedback
       try {
         await sdk.haptics.notificationOccurred('error');
       } catch {
-        // Fallback to heavy haptic if notification not available
         try {
           await sdk.haptics.impactOccurred('heavy');
         } catch {
           // ignore haptics errors
         }
       }
-      
-      // Reset tap state
-      setTapCount(0);
       setLastTapTime(0);
     } else {
-      // Single tap - update state for potential double-tap
-      setTapCount(prev => prev + 1);
       setLastTapTime(now);
-      
-      // Reset after a delay if no double-tap occurs
       setTimeout(() => {
-        setTapCount(0);
         setLastTapTime(0);
       }, 300);
     }
@@ -367,7 +355,7 @@ const OCaptain: React.FC = () => {
   if (loading) {
     return (
       <div className="w-full">
-        <h2 className="font-2xl text-notWhite font-bold mb-4">O'Captain</h2>
+        <h2 className="font-2xl text-notWhite font-bold mb-4">O&apos;Captain</h2>
         <div className="text-center text-lightPurple">Loading players...</div>
       </div>
     );
@@ -376,7 +364,7 @@ const OCaptain: React.FC = () => {
   if (error) {
     return (
       <div className="w-full">
-        <h2 className="font-2xl text-notWhite font-bold mb-4">O'Captain</h2>
+        <h2 className="font-2xl text-notWhite font-bold mb-4">O&apos;Captain</h2>
         <div className="text-center text-fontRed">Error: {error}</div>
       </div>
     );
@@ -388,7 +376,7 @@ const OCaptain: React.FC = () => {
   if (showPositionSelection) {
     return (
       <div className="w-full">
-        <h2 className="font-2xl text-notWhite font-bold mb-4">O'Captain</h2>
+        <h2 className="font-2xl text-notWhite font-bold mb-4">O&apos;Captain</h2>
         
         <div className="bg-darkPurple p-4 rounded-lg mb-4">
           <h3 className="text-lightPurple font-semibold mb-4 text-center">Choose Position</h3>
@@ -427,7 +415,7 @@ const OCaptain: React.FC = () => {
   // Player Selection Screen
   return (
     <div className="w-full">
-      <h2 className="font-2xl text-notWhite font-bold mb-4">O'Captain</h2>
+      <h2 className="font-2xl text-notWhite font-bold mb-4">O&apos;Captain</h2>
       
       {/* Header */}
       <div className="bg-darkPurple p-3 rounded-lg mb-4">
@@ -575,11 +563,11 @@ const OCaptain: React.FC = () => {
           <div className="mt-4 text-center text-gray-400 text-sm">
             <div className="flex justify-center space-x-4">
               <button
-                onClick={async () => currentPlayer && await handleSwipeReject()}
+                onClick={async () => { if (currentPlayer) { await handleSwipeReject(); } }}
                 onKeyDown={async (e) => {
                   if (e.key === 'Enter' || e.key === ' ') {
                     e.preventDefault();
-                    currentPlayer && await handleSwipeReject();
+                    if (currentPlayer) { await handleSwipeReject(); }
                   }
                 }}
                 className="flex items-center space-x-2 px-4 py-2 rounded-lg bg-purplePanel hover:bg-purplePanel/80 transition-colors focus:outline-none focus:ring-2 focus:ring-limeGreenOpacity"
@@ -591,11 +579,11 @@ const OCaptain: React.FC = () => {
               </button>
               
               <button
-                onClick={async () => currentPlayer && await handleSwipeSelect(currentPlayer)}
+                onClick={async () => { if (currentPlayer) { await handleSwipeSelect(currentPlayer); } }}
                 onKeyDown={async (e) => {
                   if (e.key === 'Enter' || e.key === ' ') {
                     e.preventDefault();
-                    currentPlayer && await handleSwipeSelect(currentPlayer);
+                    if (currentPlayer) { await handleSwipeSelect(currentPlayer); }
                   }
                 }}
                 className="flex items-center space-x-2 px-4 py-2 rounded-lg bg-purplePanel hover:bg-purplePanel/80 transition-colors focus:outline-none focus:ring-2 focus:ring-limeGreenOpacity"
@@ -656,7 +644,7 @@ const OCaptain: React.FC = () => {
           <div className="bg-purplePanel p-4 rounded-lg mb-4">
             <h3 className="text-lightPurple font-semibold mb-2 text-center">Apply Boost?</h3>
             <div className="text-center text-gray-400 text-sm mb-4">
-              2x your vice-captain's score
+              2x your vice-captain&apos;s score
             </div>
             <button
               onClick={() => setBoostEnabled(!boostEnabled)}

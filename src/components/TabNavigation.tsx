@@ -12,7 +12,7 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
   tabDisplayMap,
 }) => {
   // Use keys without spaces here
-  const tabs = ["forYou", "matches", /* "contests", */ "scoutPlayers", /* "moneyGames", */ "oCaptain", "extraTime", "rewards", "settings"];
+  const tabs = ["forYou", "matches", /* "contests", */ /* "scoutPlayers", */ /* "moneyGames", */ /* "oCaptain", */ "extraTime", "rewards", "settings"];
 
   return (
     <div className="flex overflow-x-auto overflow-y-hidden space-x-4 mb-1 sticky top-0 z-50 bg-darkPurple py-2 shadow-md w-full">

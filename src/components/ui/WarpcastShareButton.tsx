@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from "next/navigation";
 import frameSdk, { sdk } from "@farcaster/frame-sdk";
 import { BASE_URL } from '~/lib/config';
-import { FrameContext } from '@farcaster/frame-node';
 
 async function generateCompositeImage(
   homeLogo: string,
@@ -119,14 +118,14 @@ interface WarpcastShareButtonProps {
 }
 
 export function WarpcastShareButton({ selectedMatch, buttonText, compositeImage, fallbackLeague, leagueId }: WarpcastShareButtonProps) {
-  const [context, setContext] = useState<FrameContext | undefined>(undefined);
+  const [context, setContext] = useState<unknown>(undefined);
   const [isContextLoaded, setIsContextLoaded] = useState(false);
   const searchParams = useSearchParams();
 
   useEffect(() => {
     const loadContext = async () => {
       try {
-        setContext((await frameSdk.context) as FrameContext);
+        setContext(await frameSdk.context);
         setIsContextLoaded(true);
       } catch (error) {
         console.error("Failed to load Farcaster context:", error);
