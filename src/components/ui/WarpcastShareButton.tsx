@@ -180,7 +180,7 @@ export function WarpcastShareButton({ selectedMatch, buttonText, compositeImage,
       // Build the match summary and encode it
       const matchSummary = `${competitorsLong} ${keyMomentsText}\n\n@gabedev.eth @kmacb.eth are you watching this one?`;
 
-      let imageUrl = '';
+      //let imageUrl = '';
 
       if (compositeImage) {
         try {
@@ -190,8 +190,8 @@ export function WarpcastShareButton({ selectedMatch, buttonText, compositeImage,
           const uploadResult = await uploadRes.json();
           if (!uploadRes.ok) throw new Error('Image upload failed');
 
-          const gateway = (process.env.NEXT_PUBLIC_PINATAGATEWAY || 'https://gateway.pinata.cloud/ipfs').replace(/\/$/, '');
-          imageUrl = `${gateway}/${uploadResult.ipfsHash}`;
+          //const gateway = (process.env.NEXT_PUBLIC_PINATAGATEWAY || 'https://gateway.pinata.cloud/ipfs').replace(/\/$/, '');
+          //imageUrl = `${gateway}/${uploadResult.ipfsHash}`;
 
           const ipfsHashParam = `ipfsHash=${uploadResult.ipfsHash}`;
           miniAppUrl += currentQuery ? `&${ipfsHashParam}` : `?${ipfsHashParam}`;
@@ -202,11 +202,8 @@ export function WarpcastShareButton({ selectedMatch, buttonText, compositeImage,
       }
 
       let embeds: [] | [string] | [string, string] = [miniAppUrl];
-      if (imageUrl) {
-        embeds = [miniAppUrl, imageUrl];
-      } else if (homeLogo) {
-        embeds = [miniAppUrl, homeLogo];
-      }
+      embeds = [miniAppUrl];
+   
       try {
         await sdk.actions.ready({});
         await sdk.actions.composeCast({ text: matchSummary, embeds });
