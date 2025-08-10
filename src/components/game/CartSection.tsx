@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { formatEther } from 'viem';
+import { fetchNativeTokenPrice } from '~/utils/fetchUsdPrice';
 
 interface CartSectionProps {
   cart: number[];
@@ -21,6 +22,24 @@ const CartSection: React.FC<CartSectionProps> = ({
 }) => {
   // Calculate total price safely
   const totalPrice = squarePrice * BigInt(cart.length || 0);  // ✅ Ensure length check
+
+  const [ethUsdPrice, setEthUsdPrice] = useState<number | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const price = await fetchNativeTokenPrice('base');
+        if (!cancelled) setEthUsdPrice(price);
+      } catch {
+        // ignore pricing failures for affordance
+      }
+    };
+    load();
+    return () => { cancelled = true; };
+  }, []);
+
+  const totalEth = parseFloat(formatEther(totalPrice || 0n) || '0');
+  const usdTotal = ethUsdPrice ? totalEth * ethUsdPrice : null;
 
   return (
     <div className="bg-gray-800/70 rounded-lg shadow-lg p-4 border border-gray-700 mt-2">
@@ -52,11 +71,18 @@ const CartSection: React.FC<CartSectionProps> = ({
             </div>
           </div>
           
-          <div className="flex justify-between items-center mb-4">
-            <span className="text-notWhite">Total:</span>
-            <span className="text-limeGreenOpacity font-bold">
-              {formatEther(totalPrice)} ETH
-            </span>
+          <div className="mb-4">
+            <div className="flex justify-between items-center">
+              <span className="text-notWhite">Total:</span>
+              <span className="text-limeGreenOpacity font-bold">
+                {formatEther(totalPrice)} ETH
+              </span>
+            </div>
+            {usdTotal !== null && (
+              <div className="flex justify-end text-xs text-gray-400 mt-1">
+                ≈ ${usdTotal.toFixed(2)} USD
+              </div>
+            )}
           </div>
           
           <div className="flex space-x-2">

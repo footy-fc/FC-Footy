@@ -307,33 +307,7 @@ const SquareGrid: React.FC<SquareGridProps> = ({
         })}
       </div>
 
-      {/* Legend */}
-      <div className="mt-4 flex flex-wrap justify-center gap-4 text-xs text-gray-400">
-        <div className="flex items-center gap-1">
-          <div className="w-3 h-3 bg-gray-900 border border-gray-800 rounded"></div>
-          <span>Available</span>
-        </div>
-        <div className="flex items-center gap-1">
-          <div className="w-3 h-3 bg-gray-700 border border-gray-600 rounded"></div>
-          <span>Selected</span>
-        </div>
-        <div className="flex items-center gap-1">
-          <div className="w-3 h-3 bg-gray-800 border border-gray-700 rounded"></div>
-          <span>Owned</span>
-        </div>
-        {ticketsSold >= 25 && (
-          <div className="flex items-center gap-1">
-            <div className="w-3 h-3 bg-limeGreen border border-limeGreenOpacity rounded animate-pulse"></div>
-            <span>Current Score</span>
-          </div>
-        )}
-        {finalizedWinners.length > 0 && (
-          <div className="flex items-center gap-1">
-            <div className="w-3 h-3 bg-green-600 border border-green-400 rounded"></div>
-            <span>Winner</span>
-          </div>
-        )}
-      </div>
+      {/* Legend removed to reduce repetition/clutter */}
     </div>
   );
 };

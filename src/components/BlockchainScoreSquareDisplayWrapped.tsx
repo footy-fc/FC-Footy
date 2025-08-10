@@ -86,6 +86,7 @@ const BlockchainScoreSquareDisplayWrapped: React.FC<BlockchainScoreSquareDisplay
   const [forceUpdate, setForceUpdate] = useState(0);
   const isGameDataReady = !!gameDataState && gameDataState.gameId !== undefined;
   const [delayedLoadComplete, setDelayedLoadComplete] = useState(false);
+  //const [copied, setCopied] = useState(false);
 
   const { address } = useAccount();
   const { writeContractAsync } = useWriteContract();
@@ -251,6 +252,43 @@ useEffect(() => {
     !!eventId &&
     (!gameDataState || !gameDataState.gameId);
 
+  // Share helpers (moved out of render branches to avoid Hook order issues)
+  const details = parseEventId(gameDataState?.eventId || '');
+  const home = details?.homeTeam || '';
+  const away = details?.awayTeam || '';
+  const leagueId = details?.leagueId || '';
+  const selectedMatch = {
+    homeTeam: home,
+    awayTeam: away,
+    competitorsLong: `${home} vs ${away}`,
+    homeLogo: getTeamLogo(home, getLeagueCode(leagueId)),
+    awayLogo: getTeamLogo(away, getLeagueCode(leagueId)),
+    homeScore: Number(homeScore) || 0,
+    awayScore: Number(awayScore) || 0,
+    clock: isMatchLive ? 'LIVE' : (timeUntilMatch || ''),
+    eventStarted: !!isMatchLive,
+    keyMoments: [],
+  };
+
+/*   const copyShareLink = async () => {
+    try {
+      const frameUrlRaw = BASE_URL || 'https://fc-footy.vercel.app';
+      const frameUrl = frameUrlRaw.startsWith('http') ? frameUrlRaw : `https://${frameUrlRaw}`;
+      const params = new URLSearchParams();
+      params.set('tab', 'moneyGames');
+      params.set('gameType', 'scoreSquare');
+      params.set('gameState', 'active');
+      params.set('eventId', gameDataState?.eventId || '');
+      if (leagueId) params.set('league', leagueId);
+      const shareUrl = `${frameUrl}?${params.toString()}`;
+      await navigator.clipboard.writeText(shareUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch (e) {
+      console.error('Failed to copy link', e);
+    }
+  }; */
+
   return (
     <div className="container mx-auto px-4 py-8 max-w-7xl">
       {error ? (
@@ -352,35 +390,21 @@ useEffect(() => {
               </button>
             </div>
 
-            {(() => {
-              const details = parseEventId(gameDataState?.eventId || '');
-              const home = details?.homeTeam || '';
-              const away = details?.awayTeam || '';
-              const leagueId = details?.leagueId || '';
-              const selectedMatch = {
-                homeTeam: home,
-                awayTeam: away,
-                competitorsLong: `${home} vs ${away}`,
-                homeLogo: getTeamLogo(home, getLeagueCode(leagueId)),
-                awayLogo: getTeamLogo(away, getLeagueCode(leagueId)),
-                homeScore: Number(homeScore) || 0,
-                awayScore: Number(awayScore) || 0,
-                clock: isMatchLive ? 'LIVE' : (timeUntilMatch || ''),
-                eventStarted: !!isMatchLive,
-                keyMoments: [],
-              };
-              return (
-                <div className="mt-3 sm:mt-0 w-full sm:w-auto">
-                  <WarpcastShareButton
-                    selectedMatch={selectedMatch}
-                    buttonText="Share"
-                    compositeImage={true}
-                    leagueId={leagueId}
-                    moneyGamesParams={{ eventId: gameDataState?.eventId || '' }}
-                  />
-                </div>
-              );
-            })()}
+            <div className="mt-3 sm:mt-0 w-full sm:w-auto flex flex-col sm:flex-row gap-2 sm:items-center">
+              <WarpcastShareButton
+                selectedMatch={selectedMatch}
+                buttonText="Share"
+                compositeImage={true}
+                leagueId={leagueId}
+                moneyGamesParams={{ eventId: gameDataState?.eventId || '' }}
+              />
+             {/*  <button
+                onClick={copyShareLink}
+                className="w-full sm:w-auto bg-gray-700 hover:bg-gray-600 text-white py-2 px-4 rounded-lg transition-colors"
+              >
+                {copied ? 'Copied!' : 'Copy link'}
+              </button> */}
+            </div>
           </div>
 
           {showInstructions && <UserInstructions />}
