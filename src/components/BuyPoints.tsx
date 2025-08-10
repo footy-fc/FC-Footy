@@ -24,7 +24,7 @@ const fetchRevnetShields = async (projectId: number, chainId: number) => {
 
 export default function BuyPoints() {
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const baseMemo = 'score square contribution';
+  const baseMemo = 'footy donation';
   const [ethAmount, setEthAmount] = useState('0.01');
   const [showInstructions, setShowInstructions] = useState(false);
   const { address } = useAccount();
@@ -241,7 +241,7 @@ export default function BuyPoints() {
         </div>
         {isPrivileged && (
           <div className="flex items-center mt-3 gap-2">
-            <label htmlFor="toggleAddToBalance" className="text-sm text-lightPurple">Contribute ScoreSquare fees</label>
+            <label htmlFor="toggleAddToBalance" className="text-sm text-lightPurple">Contribute without receiving tokens</label>
             <button
               id="toggleAddToBalance"
               type="button"
@@ -275,7 +275,7 @@ export default function BuyPoints() {
             : txStatus === 'failed'
             ? 'Failed ❌ — Try again'
             : (isPrivileged && useAddToBalance)
-            ? 'ScoreSquare contribution'
+            ? 'Donate'
             : `Buy for ${ethAmount || '...'} ETH`}
         </button>
       </div>
