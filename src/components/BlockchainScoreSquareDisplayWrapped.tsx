@@ -12,7 +12,7 @@ import RefereeControls from './game/RefereeControls';
 import LiveMatchEvents from './game/LiveMatchEvents';
 import NotificationBanner from './game/NotificationBanner';
 import UserInstructions from './UserInstructions';
-import { SCORE_SQUARE_ADDRESS } from '../lib/config';
+import { SCORE_SQUARE_ADDRESS, BASE_URL } from '../lib/config';
 import SquareGridPlaceholder from './game/SquareGridPlaceholder';
 import { Info } from 'lucide-react';
 import { WarpcastShareButton } from './ui/WarpcastShareButton';
@@ -86,7 +86,7 @@ const BlockchainScoreSquareDisplayWrapped: React.FC<BlockchainScoreSquareDisplay
   const [forceUpdate, setForceUpdate] = useState(0);
   const isGameDataReady = !!gameDataState && gameDataState.gameId !== undefined;
   const [delayedLoadComplete, setDelayedLoadComplete] = useState(false);
-  //const [copied, setCopied] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   const { address } = useAccount();
   const { writeContractAsync } = useWriteContract();
@@ -270,24 +270,25 @@ useEffect(() => {
     keyMoments: [],
   };
 
-/*   const copyShareLink = async () => {
+const copyShareLink = async () => {
     try {
-      const frameUrlRaw = BASE_URL || 'https://fc-footy.vercel.app';
-      const frameUrl = frameUrlRaw.startsWith('http') ? frameUrlRaw : `https://${frameUrlRaw}`;
+      const appUrlRaw = BASE_URL || 'https://fc-footy.vercel.app';
+      const appUrl = appUrlRaw.startsWith('http') ? appUrlRaw : `https://${appUrlRaw}`;
       const params = new URLSearchParams();
       params.set('tab', 'moneyGames');
       params.set('gameType', 'scoreSquare');
       params.set('gameState', 'active');
       params.set('eventId', gameDataState?.eventId || '');
       if (leagueId) params.set('league', leagueId);
-      const shareUrl = `${frameUrl}?${params.toString()}`;
+      const appUrlWithQuery = `${appUrl}?${params.toString()}`;
+      const shareUrl = `https://farcaster.xyz/?launchFrameUrl=${encodeURIComponent(appUrlWithQuery)}`;
       await navigator.clipboard.writeText(shareUrl);
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
     } catch (e) {
       console.error('Failed to copy link', e);
     }
-  }; */
+  }; 
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-7xl">
@@ -398,12 +399,12 @@ useEffect(() => {
                 leagueId={leagueId}
                 moneyGamesParams={{ eventId: gameDataState?.eventId || '' }}
               />
-             {/*  <button
+           <button
                 onClick={copyShareLink}
                 className="w-full sm:w-auto bg-gray-700 hover:bg-gray-600 text-white py-2 px-4 rounded-lg transition-colors"
               >
                 {copied ? 'Copied!' : 'Copy link'}
-              </button> */}
+              </button> 
             </div>
           </div>
 
