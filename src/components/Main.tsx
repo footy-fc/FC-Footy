@@ -1,7 +1,7 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { sdk } from "@farcaster/frame-sdk";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Dispatch, SetStateAction } from "react";
@@ -50,6 +50,7 @@ export default function Main() {
   const effectiveSearchParams = searchParams || customSearchParams;
   const selectedTab = effectiveSearchParams?.get("tab") || "forYou";
   const selectedLeague = effectiveSearchParams?.get("league") || "eng.1";
+  const shareHandledRef = useRef(false);
 
   // Handle URL redirect logic
   useEffect(() => {
@@ -73,18 +74,29 @@ export default function Main() {
   useEffect(() => {
     const checkShareContext = async () => {
       try {
+        // If we've already handled share redirect once in this session, or user navigated away, do nothing
+        if (shareHandledRef.current || selectedTab !== "forYou") return;
+
         // Check URL parameters first (available immediately)
         const castHash = effectiveSearchParams?.get('castHash');
         const castFid = effectiveSearchParams?.get('castFid');
+        const profileFid = effectiveSearchParams?.get('profileFid');
 
         // Check URL parameters for share extension
 
         if (castHash && castFid) {
           // Redirect to ForYou profile tab with cast author's FID
           router.push(`/?tab=forYou&profileFid=${castFid}`);
+          shareHandledRef.current = true;
           return;
         } 
         
+        // If profileFid already present, consider handled
+        if (profileFid) {
+          shareHandledRef.current = true;
+          return;
+        }
+
         // Check SDK context for share
         await sdk.actions.ready();
         const context = await sdk.context;
@@ -93,6 +105,7 @@ export default function Main() {
           const cast = context.location.cast as SharedCast;
           // Redirect to ForYou profile tab with cast author's FID
           router.push(`/?tab=forYou&profileFid=${cast.author.fid}`);
+          shareHandledRef.current = true;
         }
       } catch (error) {
         console.error('Error checking share context:', error);
@@ -100,7 +113,7 @@ export default function Main() {
     };
 
     checkShareContext();
-  }, [effectiveSearchParams, router]);
+  }, [effectiveSearchParams, router, selectedTab]);
 
   const handleTabChange: Dispatch<SetStateAction<string>> = (value) => {
     const newTab = typeof value === "function" ? value(selectedTab) : value;

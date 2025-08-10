@@ -80,20 +80,33 @@ export const fetchCheckIfFollowing = async (
 };
 
 export async function fetchMutualFollowers(viewerFid: number, fanFids: number[]): Promise<Record<number, boolean>> {
-  const url = `https://api.neynar.com/v2/farcaster/user/bulk?fids=${fanFids.join(",")}&viewer_fid=${viewerFid}`;
-  const res = await fetch(url, {
-    method: "GET",
-    headers: {
-      accept: "application/json",
-      "x-api-key": process.env.NEXT_PUBLIC_NEYNAR_API_KEY || "",
-    },
-  });
-
-  const data = await res.json();
-
   const result: Record<number, boolean> = {};
-  for (const user of data.users) {
-    result[user.fid] = user.viewer_context?.following || false;
+  if (!Array.isArray(fanFids) || fanFids.length === 0) return result;
+
+  const headers = {
+    accept: "application/json",
+    "x-api-key": process.env.NEXT_PUBLIC_NEYNAR_API_KEY || "",
+  } as const;
+
+  const chunkSize = 100; // Neynar bulk endpoint works best with reasonable batch sizes
+  for (let i = 0; i < fanFids.length; i += chunkSize) {
+    const chunk = fanFids.slice(i, i + chunkSize);
+    const url = `https://api.neynar.com/v2/farcaster/user/bulk?fids=${chunk.join(",")}&viewer_fid=${viewerFid}`;
+    try {
+      const res = await fetch(url, { method: "GET", headers });
+      if (!res.ok) {
+        console.warn(`fetchMutualFollowers: HTTP ${res.status}`);
+        continue;
+      }
+      const data = await res.json();
+      const users = Array.isArray(data?.users) ? data.users : [];
+      for (const user of users) {
+        result[user.fid] = Boolean(user?.viewer_context?.following);
+      }
+    } catch (err) {
+      console.warn("fetchMutualFollowers: request failed", err);
+      continue;
+    }
   }
 
   return result;
