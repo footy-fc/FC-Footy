@@ -14,7 +14,7 @@ import NotificationBanner from './game/NotificationBanner';
 import UserInstructions from './UserInstructions';
 import { SCORE_SQUARE_ADDRESS } from '../lib/config';
 import SquareGridPlaceholder from './game/SquareGridPlaceholder';
-import { Info, RefreshCw } from 'lucide-react';
+import { Info } from 'lucide-react';
 import { WarpcastShareButton } from './ui/WarpcastShareButton';
 import { parseEventId } from '../utils/eventIdParser';
 import { getTeamLogo, getLeagueCode } from './utils/fetchTeamLogos';
@@ -68,8 +68,6 @@ const BlockchainScoreSquareDisplayWrapped: React.FC<BlockchainScoreSquareDisplay
     setLoading, 
     error, 
     setError, 
-    refreshGameData, 
-    isRefreshing,
     isMatchLive,
     timeUntilMatch,
     matchEvents,
@@ -298,16 +296,7 @@ useEffect(() => {
               )}
             </div>
             
-            <div className="flex items-center gap-2">
-              <button
-                onClick={refreshGameData}
-                disabled={isRefreshing}
-                className="flex items-center gap-2 px-3 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors disabled:opacity-50"
-              >
-                <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-                <span className="text-sm">Refresh</span>
-              </button>
-            </div>
+            {/* Refresh hidden by request */}
           </div>
 
           {/* Game Metadata Card */}
@@ -352,7 +341,7 @@ useEffect(() => {
           )}
 
           {/* Instructions and Share Section */}
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div className="flex items-center gap-2">
               <Info className="w-5 h-5 text-deepPink" />
               <button
@@ -381,13 +370,15 @@ useEffect(() => {
                 keyMoments: [],
               };
               return (
-                <WarpcastShareButton
-                  selectedMatch={selectedMatch}
-                  buttonText="Share"
-                  compositeImage={true}
-                  leagueId={leagueId}
-                  moneyGamesParams={{ eventId: gameDataState?.eventId || '' }}
-                />
+                <div className="mt-3 sm:mt-0 w-full sm:w-auto">
+                  <WarpcastShareButton
+                    selectedMatch={selectedMatch}
+                    buttonText="Share"
+                    compositeImage={true}
+                    leagueId={leagueId}
+                    moneyGamesParams={{ eventId: gameDataState?.eventId || '' }}
+                  />
+                </div>
               );
             })()}
           </div>
