@@ -8,7 +8,7 @@ import SettingsFollowClubs from './SettingsFollowClubs';
 import ContentLiveChat from './ContentLiveChat';
 import type { FanPair } from "./utils/getAlikeFanMatches";
 import { fetchFanUserData } from './utils/fetchFCProfile';
-import OCaptainFPLPrompt from './ocaptain/OCaptainFPLPrompt';
+// import OCaptainFPLPrompt from './ocaptain/OCaptainFPLPrompt';
 
 type TeamLink = {
   href: string;
