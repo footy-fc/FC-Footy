@@ -136,7 +136,7 @@ const ActiveGamesBrowser: React.FC<ActiveGamesBrowserProps> = ({ initialGameId }
     })
     : [];
 
-  const availableLeagues = React.useMemo(() => {
+/*   const availableLeagues = React.useMemo(() => {
     const leagues = new Set<string>();
     data?.games?.forEach((game: SubgraphGame) => {
       const eventDetails = parseEventId(game.eventId);
@@ -145,7 +145,7 @@ const ActiveGamesBrowser: React.FC<ActiveGamesBrowserProps> = ({ initialGameId }
       }
     });
     return Array.from(leagues).sort();
-  }, [data?.games]);
+  }, [data?.games]); */
 
   // Simple USD price fetcher for ETH affordance
   const [ethUsdPrice, setEthUsdPrice] = React.useState<number>(0);
