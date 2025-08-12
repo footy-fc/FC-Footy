@@ -319,98 +319,11 @@ const copyShareLink = async () => {
         </div>
       ) : (
         <div className="space-y-6">
-          {/* Enhanced Header with Live Status */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              {isMatchLive && (
-                <div className="flex items-center gap-2 px-3 py-1 bg-red-600 rounded-full">
-                  <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
-                  <span className="text-sm text-white font-medium">LIVE MATCH</span>
-                </div>
-              )}
-              {timeUntilMatch && !isMatchLive && (
-                <div className="px-3 py-1 bg-blue-600 rounded-full">
-                  <span className="text-sm text-white font-medium">Starts in {timeUntilMatch}</span>
-                </div>
-              )}
-            </div>
-            
-            {/* Refresh hidden by request */}
-          </div>
-
-          {/* Game Metadata Card */}
+          {/* Game Metadata Card (moved up) */}
           <div ref={metadataRef}>
             <GameMetadataCard derivedPlayers={derivedPlayers} />
           </div>
 
-          {/* Live Match Events Component */}
-          <LiveMatchEvents events={matchEvents} />
-
-          {/* Notifications Banner */}
-          <NotificationBanner />
-
-          {/* Referee Information */}
-          {!isReferee && gameDataState.ticketsSold < 25 && (
-            <RefereeCard referee={gameDataState.referee} />
-          )}
-          {isReferee && gameDataState.ticketsSold === 0 && (
-            <div className="bg-yellow-100 border border-yellow-300 text-yellow-800 px-4 py-3 rounded-md text-sm">
-              You are the referee for this game. Once tickets are sold, you will be responsible for either refunding the game (if it does not sell out) or finalizing and distributing the prize when all 25 tickets are sold.
-            </div>
-          )}
-
-          {/* Transaction Status */}
-          {txStatus && (
-            <div className="text-center p-4 bg-blue-900/20 border border-blue-500 rounded-lg">
-              <p className="text-lg font-semibold text-blue-300">{txStatus}</p>
-            </div>
-          )}
-
-          {/* Referee Controls */}
-          {(isFinalizationRequired || (isRefundEligible && gameDataState.ticketsSold > 0)) && (
-            <RefereeControls
-              gameId={gameDataState.gameId}
-              squareOwners={derivedPlayers}
-              refetchOnChainTickets={() => refetchOnChainTickets().then(() => {})}
-              selectedWinners={selectedWinners}
-              clearWinners={() =>
-                setSelectedWinners({ halftime: null, final: null })
-              }
-            />
-          )}
-
-          {/* Instructions and Share Section */}
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <Info className="w-5 h-5 text-deepPink" />
-              <button
-                onClick={() => setShowInstructions(!showInstructions)}
-                className="text-deepPink hover:text-fontRed focus:outline-none transition font-medium"
-              >
-                {showInstructions ? "Hide Instructions" : "Need help?"}
-              </button>
-            </div>
-
-            <div className="mt-3 sm:mt-0 w-full sm:w-auto flex flex-col sm:flex-row gap-2 sm:items-center">
-              <WarpcastShareButton
-                selectedMatch={selectedMatch}
-                buttonText="Share"
-                compositeImage={true}
-                leagueId={leagueId}
-                moneyGamesParams={{ eventId: gameDataState?.eventId || '' }}
-              />
-           <button
-                onClick={copyShareLink}
-                className="w-full sm:w-auto bg-gray-700 hover:bg-gray-600 text-white py-2 px-4 rounded-lg transition-colors"
-              >
-                {copied ? 'Copied!' : 'Copy link'}
-              </button> 
-            </div>
-          </div>
-
-          {showInstructions && <UserInstructions />}
-
-          {/* Square Grid */}
           {isGridReady ? (
             <SquareGrid
               key={forceUpdate}
@@ -485,6 +398,23 @@ const copyShareLink = async () => {
             </div>
           )}
 
+          {/* Referee Information */}
+          {!isReferee && gameDataState.ticketsSold < 25 && (
+            <RefereeCard referee={gameDataState.referee} />
+          )}
+          {isReferee && gameDataState.ticketsSold === 0 && (
+            <div className="bg-yellow-100 border border-yellow-300 text-yellow-800 px-4 py-3 rounded-md text-sm">
+              You are the referee for this game. Once tickets are sold, you will be responsible for either refunding the game (if it does not sell out) or finalizing and distributing the prize when all 25 tickets are sold.
+            </div>
+          )}
+
+          {/* Transaction Status */}
+          {txStatus && (
+            <div className="text-center p-4 bg-blue-900/20 border border-blue-500 rounded-lg">
+              <p className="text-lg font-semibold text-blue-300">{txStatus}</p>
+            </div>
+          )}
+
           {/* Cart Section */}
           {gameDataState.ticketsSold < 25 && (
             <div className={isGridReady ? "" : "opacity-40 pointer-events-none"}>
@@ -499,6 +429,77 @@ const copyShareLink = async () => {
                 clearCart={() => setCart([])}
               />
             </div>
+          )}
+
+          {/* Enhanced Header with Live Status (moved below grid) */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              {isMatchLive && (
+                <div className="flex items-center gap-2 px-3 py-1 bg-red-600 rounded-full">
+                  <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
+                  <span className="text-sm text-white font-medium">LIVE MATCH</span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Live Match Events Component */}
+          <LiveMatchEvents events={matchEvents} />
+
+          {/* Notifications Banner */}
+          <NotificationBanner />
+
+          {/* Instructions and Share Section */}
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <Info className="w-5 h-5 text-deepPink" />
+              <button
+                onClick={() => setShowInstructions(!showInstructions)}
+                className="text-deepPink hover:text-fontRed focus:outline-none transition font-medium"
+              >
+                {showInstructions ? "Hide Instructions" : "Need help?"}
+              </button>
+            </div>
+
+            <div className="mt-3 sm:mt-0 w-full sm:w-auto flex flex-col sm:flex-row gap-2 sm:items-center">
+              <WarpcastShareButton
+                selectedMatch={selectedMatch}
+                buttonText="Share"
+                compositeImage={true}
+                leagueId={leagueId}
+                moneyGamesParams={{ eventId: gameDataState?.eventId || '' }}
+                ticketPriceEth={Number(gameDataState?.squarePrice ?? 0) / 1e18}
+                prizePoolEth={(() => {
+                  const squarePriceEth = Number(gameDataState?.squarePrice ?? 0) / 1e18;
+                  const deployerFee = ((gameDataState?.deployerFeePercent ?? 0) / 100) * (25 * squarePriceEth);
+                  const communityFee = 0.04 * (25 * squarePriceEth);
+                  return 25 * squarePriceEth - deployerFee - communityFee;
+                })()}
+              />
+           <button
+                onClick={copyShareLink}
+                className="w-full sm:w-auto bg-gray-700 hover:bg-gray-600 text-white py-2 px-4 rounded-lg transition-colors"
+              >
+                {copied ? 'Copied!' : 'Copy link'}
+              </button> 
+            </div>
+          </div>
+
+          {showInstructions && <UserInstructions />}
+
+
+
+          {/* Referee Controls (moved to bottom) */}
+          {(isFinalizationRequired || (isRefundEligible && gameDataState.ticketsSold > 0)) && (
+            <RefereeControls
+              gameId={gameDataState.gameId}
+              squareOwners={derivedPlayers}
+              refetchOnChainTickets={() => refetchOnChainTickets().then(() => {})}
+              selectedWinners={selectedWinners}
+              clearWinners={() =>
+                setSelectedWinners({ halftime: null, final: null })
+              }
+            />
           )}
         </div>
       )}

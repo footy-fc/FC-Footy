@@ -471,6 +471,14 @@ const BlockchainScoreSquareCreateDetails: React.FC<BlockchainScoreSquareCreateDe
             className="bg-darkPurple text-lightPurple border border-limeGreenOpacity p-2 rounded w-full focus:outline-none focus:ring-2 focus:ring-limeGreenOpacity"
           >
             <option className="text-lightPurple" value="eng.1">Premier League (EPL)</option>
+            <option className="text-lightPurple" value="esp.1">La Liga (ESP)</option>
+            <option className="text-lightPurple" value="ita.1">Serie A (ITA)</option>
+            <option className="text-lightPurple" value="ger.1">Bundesliga (GER)</option>
+            <option className="text-lightPurple" value="fra.1">Ligue 1 (FRA)</option>
+            <option className="text-lightPurple" value="uefa.champions">UEFA Champions League</option>
+            <option className="text-lightPurple" value="uefa.europa">UEFA Europa League</option>
+            <option className="text-lightPurple" value="usa.1">MLS (USA)</option>
+            <option className="text-lightPurple" value="eng.2">EFL Championship (ENG 2)</option>
           </select>
         </div>
         

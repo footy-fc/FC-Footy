@@ -20,7 +20,7 @@ export async function GET() {
       homeUrl: appUrl,
       heroImageUrl: `${appUrl}/opengraph-image`,
       webhookUrl: `${appUrl}/api/webhook`,
-      subtitle: "Footy fun in farcaster",
+      subtitle: "Footy fun in arcaster",
       description: "Match previews, summaries, Farcaster fantasy league and onchain fan experiences",
       primaryCategory: "entertainment",
       tags: ["sports", "soccer", "football", "fantasy", "games"],

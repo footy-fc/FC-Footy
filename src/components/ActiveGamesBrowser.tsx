@@ -9,6 +9,7 @@ import Image from 'next/image';
 import { useSearchParams, useRouter } from 'next/navigation';
 import UserInstructions from './UserInstructions';
 import FarcasterAvatar from './FarcasterAvatar';
+import { FaRegIdCard } from 'react-icons/fa';
 
 interface SubgraphGame {
   deployer: string;
@@ -203,7 +204,7 @@ const ActiveGamesBrowser: React.FC<ActiveGamesBrowserProps> = ({ initialGameId }
   if (error) {
     return (
       <div className="p-4">
-        <h2 className="text-xl text-notWhite font-bold mb-4">Active Games</h2>
+        <h2 className="text-xl text-notWhite font-bold mb-4">Select Game</h2>
         <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative">
           <strong className="font-bold">Error!</strong>
           <span className="block sm:inline"> {error.message || 'Failed to load games'}</span>
@@ -265,82 +266,64 @@ const ActiveGamesBrowser: React.FC<ActiveGamesBrowserProps> = ({ initialGameId }
               className="bg-gray-800 rounded-lg p-4 border border-gray-700 hover:border-limeGreenOpacity transition-all duration-300 cursor-pointer flex flex-col justify-between shadow-lg hover:shadow-xl"
               onClick={() => handleGameSelect(game.gameId)}
             >
-              {/* Header with Status Badges */}
-              <div className="flex justify-between items-start mb-3">
+              {/* Compact Header */}
+              <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
                   {isNew && (
-                    <div className="px-2 py-1 bg-green-600 text-white text-xs rounded-full flex items-center gap-1">
+                    <div className="px-2 py-1 bg-green-600 text-white text-[10px] rounded-full flex items-center gap-1">
                       <span className="w-1 h-1 bg-white rounded-full animate-pulse"></span>
                       NEW
                     </div>
                   )}
                   {isHot && (
-                    <div className="px-2 py-1 bg-red-600 text-white text-xs rounded-full flex items-center gap-1">
+                    <div className="px-2 py-1 bg-red-600 text-white text-[10px] rounded-full flex items-center gap-1">
                       <Flame className="w-3 h-3" />
                       HOT
                     </div>
                   )}
-                  <div className={`px-2 py-1 text-xs rounded-full ${gameStatus.bgColor} ${gameStatus.color}`}>
+                  <div className={`px-2 py-1 text-[10px] rounded-full ${gameStatus.bgColor} ${gameStatus.color}`}>
                     {gameStatus.status}
                   </div>
+                  <span className="px-2 py-0.5 bg-blue-900 text-blue-200 rounded-full text-[10px]">
+                    {getLeagueDisplayName(eventDetails.leagueId)}
+                  </span>
                 </div>
-
-                {timeUntilMatch && (
-                  <div className="flex items-center gap-1 text-blue-400 text-sm">
-                    <Clock className="w-4 h-4" />
-                    {timeUntilMatch}
-                  </div>
-                )}
               </div>
 
-              {/* Teams & League */}
-              <div className="flex justify-between items-center mb-3">
-                {/* Home Team */}
+              {/* Teams */}
+              <div className="grid grid-cols-3 items-center gap-2 mb-3">
                 <div className="flex items-center gap-2">
                   <Image
                     src={getTeamLogo(eventDetails?.homeTeam, getLeagueCode(eventDetails?.leagueId))}
                     alt={eventDetails?.homeTeam}
-                    width={30}
-                    height={30}
+                    width={36}
+                    height={36}
                     className="object-contain"
                   />
-                  <span className="font-semibold text-notWhite">{eventDetails?.homeTeam}</span>
+                  <span className="font-semibold text-notWhite text-sm">{eventDetails?.homeTeam}</span>
                 </div>
-  
-                <span className="text-lightPurple text-sm">vs</span>
-  
-                {/* Away Team */}
-                <div className="flex items-center gap-2">
-                  <span className="font-semibold text-notWhite">{eventDetails?.awayTeam}</span>
+                <div className="text-center text-lightPurple text-xs">vs</div>
+                <div className="flex items-center gap-2 justify-end">
+                  <span className="font-semibold text-notWhite text-sm">{eventDetails?.awayTeam}</span>
                   <Image
                     src={getTeamLogo(eventDetails?.awayTeam, getLeagueCode(eventDetails?.leagueId))}
                     alt={eventDetails?.awayTeam}
-                    width={30}
-                    height={30}
+                    width={36}
+                    height={36}
                     className="object-contain"
                   />
                 </div>
               </div>
-  
-              {/* League & Time Info */}
-              <div className="text-xs text-lightPurple text-center mb-3 flex items-center justify-center gap-2">
-                <span className="px-2 py-0.5 bg-blue-900 text-blue-200 rounded-full text-xs">
-                  {getLeagueDisplayName(eventDetails.leagueId)}
-                </span>
-                <span className="flex items-center gap-1">
-                  deployed {deployedTime}
-                </span>
-              </div>
 
-              {/* Enhanced Progress Bar */}
+              {/* Progress */}
               <div className="mb-3">
-                <div className="flex justify-between text-sm mb-1">
+                <div className="flex justify-between text-xs mb-1">
                   <span className="text-lightPurple flex items-center gap-1">
                     <Users className="w-3 h-3" />
-                    {ticketsLeft > 0 ? "Tickets Available" : "Tickets Sold Out"}
+                    {ticketsLeft > 0 ? `${ticketsLeft} tickets left` : "Tickets Sold Out"}
                   </span>
-                  <span className={`font-bold ${ticketsLeft > 0 ? "text-yellow-400" : "text-deepPink"}`}>
-                    {game.ticketsSold}/25
+                  <span className={`font-semibold ${ticketsLeft > 0 ? "text-yellow-400" : "text-deepPink"}`}>
+                    {game.ticketsSold}/25 sold
                   </span>
                 </div>
                 <div className="w-full bg-gray-700 rounded-full h-2.5">
@@ -352,26 +335,34 @@ const ActiveGamesBrowser: React.FC<ActiveGamesBrowserProps> = ({ initialGameId }
                       progressPercentage >= 25 ? "bg-blue-500" : "bg-limeGreenOpacity"
                     }`} 
                     style={{ width: `${progressPercentage}%` }}
-                  ></div>
+                  />
                 </div>
               </div>
-  
-              {/* Prize Pool & Referee */}
-              <div className="flex justify-between items-center">
+
+              {/* Stats */}
+              <div className="grid grid-cols-2 gap-3 items-start">
                 <div>
-                  <div className="text-lightPurple text-sm flex items-center gap-1">
+                  <div className="text-lightPurple text-xs flex items-center gap-1">
                     <Trophy className="w-3 h-3" />
-                    Prize Pool
+                    Prize pool
                   </div>
-                  <div className="text-lg font-bold text-limeGreenOpacity">{finalPrizePool.toFixed(4)} ETH</div>
+                  <div className="text-base font-bold text-limeGreenOpacity">{finalPrizePool.toFixed(4)} ETH</div>
                   <PrizeUsdHint ethAmount={finalPrizePool} />
-                  <div className="text-xs text-gray-400 mt-1">Game ID: {game.gameId}</div>
                 </div>
-  
-                <div className="flex flex-col items-end">
-                  <span className="text-lightPurple text-sm">Referee</span>
+                <div>
+                  <div className="text-lightPurple text-xs">Ticket price</div>
+                  <div className="text-base text-notWhite">{squarePriceEth.toFixed(4)} ETH</div>
+                  <PrizeUsdHint ethAmount={squarePriceEth} />
+                </div>
+              </div>
+
+              {/* Footer: Referee + Game ID */}
+              <div className="mt-3 flex items-center justify-between">
+                <div className="text-lightPurple text-xs flex items-center gap-1">
+                    Referee: 
                   <FarcasterAvatar address={game.deployer} showName size={20} className="rounded-full" />
                 </div>
+                <span className="text-xs text-gray-500">Game ID: {game.gameId}</span>
               </div>
             </div>
           );

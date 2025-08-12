@@ -10,6 +10,7 @@ import MatchesTab from "./MatchesTab";
 // import Contests from "./Contests";
 import ContentTab from "./ContentTab";
 import Settings from "./Settings";
+import AdminDashboard from "./AdminDashboard";
 import MoneyGames from "./MoneyGames";
 import OCaptain from "./OCaptain";
 import ForYou from "./ForYou";
@@ -50,6 +51,22 @@ export default function Main() {
   const effectiveSearchParams = searchParams || customSearchParams;
   const selectedTab = effectiveSearchParams?.get("tab") || "forYou";
   const selectedLeague = effectiveSearchParams?.get("league") || "eng.1";
+  const [isAdminFid, setIsAdminFid] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      try {
+        await sdk.actions.ready();
+        const context = await sdk.context;
+        const fid = context?.user?.fid;
+        if (!cancelled) setIsAdminFid(Boolean(fid && [4163, 420564].includes(fid)));
+      } catch {
+        if (!cancelled) setIsAdminFid(false);
+      }
+    };
+    load();
+    return () => { cancelled = true; };
+  }, []);
   const shareHandledRef = useRef(false);
 
   // Handle URL redirect logic
@@ -188,15 +205,17 @@ export default function Main() {
                   setSelectedLeague={handleLeagueChange}
                 />
               )}
+              {/* Admins renders only AdminDashboard */}
               {/* {selectedTab === "contests" && <Contests />} */}
               {selectedTab === "moneyGames" && <MoneyGames />}
               {selectedTab === "oCaptain" && <OCaptain />}
               {selectedTab === "rewards" && <Rewards />}
               {selectedTab === "extraTime" && <ContentTab />}
               {selectedTab === "settings" && <Settings />}
+              {selectedTab === "admins" && isAdminFid && <AdminDashboard />}
               {selectedTab === "forYou" && <ForYou />}
               {selectedTab === "scoutPlayers" && <Scout />}
-              {!["forYou", "matches", /* "contests", */ "scoutPlayers", "moneyGames", "oCaptain", "rewards", "extraTime", "settings"].includes(selectedTab) && (
+              {!["forYou", "matches", /* "contests", */ "scoutPlayers", "moneyGames", "oCaptain", "rewards", "extraTime", "settings", "admins"].includes(selectedTab) && (
                 <div className="text-center text-lg text-fontRed">Coming soon...</div>
               )}
             </div>
@@ -220,7 +239,7 @@ export default function Main() {
             setSelectedTab={handleTabChange}
             tabDisplayMap={tabDisplayMap}
           />
-          <div className="bg-darkPurple p-2 rounded-md text-white">
+            <div className="bg-darkPurple p-2 rounded-md text-white">
             {selectedTab === "matches" && (
               <MatchesTab
                 league={selectedLeague}
@@ -228,15 +247,17 @@ export default function Main() {
                 setSelectedLeague={handleLeagueChange}
               />
             )}
+              {/* Admins renders only AdminDashboard */}
             {/* {selectedTab === "contests" && <Contests />} */}
             {selectedTab === "moneyGames" && <MoneyGames />}
             {selectedTab === "oCaptain" && <OCaptain />}
             {selectedTab === "rewards" && <Rewards />}
             {selectedTab === "extraTime" && <ContentTab />}
             {selectedTab === "settings" && <Settings />}
+            {selectedTab === "admins" && isAdminFid && <AdminDashboard />}
             {selectedTab === "forYou" && <ForYou />}
             {selectedTab === "scoutPlayers" && <Scout />}
-            {!["forYou", "matches", /* "contests", */ "scoutPlayers", "moneyGames", "oCaptain", "rewards", "extraTime", "settings"].includes(selectedTab) && (
+            {!["forYou", "matches", /* "contests", */ "scoutPlayers", "moneyGames", "oCaptain", "rewards", "extraTime", "settings", "admins"].includes(selectedTab) && (
               <div className="text-center text-lg text-fontRed">Coming soon...</div>
             )}
           </div>

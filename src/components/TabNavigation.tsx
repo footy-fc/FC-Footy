@@ -1,4 +1,5 @@
 import React from 'react';
+import { sdk } from '@farcaster/frame-sdk';
 
 interface TabNavigationProps {
   selectedTab: string;
@@ -12,7 +13,7 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
   tabDisplayMap,
 }) => {
   // Use keys without spaces here
-  const tabs = [
+  const tabsBase = [
     "forYou",
     "matches",
     // "contests",
@@ -23,6 +24,26 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
     "rewards",
     "settings",
   ];
+  const adminFids = new Set<number>([4163, 420564]);
+  const [includeAdmins, setIncludeAdmins] = React.useState(false);
+
+  React.useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      try {
+        await sdk.actions.ready();
+        const context = await sdk.context;
+        const fid = context?.user?.fid;
+        if (!cancelled) setIncludeAdmins(Boolean(fid && adminFids.has(fid)));
+      } catch {
+        if (!cancelled) setIncludeAdmins(false);
+      }
+    };
+    load();
+    return () => { cancelled = true; };
+  }, []);
+
+  const tabs = includeAdmins ? [...tabsBase, 'admins'] : tabsBase;
 
   return (
     <div className="flex overflow-x-auto overflow-y-hidden space-x-4 mb-1 sticky top-0 z-50 bg-darkPurple py-2 shadow-md w-full">

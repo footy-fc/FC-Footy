@@ -119,12 +119,15 @@ interface WarpcastShareButtonProps {
     eventId: string;
     gameId?: string;
   };
+  ticketPriceEth?: number;
+  prizePoolEth?: number;
 }
 
-export function WarpcastShareButton({ selectedMatch, buttonText, compositeImage, fallbackLeague, leagueId, moneyGamesParams }: WarpcastShareButtonProps) {
+export function WarpcastShareButton({ selectedMatch, buttonText, compositeImage, fallbackLeague, leagueId, moneyGamesParams, ticketPriceEth, prizePoolEth }: WarpcastShareButtonProps) {
   const [context, setContext] = useState<unknown>(undefined);
   const [isContextLoaded, setIsContextLoaded] = useState(false);
   const searchParams = useSearchParams();
+  const [ethUsdPrice, setEthUsdPrice] = useState<number | null>(null);
 
   useEffect(() => {
     const loadContext = async () => {
@@ -140,6 +143,23 @@ export function WarpcastShareButton({ selectedMatch, buttonText, compositeImage,
       loadContext();
     }
   }, [isContextLoaded]);
+
+  useEffect(() => {
+    // Fetch ETH price when we are composing MoneyGames link so we can show USD affordance
+    if (!moneyGamesParams) return;
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const res = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd');
+        const data = await res.json();
+        if (!cancelled) setEthUsdPrice(Number(data?.ethereum?.usd || 0));
+      } catch {
+        if (!cancelled) setEthUsdPrice(null);
+      }
+    };
+    load();
+    return () => { cancelled = true; };
+  }, [moneyGamesParams]);
 
   const openWarpcastUrl = useCallback(async () => {
     // Stronger and more noticeable haptic feedback
@@ -197,9 +217,22 @@ export function WarpcastShareButton({ selectedMatch, buttonText, compositeImage,
 
       // Build the cast text
       const isMoneyGame = Boolean(moneyGamesParams);
-      const matchSummary = isMoneyGame
-        ? `${selectedMatch.homeTeam} v ${selectedMatch.awayTeam} ScoreSquare Lottery 🎟️ 25 squares, 2 winners.`
-        : `${competitorsLong} ${keyMomentsText}\n\n@gabedev.eth @kmacb.eth are you in on this one?`;
+      let matchSummary = `${competitorsLong} ${keyMomentsText}\n\n@gabedev.eth @kmacb.eth are you in on this one?`;
+      if (isMoneyGame) {
+        const ticketEthStr = typeof ticketPriceEth === 'number' && !isNaN(ticketPriceEth)
+          ? `${ticketPriceEth.toFixed(4)} ETH`
+          : `—`;
+        const prizeEthStr = typeof prizePoolEth === 'number' && !isNaN(prizePoolEth)
+          ? `${prizePoolEth.toFixed(4)} ETH`
+          : `—`;
+        const ticketUsdStr = ethUsdPrice && typeof ticketPriceEth === 'number'
+          ? ` (~$${(ticketPriceEth * ethUsdPrice).toFixed(2)})`
+          : '';
+        const prizeUsdStr = ethUsdPrice && typeof prizePoolEth === 'number'
+          ? ` (~$${(prizePoolEth * ethUsdPrice).toFixed(2)})`
+          : '';
+        matchSummary = `${selectedMatch.homeTeam} v ${selectedMatch.awayTeam} ScoreSquare 🎟️ 25 squares, 2 winners\nTicket: ${ticketEthStr}${ticketUsdStr} \nPrize: ${prizeEthStr}${prizeUsdStr}`;
+      }
 
       //let imageUrl = '';
 
@@ -211,6 +244,12 @@ export function WarpcastShareButton({ selectedMatch, buttonText, compositeImage,
           const uploadRes = await fetch('/api/upload', { method: 'POST', body: blob });
           const uploadResult = await uploadRes.json();
           if (!uploadRes.ok) throw new Error('Image upload failed');
+
+          // Log the uploaded IPFS CID for debugging/analytics
+          if (uploadResult?.ipfsHash) {
+            // eslint-disable-next-line no-console
+            console.log('Composite image uploaded. CID:', uploadResult.ipfsHash);
+          }
 
           //const gateway = (process.env.NEXT_PUBLIC_PINATAGATEWAY || 'https://gateway.pinata.cloud/ipfs').replace(/\/$/, '');
           //imageUrl = `${gateway}/${uploadResult.ipfsHash}`;

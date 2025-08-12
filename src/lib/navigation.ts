@@ -8,4 +8,5 @@ export const tabDisplayMap: Record<string, string> = {
     //oCaptain: "O'Captain",
     extraTime: "Extra Time",
     settings: "Settings",
+    admins: "Admins",
   };
