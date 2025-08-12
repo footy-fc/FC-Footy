@@ -28,17 +28,6 @@ interface ActiveGamesBrowserProps {
   initialGameId?: string | null;
 }
 
-const formatShortDate = (timestamp: string) => {
-  const date = new Date(parseInt(timestamp) * 1000);
-  return date.toLocaleString("en-US", {
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  }).replace(",", "");
-};
-
 const getTimeUntilMatch = (eventId: string) => {
   try {
     const parts = eventId.split("_");
@@ -254,7 +243,7 @@ const ActiveGamesBrowser: React.FC<ActiveGamesBrowserProps> = ({ initialGameId }
           const ticketsLeft = 25 - game.ticketsSold;
           //const deployedTime = formatShortDate(game.createdAt);
           const progressPercentage = (game.ticketsSold / 25) * 100;
-          const timeUntilMatch = getTimeUntilMatch(game.eventId);
+          //const timeUntilMatch = getTimeUntilMatch(game.eventId);
           const gameStatus = getGameStatus(game);
           const isHot = ticketsLeft <= 3 && ticketsLeft > 0;
           const isNew = Date.now() - parseInt(game.createdAt) * 1000 < 30 * 60 * 1000; // 30 minutes
