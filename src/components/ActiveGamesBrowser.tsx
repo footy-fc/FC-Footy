@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Info, ChevronDown, Users, Trophy, Flame, Clock } from "lucide-react";
+import { Info, ChevronDown, Users, Trophy, Flame } from "lucide-react";
 import { useGames } from '../hooks/useSubgraphData';
 import { formatEther } from 'viem';
 import BlockchainScoreSquareDisplay from './BlockchainScoreSquareDisplay';
@@ -9,7 +9,6 @@ import Image from 'next/image';
 import { useSearchParams, useRouter } from 'next/navigation';
 import UserInstructions from './UserInstructions';
 import FarcasterAvatar from './FarcasterAvatar';
-import { FaRegIdCard } from 'react-icons/fa';
 
 interface SubgraphGame {
   deployer: string;
@@ -253,7 +252,7 @@ const ActiveGamesBrowser: React.FC<ActiveGamesBrowserProps> = ({ initialGameId }
           const communityFee = 0.04 * (25 * squarePriceEth);
           const finalPrizePool = 25 * squarePriceEth - deployerFee - communityFee;
           const ticketsLeft = 25 - game.ticketsSold;
-          const deployedTime = formatShortDate(game.createdAt);
+          //const deployedTime = formatShortDate(game.createdAt);
           const progressPercentage = (game.ticketsSold / 25) * 100;
           const timeUntilMatch = getTimeUntilMatch(game.eventId);
           const gameStatus = getGameStatus(game);
