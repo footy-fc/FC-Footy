@@ -1,9 +1,9 @@
 "use client";
-import React, { useEffect, useState } from "react";
+import React, { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import ContentLiveChat from "~/components/ContentLiveChat";
 
-export default function ChatPage() {
+function ChatPageInner() {
   const searchParams = useSearchParams();
   const eventId = searchParams?.get("eventId") || "";
   // const returnTo = searchParams?.get("returnTo") || null;
@@ -41,6 +41,14 @@ export default function ChatPage() {
         <ContentLiveChat parentCastHash={castHash} eventId={eventId} />
       )}
     </div>
+  );
+}
+
+export default function ChatPage() {
+  return (
+    <Suspense fallback={<div className="w-[400px] mx-auto py-2 px-2 text-lightPurple">Loading…</div>}>
+      <ChatPageInner />
+    </Suspense>
   );
 }
 
