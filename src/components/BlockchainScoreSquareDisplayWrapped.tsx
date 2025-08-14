@@ -272,21 +272,6 @@ useEffect(() => {
     keyMoments: [],
   };
 
-  // Compose a cast tagging @Commit with a short context
-  const handleComposeCommit = async () => {
-    try {
-      await sdk.actions.ready();
-      const contextText = gameDataState?.eventId ? ` for ${gameDataState.eventId}` : '';
-      await sdk.actions.composeCast({
-        text: `@commit Diff of Working State${contextText}`,
-        channelKey: 'football',
-      });
-    } catch (e) {
-      // eslint-disable-next-line no-console
-      console.error('composeCast failed', e);
-    }
-  };
-
   // Resolve chat parent (cast hash and/or URL) for this event, if any
   const [chatParentUrl, setChatParentUrl] = useState<string | null>(null);
   const [chatCastHash, setChatCastHash] = useState<string | null>(null);
@@ -526,12 +511,6 @@ const copyShareLink = async () => {
                   return 25 * squarePriceEth - deployerFee - communityFee;
                 })()}
               />
-              <button
-                onClick={handleComposeCommit}
-                className="w-full sm:w-auto bg-deepPink hover:bg-fontRed text-black py-2 px-4 rounded-lg transition-colors"
-              >
-                Tag @Commit
-              </button>
            <button
                 onClick={copyShareLink}
                 className="w-full sm:w-auto bg-gray-700 hover:bg-gray-600 text-white py-2 px-4 rounded-lg transition-colors"
