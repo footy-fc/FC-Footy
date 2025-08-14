@@ -91,6 +91,7 @@ export async function DELETE(req: NextRequest) {
     await redis.del(keyForEvent(eventId));
     return Response.json({ success: true });
   } catch (e) {
+    console.error('Failed to delete room', e);
     return Response.json({ error: "Failed to delete room" }, { status: 500 });
   }
 }

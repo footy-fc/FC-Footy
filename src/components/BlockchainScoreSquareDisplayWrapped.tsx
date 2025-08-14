@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { sdk } from '@farcaster/miniapp-sdk';
+//import { sdk } from '@farcaster/miniapp-sdk';
 import { useAccount, useWriteContract, useWaitForTransactionReceipt, useContractRead } from 'wagmi';
 import { useGameContext } from '../context/GameContext';
 import GameMetadataCard from './game/GameMetadataCard';
