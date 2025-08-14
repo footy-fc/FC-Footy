@@ -299,11 +299,18 @@ export default function TeamsTab({
     try {
       const raw = team.metadata?.emojis;
       if (raw) {
-        const parsed = JSON.parse(raw);
+        const parsed: unknown = JSON.parse(raw);
         if (Array.isArray(parsed)) {
-          const cleaned = parsed
-            .filter((e: any) => e && typeof e.code === 'string' && typeof e.url === 'string')
-            .map((e: any) => ({ code: e.code, url: e.url }));
+          const cleaned: Array<{ code: string; url: string }> = parsed
+            .filter((e: unknown): e is { code: string; url: string } => {
+              return (
+                !!e &&
+                typeof e === 'object' &&
+                typeof (e as Record<string, unknown>).code === 'string' &&
+                typeof (e as Record<string, unknown>).url === 'string'
+              );
+            })
+            .map((e) => ({ code: e.code, url: e.url }));
           setEmojiList(cleaned);
         } else {
           setEmojiList([]);
@@ -930,7 +937,7 @@ export default function TeamsTab({
               {/* Team Emojis Section */}
               <div className="border-t border-limeGreenOpacity pt-4">
                 <h4 className="text-md font-semibold text-notWhite mb-3">Team Emojis</h4>
-                <p className="text-sm text-lightPurple mb-3">Manage team-specific custom emojis shown in chat. Codes must follow pack::name, e.g. "ars::saka". URLs can be relative to /public or absolute.</p>
+                <p className="text-sm text-lightPurple mb-3">Manage team-specific custom emojis shown in chat. Codes must follow pack::name, e.g. &quot;ars::saka&quot;. URLs can be relative to /public or absolute.</p>
                 {/* Add New Emoji */}
                 <div className="flex flex-col md:flex-row md:items-center md:space-x-2 space-y-2 md:space-y-0 mb-3">
                   <input

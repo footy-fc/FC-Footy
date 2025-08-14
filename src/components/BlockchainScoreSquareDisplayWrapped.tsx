@@ -277,7 +277,7 @@ useEffect(() => {
     try {
       await sdk.actions.ready();
       const contextText = gameDataState?.eventId ? ` for ${gameDataState.eventId}` : '';
-      await (sdk.actions as any).composeCast({
+      await sdk.actions.composeCast({
         text: `@commit Diff of Working State${contextText}`,
         channelKey: 'football',
       });

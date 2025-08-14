@@ -36,8 +36,8 @@ export async function GET(req: NextRequest) {
   // Sort newest first if createdAt exists
   const normalized = (rooms || [])
     .filter(Boolean)
-    .map((r: any) => r)
-    .sort((a: any, b: any) => {
+    .map((r) => r as { createdAt?: string })
+    .sort((a, b) => {
       const aT = a?.createdAt ? Date.parse(a.createdAt) : 0;
       const bT = b?.createdAt ? Date.parse(b.createdAt) : 0;
       return bT - aT;
@@ -74,6 +74,6 @@ export async function POST(req: NextRequest) {
   return Response.json({ success: true, room: record });
 }
 
-export const runtime = 'edge';
+export const runtime = 'nodejs';
 
 

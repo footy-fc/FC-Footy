@@ -20,12 +20,11 @@ export async function POST(req: NextRequest) {
         'x-api-key': NEYNAR_API_KEY,
       },
       body: JSON.stringify(body),
-      // @ts-ignore
       cache: 'no-store',
     });
     const json: unknown = await resp.json().catch(() => ({} as unknown));
     const msg =
-      json && typeof json === 'object' && 'message' in json && typeof (json as any).message === 'string'
+      json && typeof json === 'object' && 'message' in json && typeof (json as Record<string, unknown>).message === 'string'
         ? (json as { message: string }).message
         : 'Failed to post cast';
 

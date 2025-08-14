@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
     if (!signerUuid || !text) {
       return NextResponse.json({ message: 'Missing signerUuid or text' }, { status: 400 });
     }
-    const payload: any = {
+    const payload: Record<string, unknown> = {
       signer_uuid: signerUuid,
       text,
       channel_id: 'football',
@@ -34,12 +34,12 @@ export async function POST(request: NextRequest) {
       },
       body: JSON.stringify(payload),
     });
-    const json = await resp.json().catch(() => ({}));
+    const json: unknown = await resp.json().catch(() => ({} as unknown));
     if (!resp.ok) {
       return NextResponse.json(json || { message: 'Publish failed' }, { status: resp.status });
     }
     return NextResponse.json({ message: 'Cast published', result: json }, { status: 200 });
-  } catch (err: any) {
+  } catch {
     return NextResponse.json({ message: 'Something went wrong' }, { status: 500 });
   }
 }

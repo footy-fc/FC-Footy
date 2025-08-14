@@ -21,12 +21,11 @@ export async function GET(req: NextRequest) {
         'x-neynar-experimental': 'true',
         'accept': 'application/json',
       },
-      // @ts-ignore
       cache: 'no-store',
     });
     const json: unknown = await resp.json().catch(() => ({} as unknown));
     const msg =
-      json && typeof json === 'object' && 'message' in json && typeof (json as any).message === 'string'
+      json && typeof json === 'object' && 'message' in json && typeof (json as Record<string, unknown>).message === 'string'
         ? (json as { message: string }).message
         : 'Failed to fetch conversation';
 

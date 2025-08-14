@@ -6,7 +6,7 @@ import ForYouWhosPlaying from "./ForYouWhosPlaying";
 
 import { emojiPacks as baseEmojiPacks, EmojiPack } from "~/components/utils/customEmojis";
 import { getTeamPreferences } from "~/lib/kv";
-import { teamsByLeague, getTeamFullName } from "./utils/fetchTeamLogos";
+//import { teamsByLeague, getTeamFullName } from "./utils/fetchTeamLogos";
 import { useFetchCastsParentUrl } from "./utils/useFetchCastsParentUrls";
 import { fetchFanUserData } from "./utils/fetchFCProfile";
 import Link from "next/link";
@@ -240,7 +240,7 @@ const ChatInput = ({
           }
         }}
         maxLength={390}
-        placeholder="banter away (tap ⚽️ for custom emojis)"
+        placeholder="Chat Disabled. Soon ish. Maybe."
         className="w-full px-4 py-2 rounded-md border border-limeGreenOpacity bg-gray-800 text-white outline-none resize-none overflow-hidden pb-12"
       />
       <button
@@ -260,7 +260,7 @@ const ChatInput = ({
     </div>
   );
 };
-const DEFAULT_CHANNEL_HASH: `0x${string}` = (process.env.NEXT_PUBLIC_DEFAULT_CHANNEL_HASH || "0x09c73260a2d39cb44fac1f488751fddd6b9fc0c0") as `0x${string}`;
+//const DEFAULT_CHANNEL_HASH: `0x${string}` = (process.env.NEXT_PUBLIC_DEFAULT_CHANNEL_HASH || "0x09c73260a2d39cb44fac1f488751fddd6b9fc0c0") as `0x${string}`;
 
 interface ContentLiveChatProps {
   teamId?: string;
@@ -271,12 +271,14 @@ interface ContentLiveChatProps {
 }
 
 const ContentLiveChat = ({ teamId, parentCastHash, parentUrl, hubUrl, eventId }: ContentLiveChatProps) => {
-  const leagueKey = teamId ? teamId.split("-")[0] : "";
-  const abbr = teamId ? teamId.split("-")[1] : "";
-  const teamName = teamId ? getTeamFullName(abbr, leagueKey) : undefined;
-  const roomHash = teamId
-    ? (teamsByLeague[leagueKey]?.find((t) => t.abbr === abbr)?.roomHash ?? DEFAULT_CHANNEL_HASH)
-    : DEFAULT_CHANNEL_HASH;
+  console.log('teamId:', teamId);
+  //const leagueKey = teamId ? teamId.split("-")[0] : "";
+  //const abbr = teamId ? teamId.split("-")[1] : "";
+  //const teamName = t
+  // eamId ? getTeamFullName(abbr, leagueKey) : undefined;
+  //const roomHash = teamId
+  //  ? (teamsByLeague[leagueKey]?.find((t) => t.abbr === abbr)?.roomHash ?? DEFAULT_CHANNEL_HASH)
+  //  : DEFAULT_CHANNEL_HASH;
   // const [casts, setCasts] = useState<CastType[]>([]);  
   const [message, setMessage] = useState("");
   const [showEmojiPanel, setShowEmojiPanel] = useState(false);
@@ -304,15 +306,15 @@ const ContentLiveChat = ({ teamId, parentCastHash, parentUrl, hubUrl, eventId }:
   const [frameFid, setFrameFid] = useState<number | null>(null);
   const footerRef = useRef<HTMLDivElement>(null);
   const headerRef = useRef<HTMLDivElement>(null);
-  const [footerHeight, setFooterHeight] = useState<number>(0);
-  const [headerHeight, setHeaderHeight] = useState<number>(0);
+  //const [footerHeight, setFooterHeight] = useState<number>(0);
+  //const [headerHeight, setHeaderHeight] = useState<number>(0);
   const [viewportHeight, setViewportHeight] = useState<number>(0);
   const teamLogoCacheRef = useRef<{ [abbr: string]: string | null }>({});
   const fidBadgeCacheRef = useRef<{ [key: string]: string | null }>({});
   const fidPrefsCacheRef = useRef<{ [fid: string]: string[] | null }>({});
   
   // Read-only mode: no signer
-  const [neynarSignerUuid, setNeynarSignerUuid] = useState<string | null>(null);
+  //const [neynarSignerUuid] = useState<string | null>(null);
   // SIWN-only flow: we only care about signer_uuid from SIWN cookie
   // In-view navigation using ForYouWhosPlaying (no SDK back logic)
   
@@ -340,16 +342,7 @@ const ContentLiveChat = ({ teamId, parentCastHash, parentUrl, hubUrl, eventId }:
 
   // Manual signer entry removed from UI; helper retained is no longer used
 
-  const forgetSigner = () => {
-    // No-op in read-only mode
-    setNeynarSignerUuid(null);
-    try {
-      // Clear SIWN cookie
-      if (typeof document !== 'undefined') {
-        document.cookie = 'neynar_signer_uuid=; Max-Age=0; path=/;';
-      }
-    } catch {}
-  };
+  // Read-only: signer actions disabled
 
   useEffect(() => {
     const enrichWithUserData = async () => {
@@ -471,7 +464,13 @@ const ContentLiveChat = ({ teamId, parentCastHash, parentUrl, hubUrl, eventId }:
               try {
                 const parsed = JSON.parse(raw);
                 if (Array.isArray(parsed)) {
-                  emojis = parsed.filter((e: any) => e && e.code && e.url);
+                  emojis = parsed.filter(
+                    (e: unknown): e is { code: string; url: string } =>
+                      !!e &&
+                      typeof e === 'object' &&
+                      typeof (e as Record<string, unknown>).code === 'string' &&
+                      typeof (e as Record<string, unknown>).url === 'string'
+                  );
                 }
               } catch {}
             }
@@ -552,8 +551,6 @@ const ContentLiveChat = ({ teamId, parentCastHash, parentUrl, hubUrl, eventId }:
     const measureAll = () => {
       const fh = footerRef.current?.getBoundingClientRect().height || 0;
       const hh = headerRef.current?.getBoundingClientRect().height || 0;
-      setFooterHeight(fh);
-      setHeaderHeight(hh);
       if (typeof window !== 'undefined') {
         const buffer = 16; // small visual buffer so content doesn't touch footer
         setViewportHeight(Math.max(0, window.innerHeight - fh - hh - buffer));

@@ -4,6 +4,10 @@ import EventCard from "./MatchEventCard";
 import { MatchEvent } from "../types/gameTypes";
 import { sdk } from "@farcaster/miniapp-sdk";
 
+type Competitor = { homeAway?: string; team?: { abbreviation?: string } };
+type Competition = { competitors?: Competitor[] };
+type EventLike = { id?: string; date: string; competitions?: Competition[]; league?: string };
+
 interface Props {
   eventId?: string;
 }
@@ -55,21 +59,23 @@ const ForYouWhosPlaying: React.FC<Props> = ({ eventId }) => {
           try {
             setLoading(true);
             const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${maybeLeague}/scoreboard`);
-            const data = await res.json();
-            const events = data?.events || [];
-            // @ts-ignore minimal shaping for match display
-            const filtered = events.filter((e: any) => {
-              const comps = e?.competitions?.[0]?.competitors || [];
-              const homeAbbrRaw = comps.find((c: any) => c.homeAway === 'home')?.team?.abbreviation;
-              const awayAbbrRaw = comps.find((c: any) => c.homeAway === 'away')?.team?.abbreviation;
+            const dataJson: unknown = await res.json();
+            const events: unknown[] =
+              dataJson && typeof dataJson === 'object' && Array.isArray((dataJson as Record<string, unknown>).events)
+                ? ((dataJson as Record<string, unknown>).events as unknown[])
+                : [];
+            const filtered = events.filter((e: unknown) => {
+              const ev = e as EventLike;
+              const comps: Competitor[] = ev?.competitions?.[0]?.competitors || [];
+              const homeAbbrRaw = comps.find((c: Competitor) => c.homeAway === 'home')?.team?.abbreviation;
+              const awayAbbrRaw = comps.find((c: Competitor) => c.homeAway === 'away')?.team?.abbreviation;
               const homeAbbr = (homeAbbrRaw || '').toUpperCase().split(':')[0];
               const awayAbbr = (awayAbbrRaw || '').toUpperCase().split(':')[0];
               return homeAbbr === home && awayAbbr === away;
             });
             // attach league so EventCard gets a sportId hint
-            // @ts-ignore enrich for EventCard
-            const filteredWithLeague = filtered.map((e: any) => ({ ...e, league: maybeLeague }));
-            setMatchData(filteredWithLeague);
+            const filteredWithLeague = filtered.map((e: unknown) => ({ ...(e as EventLike), league: maybeLeague }));
+            setMatchData(filteredWithLeague as unknown as MatchEvent[]);
           } catch (e) {
             console.error('Failed to fetch match for eventId', e);
             setMatchData([]);
@@ -116,26 +122,29 @@ const ForYouWhosPlaying: React.FC<Props> = ({ eventId }) => {
     const fetchAllMatches = async () => {
       try {
         const allMatches: MatchEvent[] = [];
-        await Promise.all(Object.entries(leagueMap).map(async ([league]) => {
-          const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${league}/scoreboard`);
-          const data = await res.json();
-          const events = data?.events || [];
-          // Prefer robust extraction from competitors over brittle shortName slicing
-          // @ts-expect-error waiting to clean up types
-          const filtered = events.filter(event => {
-            const comps = event?.competitions?.[0]?.competitors || [];
-            const homeAbbr = comps.find((c: any) => c.homeAway === 'home')?.team?.abbreviation?.toLowerCase();
-            const awayAbbr = comps.find((c: any) => c.homeAway === 'away')?.team?.abbreviation?.toLowerCase();
-            return (homeAbbr && leagueMap[league].includes(homeAbbr)) || (awayAbbr && leagueMap[league].includes(awayAbbr));
-          });
-          // @ts-expect-error waiting to clean up types
-          const eventsWithLeague = filtered.map(event => ({
-            ...event,
-            league
-          }));
-      
-      allMatches.push(...eventsWithLeague);
-        }));
+        await Promise.all(
+          Object.entries(leagueMap).map(async ([league]) => {
+            const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${league}/scoreboard`);
+            const dataJson: unknown = await res.json();
+            const events: unknown[] =
+              dataJson && typeof dataJson === 'object' && Array.isArray((dataJson as Record<string, unknown>).events)
+                ? ((dataJson as Record<string, unknown>).events as unknown[])
+                : [];
+            // Prefer robust extraction from competitors over brittle shortName slicing
+            const filtered = events.filter((event: unknown) => {
+              const ev = event as EventLike;
+              const comps: Competitor[] = ev?.competitions?.[0]?.competitors || [];
+              const homeAbbr = comps.find((c: Competitor) => c.homeAway === 'home')?.team?.abbreviation?.toLowerCase();
+              const awayAbbr = comps.find((c: Competitor) => c.homeAway === 'away')?.team?.abbreviation?.toLowerCase();
+              return (homeAbbr && leagueMap[league].includes(homeAbbr)) || (awayAbbr && leagueMap[league].includes(awayAbbr));
+            });
+            const eventsWithLeague = filtered.map((event: unknown) => ({
+              ...(event as EventLike),
+              league,
+            }));
+            allMatches.push(...(eventsWithLeague as unknown as MatchEvent[]));
+          })
+        );
         setMatchData(allMatches);
       } catch (err) {
         console.error("Error fetching match data", err);
@@ -151,7 +160,7 @@ const ForYouWhosPlaying: React.FC<Props> = ({ eventId }) => {
     <div className="bg-purplePanel text-lightPurple rounded-lg p-2 overflow-hidden">
       {/* <h2 className='text-notWhite mb-2'>Matches for Teams You Follow</h2> */}
       {matchData
-        .filter(event => {
+        .filter((event) => {
           const eventDate = new Date(event.date);
           const now = new Date();
           const twoDaysAgo = new Date();
@@ -161,9 +170,9 @@ const ForYouWhosPlaying: React.FC<Props> = ({ eventId }) => {
 
           // If eventId is provided, show the specific event regardless of favorites
           if (eventId) return true;
-          const comps = (event as any)?.competitions?.[0]?.competitors || [];
-          const homeAbbr = comps.find((c: any) => c.homeAway === 'home')?.team?.abbreviation?.toLowerCase();
-          const awayAbbr = comps.find((c: any) => c.homeAway === 'away')?.team?.abbreviation?.toLowerCase();
+          const comps: Competitor[] = (event as unknown as EventLike)?.competitions?.[0]?.competitors || [];
+          const homeAbbr = comps.find((c: Competitor) => c.homeAway === 'home')?.team?.abbreviation?.toLowerCase();
+          const awayAbbr = comps.find((c: Competitor) => c.homeAway === 'away')?.team?.abbreviation?.toLowerCase();
           const favAbbrs = favoriteTeams.map((t) => t.split('-')[1]?.toLowerCase()).filter(Boolean);
           return (homeAbbr && favAbbrs.includes(homeAbbr)) || (awayAbbr && favAbbrs.includes(awayAbbr));
         })
