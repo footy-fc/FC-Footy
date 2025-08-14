@@ -266,14 +266,35 @@ const MatchRoomsTab: React.FC = () => {
           <ul className="space-y-2">
             {rooms.map((r) => (
               <li key={r.eventId} className="p-2 border border-limeGreenOpacity rounded">
-                <div className="text-sm text-lightPurple">Event: <span className="text-notWhite">{r.eventId}</span></div>
-                {r.createdAt && (
-                  <div className="text-[11px] text-gray-400">Created: {new Date(r.createdAt).toLocaleString()}</div>
-                )}
-                {r.parentUrl && (
-                  <div className="text-sm text-lightPurple break-all">Parent: {r.parentUrl}</div>
-                )}
-                <div className="text-sm text-lightPurple break-all">Cast: {r.castHash}</div>
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="text-sm text-lightPurple">Event: <span className="text-notWhite">{r.eventId}</span></div>
+                    {r.createdAt && (
+                      <div className="text-[11px] text-gray-400">Created: {new Date(r.createdAt).toLocaleString()}</div>
+                    )}
+                    {r.parentUrl && (
+                      <div className="text-sm text-lightPurple break-all">Parent: {r.parentUrl}</div>
+                    )}
+                    <div className="text-sm text-lightPurple break-all">Cast: {r.castHash}</div>
+                  </div>
+                  <button
+                    onClick={async () => {
+                      try {
+                        const res = await fetch(`/api/match-rooms?eventId=${encodeURIComponent(r.eventId)}`, {
+                          method: 'DELETE',
+                          headers: { 'x-api-key': process.env.NEXT_PUBLIC_NOTIFICATION_API_KEY || '' },
+                        });
+                        if (res.ok) {
+                          setRooms(prev => prev.filter(x => x.eventId !== r.eventId));
+                        }
+                      } catch {}
+                    }}
+                    className="text-fontRed hover:text-deepPink text-xs border border-fontRed/40 rounded px-2 py-0.5"
+                    title="Remove room"
+                  >
+                    Remove
+                  </button>
+                </div>
               </li>
             ))}
           </ul>

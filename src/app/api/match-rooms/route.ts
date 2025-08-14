@@ -74,6 +74,27 @@ export async function POST(req: NextRequest) {
   return Response.json({ success: true, room: record });
 }
 
+export async function DELETE(req: NextRequest) {
+  // Admin-only via API key
+  const apiKey = req.headers.get("x-api-key");
+  if (apiKey !== process.env.NEXT_PUBLIC_NOTIFICATION_API_KEY) {
+    return Response.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const { searchParams } = new URL(req.url);
+  const eventId = searchParams.get("eventId");
+  if (!eventId) {
+    return Response.json({ error: "Missing eventId" }, { status: 400 });
+  }
+
+  try {
+    await redis.del(keyForEvent(eventId));
+    return Response.json({ success: true });
+  } catch (e) {
+    return Response.json({ error: "Failed to delete room" }, { status: 500 });
+  }
+}
+
 export const runtime = 'nodejs';
 
 
