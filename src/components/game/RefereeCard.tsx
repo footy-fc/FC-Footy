@@ -3,7 +3,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import frameSdk, { sdk } from "@farcaster/frame-sdk";
+import { sdk as frameSdk, sdk } from "@farcaster/miniapp-sdk";
 import FarcasterAvatar from '../FarcasterAvatar';
 import { formatAddress } from '../../utils/formatters';
 import { fetchFarcasterProfileByAddress } from '../../utils/fetchFarcasterProfile';

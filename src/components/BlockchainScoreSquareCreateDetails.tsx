@@ -9,7 +9,7 @@ import sportsData from './utils/sportsData';
 import getTeamAbbreviation, { detectLeagueFromTeams } from './utils/teamAbbreviations';
 import useEventsData from './utils/useEventsData';
 import UserInstructions from './UserInstructions';
-import { sdk } from "@farcaster/frame-sdk";
+import { sdk } from "@farcaster/miniapp-sdk";
 
 // ScoreSquare contract ABI (partial, only what we need for createGame)
 const SCORE_SQUARE_ABI = [

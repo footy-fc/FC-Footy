@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { sdk } from "@farcaster/frame-sdk";
+import { sdk } from "@farcaster/miniapp-sdk";
 import ContentFalseNine from "./ContentFalseNine";
 // import ContentLiveChat from "./ContentLiveChat";
 

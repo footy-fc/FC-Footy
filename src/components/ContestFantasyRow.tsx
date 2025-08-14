@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useEffect, useState } from 'react';
 import Image from 'next/image';
-import frameSdk from "@farcaster/frame-sdk";
+import { sdk as frameSdk } from "@farcaster/miniapp-sdk";
 // import { BASE_URL } from '~/lib/config';
 
 export interface FantasyEntry {

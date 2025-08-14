@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from "next/navigation";
-import frameSdk, { sdk } from "@farcaster/frame-sdk";
+import { sdk } from "@farcaster/miniapp-sdk";
 import { BASE_URL } from '~/lib/config';
 
 async function generateCompositeImage(
@@ -132,7 +132,7 @@ export function WarpcastShareButton({ selectedMatch, buttonText, compositeImage,
   useEffect(() => {
     const loadContext = async () => {
       try {
-        setContext(await frameSdk.context);
+        setContext(await sdk.context);
         setIsContextLoaded(true);
       } catch (error) {
         console.error("Failed to load Farcaster context:", error);

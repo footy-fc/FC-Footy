@@ -2,7 +2,7 @@
 /* eslint-disable @next/next/no-img-element */
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import React, { useState, useEffect, useRef } from 'react';
-import frameSdk, { sdk } from "@farcaster/frame-sdk";
+import { sdk as frameSdk, sdk } from "@farcaster/miniapp-sdk";
 import FantasyRow from './ContestFantasyRow';
 import { fetchFantasyData } from './utils/fetchFantasyData';
 import { usePrivy } from '@privy-io/react-auth';

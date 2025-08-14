@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import OgRewards from "./OgRewards";
-import sdk from "@farcaster/frame-sdk";
+import { sdk } from "@farcaster/miniapp-sdk";
 
 const Rewards = () => {
   const [selectedTab, setSelectedTab] = useState<string>("ogRewards");

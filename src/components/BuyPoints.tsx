@@ -9,7 +9,7 @@ import { parseEther } from 'viem';
 import { TERMINAL_ADDRESS, PROJECT_ID } from '~/constants/contracts';
 import { waitForTransactionReceipt } from 'wagmi/actions';
 // import ContestScoresPoints from "./ContestScoresPoints";
-import { sdk } from "@farcaster/frame-sdk";
+import { sdk } from "@farcaster/miniapp-sdk";
 import { getTeamPreferences } from '~/lib/kvPerferences';
 
 const fetchRevnetShields = async (projectId: number, chainId: number) => {

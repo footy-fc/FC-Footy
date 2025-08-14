@@ -16,8 +16,10 @@ export async function GET(
     }
 
     const { abbr } = await params;
+    // Normalize ESPN-style abbreviations that sometimes include suffixes like ":1"
+    const normalizedAbbr = abbr.split(':')[0].trim().toLowerCase();
     
-    if (!abbr) {
+    if (!normalizedAbbr) {
       return NextResponse.json(
         { success: false, error: "Team abbreviation is required" },
         { status: 400 }
@@ -25,7 +27,7 @@ export async function GET(
     }
 
     // Find team by abbreviation
-    const team = await teamService.getTeamByAbbr(abbr.toLowerCase());
+    const team = await teamService.getTeamByAbbr(normalizedAbbr);
     
     if (!team) {
       return NextResponse.json(

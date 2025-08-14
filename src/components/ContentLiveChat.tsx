@@ -1,13 +1,16 @@
 import React, { useEffect, useState, useRef } from "react";
-import { usePrivy, useLogin, useFarcasterSigner } from "@privy-io/react-auth";
-import {HubRestAPIClient} from '@standard-crypto/farcaster-js';
+import { sdk } from "@farcaster/miniapp-sdk";
+// Privy not used in miniapp casting flow
+// Neynar signer/auth removed for read-only chat mode; keep emoji UI
+import ForYouWhosPlaying from "./ForYouWhosPlaying";
 
-import { ExternalEd25519Signer } from "@standard-crypto/farcaster-js";
-import { emojiPacks } from "~/components/utils/customEmojis";
+import { emojiPacks as baseEmojiPacks, EmojiPack } from "~/components/utils/customEmojis";
 import { getTeamPreferences } from "~/lib/kv";
 import { teamsByLeague, getTeamFullName } from "./utils/fetchTeamLogos";
 import { useFetchCastsParentUrl } from "./utils/useFetchCastsParentUrls";
 import { fetchFanUserData } from "./utils/fetchFCProfile";
+import Link from "next/link";
+ 
 
 
 interface CastType {
@@ -27,7 +30,7 @@ type EmojiItem =
   | { packLabel: string; code: string; url: string };
 
 // Helper function to parse text and replace emoji codes with images
-const renderMessageWithEmojis = (message: string) => {
+const renderMessageWithEmojis = (message: string, packs: EmojiPack[] = baseEmojiPacks) => {
   const emojiRegex = /([a-zA-Z0-9]+::[a-zA-Z0-9_]+)/g;
   const nodes: React.ReactNode[] = [];
   let lastIndex = 0;
@@ -37,7 +40,7 @@ const renderMessageWithEmojis = (message: string) => {
       nodes.push(message.substring(lastIndex, match.index));
     }
     const emojiCode = match[1];
-    const foundEmoji = Object.values(emojiPacks).flatMap(pack => pack.emojis).find(emoji => emoji.code === emojiCode);
+    const foundEmoji = packs.flatMap(pack => pack.emojis).find(emoji => emoji.code === emojiCode);
     if (foundEmoji) {
       nodes.push(
         <img
@@ -69,10 +72,7 @@ function shortenLongWords(text: string, maxLength = 30): string {
       .join(" ");
   }
 
-function getTeamLogoFromId(teamId: string): string {
-  const abbr = teamId.split("-")[1]; // e.g., "ars" from "eng.1-ars"
-  return `/assets/logos/${abbr}.png`;
-}
+// Deprecated: logo should come from admin DB (team.logoUrl)
 
 const ChatInput = ({
   message,
@@ -88,6 +88,7 @@ const ChatInput = ({
   setShowPackDropdown,
   addEmoji,
   isPosting,
+  emojiPacks,
 }: {
   message: string;
   setMessage: (msg: string) => void;
@@ -102,8 +103,10 @@ const ChatInput = ({
   setShowPackDropdown: React.Dispatch<React.SetStateAction<boolean>>;
   addEmoji: (emojiCode: string) => void;
   isPosting: boolean;
+  emojiPacks: EmojiPack[];
 }) => {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const teamPacks = React.useMemo(() => emojiPacks.filter(p => p.name !== 'footy'), [emojiPacks]);
 
   useEffect(() => {
     const textarea = textareaRef.current;
@@ -133,6 +136,7 @@ const ChatInput = ({
             ✕
         </button>
           <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-2">
+            {teamPacks.length > 0 && (
             <div className="relative inline-block text-left">
               <button
                 className="flex items-center gap-2 px-2 py-1 text-sm text-white bg-gray-800 rounded"
@@ -140,17 +144,16 @@ const ChatInput = ({
               >
                 <img
                 src={
-                    emojiPacks.find((p) => p.name === selectedPack)?.logo ??
-                    emojiPacks[0].logo
+                      (teamPacks.find((p) => p.name === selectedPack) || teamPacks[0]).logo
                 }
-                alt="Send"
+                  alt="Team"
                 className="w-6 h-6"
                 />
-                {emojiPacks.find((p) => p.name === selectedPack)?.label}
+                  {(teamPacks.find((p) => p.name === selectedPack) || teamPacks[0]).label}
               </button>
               {showPackDropdown && (
                 <ul className="absolute z-20 top-full mt-2 w-48 bg-gray-800 border border-lightPurple rounded shadow-lg max-h-60 overflow-y-auto">
-                  {emojiPacks.map((pack) => (
+                    {teamPacks.map((pack) => (
                     <li
                       key={pack.name}
                       onClick={() => {
@@ -166,6 +169,7 @@ const ChatInput = ({
                 </ul>
               )}
             </div>
+            )}
             <input
               type="text"
               value={searchTerm}
@@ -176,10 +180,9 @@ const ChatInput = ({
           </div>
           <div className="flex flex-wrap gap-2 pt-2">
             {(() => {
-              const basePacks = emojiPacks.filter(pack =>
-                pack.name === "footy" || pack.name === selectedPack
-              );
-              const emojis = basePacks.flatMap((pack) =>
+              const selectedTeamPacks = emojiPacks.filter(pack => pack.name !== 'footy' && pack.name === selectedPack);
+              const basePacks = [emojiPacks.find(p => p.name === 'footy')].filter(Boolean) as EmojiPack[];
+              const emojis = [...basePacks, ...selectedTeamPacks].flatMap((pack) =>
                 pack.emojis.map((emoji) => ({
                   ...emoji,
                   packLabel: pack.label,
@@ -237,7 +240,7 @@ const ChatInput = ({
           }
         }}
         maxLength={390}
-        placeholder="COMING SOON... (tap ⚽️ for custom emojis)"
+        placeholder="banter away (tap ⚽️ for custom emojis)"
         className="w-full px-4 py-2 rounded-md border border-limeGreenOpacity bg-gray-800 text-white outline-none resize-none overflow-hidden pb-12"
       />
       <button
@@ -248,8 +251,7 @@ const ChatInput = ({
       >
         <img
           src={
-            emojiPacks.find((p) => p.name === selectedPack)?.logo ??
-            emojiPacks[0].logo
+            (emojiPacks.find((p) => p.name === selectedPack && p.name !== 'footy') || emojiPacks.find(p => p.name !== 'footy') || emojiPacks[0]).logo
           }
           alt="Send"
           className="w-6 h-6"
@@ -260,17 +262,26 @@ const ChatInput = ({
 };
 const DEFAULT_CHANNEL_HASH: `0x${string}` = (process.env.NEXT_PUBLIC_DEFAULT_CHANNEL_HASH || "0x09c73260a2d39cb44fac1f488751fddd6b9fc0c0") as `0x${string}`;
 
-const ContentLiveChat = ({ teamId }: { teamId: string }) => {
-  const leagueKey = teamId.split("-")[0];
-  const abbr = teamId.split("-")[1];
-  const teamName = getTeamFullName(abbr, leagueKey);
-  const roomHash =
-    teamsByLeague[leagueKey]?.find((t) => t.abbr === abbr)?.roomHash ??
-    DEFAULT_CHANNEL_HASH;
+interface ContentLiveChatProps {
+  teamId?: string;
+  parentCastHash?: string; // use parent cast hash instead of URL
+  parentUrl?: string; // alternatively, use parent URL
+  hubUrl?: string;
+  eventId?: string; // to extract home/away teams for emoji packs
+}
+
+const ContentLiveChat = ({ teamId, parentCastHash, parentUrl, hubUrl, eventId }: ContentLiveChatProps) => {
+  const leagueKey = teamId ? teamId.split("-")[0] : "";
+  const abbr = teamId ? teamId.split("-")[1] : "";
+  const teamName = teamId ? getTeamFullName(abbr, leagueKey) : undefined;
+  const roomHash = teamId
+    ? (teamsByLeague[leagueKey]?.find((t) => t.abbr === abbr)?.roomHash ?? DEFAULT_CHANNEL_HASH)
+    : DEFAULT_CHANNEL_HASH;
   // const [casts, setCasts] = useState<CastType[]>([]);  
   const [message, setMessage] = useState("");
   const [showEmojiPanel, setShowEmojiPanel] = useState(false);
-  const [selectedPack, setSelectedPack] = useState(emojiPacks[0].name);
+  const [availableEmojiPacks, setAvailableEmojiPacks] = useState<EmojiPack[]>(baseEmojiPacks);
+  const [selectedPack, setSelectedPack] = useState<string>('');
   const [searchTerm, setSearchTerm] = useState("");
   const [showPackDropdown, setShowPackDropdown] = useState(false);
   const [backgroundLogo, setBackgroundLogo] = useState<string | null>(null);
@@ -278,25 +289,124 @@ const ContentLiveChat = ({ teamId }: { teamId: string }) => {
   //console.log("ContentLiveChat received roomHash:", roomHash);
   // const [setChannel] = useState(`match:${roomHash}`);
   //console.log("Initial channel state:", `match:${roomHash}`);
-  const {casts: footyChat } = useFetchCastsParentUrl("https://d33m.com/gantry", "https://snapchain.pinnable.xyz");
+  const parentFid = 4163; // per instruction
+  const effectiveHubUrl = hubUrl || "https://hub.merv.fun";
+  const { casts: footyChat } = useFetchCastsParentUrl(
+    parentCastHash ? null : (parentUrl ?? null),
+    effectiveHubUrl,
+    10,
+    parentCastHash ? { fid: parentFid, hash: parentCastHash as `0x${string}` as unknown as string } : undefined
+  );
   const [enrichedChat, setEnrichedChat] = useState<CastType[]>([]);
 
-  const { login } = useLogin();
-  const { getFarcasterSignerPublicKey, signFarcasterMessage } = useFarcasterSigner();
-  const { requestFarcasterSignerFromWarpcast } = useFarcasterSigner();
-  const { authenticated, user } = usePrivy();
-  const signer = new ExternalEd25519Signer(signFarcasterMessage, getFarcasterSignerPublicKey);
+  // const neynarUser = null; // no auth in read-only mode
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [frameFid, setFrameFid] = useState<number | null>(null);
+  const footerRef = useRef<HTMLDivElement>(null);
+  const headerRef = useRef<HTMLDivElement>(null);
+  const [footerHeight, setFooterHeight] = useState<number>(0);
+  const [headerHeight, setHeaderHeight] = useState<number>(0);
+  const [viewportHeight, setViewportHeight] = useState<number>(0);
+  const teamLogoCacheRef = useRef<{ [abbr: string]: string | null }>({});
+  const fidBadgeCacheRef = useRef<{ [key: string]: string | null }>({});
+  const fidPrefsCacheRef = useRef<{ [fid: string]: string[] | null }>({});
+  
+  // Read-only mode: no signer
+  const [neynarSignerUuid, setNeynarSignerUuid] = useState<string | null>(null);
+  // SIWN-only flow: we only care about signer_uuid from SIWN cookie
+  // In-view navigation using ForYouWhosPlaying (no SDK back logic)
+  
+  // SIWN start helper
+  // SIWN handled by NeynarAuthButton; no manual redirect
+
+  // No status polling in SIWN-only flow
+
+  // Load any stored Neynar signer UUID (legacy cookie support)
+  useEffect(() => {
+    (async () => {
+      try {
+        await sdk.actions.ready();
+        const ctx = await sdk.context;
+        if (ctx?.user?.fid) setFrameFid(ctx.user.fid as number);
+        // No-op: read-only
+      } catch {}
+    })();
+  }, []);
+
+  // Removed legacy beginNeynarAuthorization flow
+
+  // Background polling while awaiting approval
+  // No background polling in SIWN-only flow
+
+  // Manual signer entry removed from UI; helper retained is no longer used
+
+  const forgetSigner = () => {
+    // No-op in read-only mode
+    setNeynarSignerUuid(null);
+    try {
+      // Clear SIWN cookie
+      if (typeof document !== 'undefined') {
+        document.cookie = 'neynar_signer_uuid=; Max-Age=0; path=/;';
+      }
+    } catch {}
+  };
 
   useEffect(() => {
     const enrichWithUserData = async () => {
+      const parts = (eventId || '').split('_');
+      const homeAbbr = parts.length >= 4 ? parts[2]?.toLowerCase() : '';
+      const awayAbbr = parts.length >= 4 ? parts[3]?.toLowerCase() : '';
+      const playingSet = new Set([homeAbbr, awayAbbr].filter(Boolean));
+
+      const getLogoForAbbr = async (abbr: string): Promise<string | null> => {
+        const key = abbr.toLowerCase();
+        if (teamLogoCacheRef.current.hasOwnProperty(key)) {
+          return teamLogoCacheRef.current[key];
+        }
+        try {
+          const resp = await fetch(`/api/teams/abbreviation/${key}`);
+          if (!resp.ok) {
+            teamLogoCacheRef.current[key] = null;
+            return null;
+          }
+          const data = await resp.json();
+          const url = data?.team?.logoUrl || null;
+          teamLogoCacheRef.current[key] = url;
+          return url;
+        } catch {
+          teamLogoCacheRef.current[key] = null;
+          return null;
+        }
+      };
+
       const enriched = await Promise.all(
         footyChat.map(async (cast): Promise<CastType> => {
           const fan = await fetchFanUserData(cast.data?.fid || 0);
           const fid = cast.data?.fid?.toString() ?? "0";
-          const teamIds = await getTeamPreferences(fid);
-          const teamId = teamIds?.[0];
-          const teamBadgeUrl = teamId ? getTeamLogoFromId(teamId) : null;
+          const prefs = (async () => {
+            if (fidPrefsCacheRef.current.hasOwnProperty(fid)) return fidPrefsCacheRef.current[fid];
+            const p = await getTeamPreferences(fid);
+            fidPrefsCacheRef.current[fid] = p || [];
+            return p;
+          })();
+
+          let teamBadgeUrl: string | null = null;
+          const cacheKey = `${eventId || 'none'}:${fid}`;
+          if (fidBadgeCacheRef.current.hasOwnProperty(cacheKey)) {
+            teamBadgeUrl = fidBadgeCacheRef.current[cacheKey];
+          } else {
+            const prefList = await prefs;
+            if (eventId && Array.isArray(prefList) && prefList.length > 0 && playingSet.size > 0) {
+              for (const teamId of prefList) {
+                const ab = teamId?.split('-')?.[1]?.toLowerCase();
+                if (ab && playingSet.has(ab)) {
+                  teamBadgeUrl = await getLogoForAbbr(ab);
+                  break;
+                }
+              }
+            }
+            fidBadgeCacheRef.current[cacheKey] = teamBadgeUrl;
+          }
 
           const username =
             Array.isArray(fan?.USER_DATA_TYPE_USERNAME)
@@ -323,7 +433,7 @@ const ContentLiveChat = ({ teamId }: { teamId: string }) => {
       setEnrichedChat(enriched);
     };
     if (footyChat.length > 0) enrichWithUserData();
-  }, [footyChat]);
+  }, [footyChat, eventId]);
   
   // useEffect(() => {
   //  setChannel(`match:${roomHash}`);
@@ -342,25 +452,125 @@ const ContentLiveChat = ({ teamId }: { teamId: string }) => {
 
  
   useEffect(() => {
-    const fetchUserTeamLogoAndEmoji = async () => {
-      if (user?.farcaster?.fid) {
-        const teamIds = await getTeamPreferences(user.farcaster.fid.toString());
-        const teamId = teamIds?.[0];
-        if (teamId) {
-          const logo = getTeamLogoFromId(teamId);
-          setBackgroundLogo(logo);
-          const matchingPack = emojiPacks.find((pack) => pack.teamId === teamId);
-          if (matchingPack) {
-            setSelectedPack(matchingPack.name);
-          } else {
-            console.log("No matching emoji pack found for teamId:", teamId);
+    const fetchEmojiPacksForMatchOrUser = async () => {
+      // If we have eventId, prefer loading both teams from it
+      const packs: EmojiPack[] = [baseEmojiPacks[0]]; // include base footy (always available)
+      let selected = '';
+
+      const fetchTeamPackByAbbr = async (abbr: string): Promise<EmojiPack> => {
+        try {
+          const safe = abbr.toLowerCase().split(':')[0];
+          const resp = await fetch(`/api/teams/abbreviation/${safe}`);
+          if (resp.ok) {
+            const data = await resp.json();
+            const team = data?.team;
+            const meta = team?.metadata || {};
+            const raw = meta.emojis as string | undefined;
+            let emojis: Array<{ code: string; url: string }> = [];
+            if (raw) {
+              try {
+                const parsed = JSON.parse(raw);
+                if (Array.isArray(parsed)) {
+                  emojis = parsed.filter((e: any) => e && e.code && e.url);
+                }
+              } catch {}
+            }
+            return {
+              name: safe,
+              label: team?.shortName || team?.name || abbr.toUpperCase(),
+              logo: team?.logoUrl || '',
+              teamId: team?.id,
+              emojis
+            } as EmojiPack;
           }
+          // Fallback pack (no emojis but visible in picker)
+          return {
+            name: safe,
+            label: abbr.toUpperCase(),
+            logo: '',
+            emojis: []
+          } as EmojiPack;
+        } catch {
+          // Network error fallback
+          const safe = abbr.toLowerCase().split(':')[0];
+          return {
+            name: safe,
+            label: abbr.toUpperCase(),
+            logo: '',
+            emojis: []
+          } as EmojiPack;
         }
+      };
+
+      if (eventId) {
+        const parts = eventId.split('_');
+        if (parts.length >= 4) {
+          const homeAbbr = parts[2]?.toLowerCase();
+          const awayAbbr = parts[3]?.toLowerCase();
+          const [homePack, awayPack] = await Promise.all([
+            homeAbbr ? fetchTeamPackByAbbr(homeAbbr) : Promise.resolve(null as unknown as EmojiPack),
+            awayAbbr ? fetchTeamPackByAbbr(awayAbbr) : Promise.resolve(null as unknown as EmojiPack)
+          ]);
+          if (homeAbbr) packs.push(homePack);
+          if (awayAbbr) packs.push(awayPack);
+          if (homeAbbr) selected = homePack.name; else if (awayAbbr) selected = awayPack.name; else selected = '';
+        }
+      } else if (frameFid) {
+        // Fallback to user's first preferred team
+        const prefs = await getTeamPreferences(frameFid.toString());
+        const tId = prefs?.[0];
+          if (tId) {
+            const abbr = tId.split('-')[1];
+            const teamPack = await fetchTeamPackByAbbr(abbr);
+            if (teamPack) {
+              packs.push(teamPack);
+              selected = teamPack.name;
+              try {
+                const resp = await fetch(`/api/teams/abbreviation/${abbr}`);
+                if (resp.ok) {
+                  const data = await resp.json();
+                  setBackgroundLogo(data?.team?.logoUrl || null);
+                } else {
+                  setBackgroundLogo(null);
+                }
+              } catch {
+                setBackgroundLogo(null);
+              }
+            }
+          }
       }
+
+      setAvailableEmojiPacks(packs);
+      setSelectedPack(selected);
     };
 
-    fetchUserTeamLogoAndEmoji();
-  }, [user?.farcaster?.fid]);
+    fetchEmojiPacksForMatchOrUser();
+  }, [eventId, frameFid]);
+
+  // Measure header/footer to compute cast viewport height (with live resize)
+  useEffect(() => {
+    const measureAll = () => {
+      const fh = footerRef.current?.getBoundingClientRect().height || 0;
+      const hh = headerRef.current?.getBoundingClientRect().height || 0;
+      setFooterHeight(fh);
+      setHeaderHeight(hh);
+      if (typeof window !== 'undefined') {
+        const buffer = 16; // small visual buffer so content doesn't touch footer
+        setViewportHeight(Math.max(0, window.innerHeight - fh - hh - buffer));
+      }
+    };
+    measureAll();
+    const roFooter = footerRef.current ? new ResizeObserver(measureAll) : null;
+    const roHeader = headerRef.current ? new ResizeObserver(measureAll) : null;
+    if (footerRef.current && roFooter) roFooter.observe(footerRef.current);
+    if (headerRef.current && roHeader) roHeader.observe(headerRef.current);
+    window.addEventListener('resize', measureAll);
+    return () => {
+      window.removeEventListener('resize', measureAll);
+      if (footerRef.current && roFooter) roFooter.disconnect();
+      if (headerRef.current && roHeader) roHeader.disconnect();
+    };
+  }, []);
 
   useEffect(() => {
     // Wait briefly to ensure the DOM is updated with new casts
@@ -377,56 +587,19 @@ const ContentLiveChat = ({ teamId }: { teamId: string }) => {
   }, [footyChat]);
 
   const postMessage = async () => {
-    if (!authenticated) {
-      login();
-      return;
-    }
-
-    const farcasterAccount = user?.linkedAccounts.find((account) => account.type === "farcaster");
-    if (!farcasterAccount?.signerPublicKey) {
-      console.error("Farcaster signer not authorized yet");
-      await requestFarcasterSignerFromWarpcast();
-      setIsPosting(false);
-      return;
-    }
-
+    console.log('[Chat] postMessage start (read-only mode)');
     if (isPosting) return;
     setIsPosting(true);
 
     try {
-      const fid = user?.farcaster?.fid;
-      if (!fid) {
-        console.error("FID is undefined, cannot submit cast");
-        setIsPosting(false);
-        return;
-      }
-/*       const signer = new ExternalEd25519Signer(
-        signFarcasterMessage,
-        getFarcasterSignerPublicKey
-      ); */
-      
-      const client = new HubRestAPIClient({
-        // hubUrl: "https://snapchain-grpc.pinnable.xyz",
-        hubUrl: "https://crackle.farcaster.xyz:3381",
-      });
-
-      console.log("Submitting cast with", { message, fid, signer });
-      const response = await client.submitCast(
-        {
-          text: message,
-          embeds: [],
-          // parentUrl: parentCastUrl || undefined, // optional
-        },
-        fid,
-        signer
-      );
-
-      console.log("Submitted cast:", response);
+      await sdk.actions.ready();
+      // Read-only: skip posting
       setMessage("");
       setShowEmojiPanel(false);
     } catch (error) {
-      console.error("Error sending cast:", error);
+      console.error("[Chat] Error sending cast:", error);
     } finally {
+      console.log('[Chat] postMessage done');
       setIsPosting(false);
     }
   };
@@ -443,7 +616,7 @@ const ContentLiveChat = ({ teamId }: { teamId: string }) => {
 
   // console.log("background logo:", backgroundLogo   );
   return (
-    <div className="h-full relative pt-4 pb-0 px-4 rounded-lg flex flex-col bg-darkPurple/80 overflow-hidden">      {backgroundLogo && (
+    <div className="h-full relative pt-0 pb-0 px-0 rounded-lg flex flex-col bg-darkPurple/80 overflow-visible">      {backgroundLogo && (
         <div
           className="absolute top-4 left-0 right-0 bottom-0 z-0 bg-no-repeat bg-contain bg-center opacity-20 pointer-events-none"
           style={{
@@ -453,13 +626,26 @@ const ContentLiveChat = ({ teamId }: { teamId: string }) => {
         />
       )}
       
-      {/* Room name - shown above casts */}
-      <div className="flex justify-start gap-2 mb-2 text-md">
-        {roomHash === DEFAULT_CHANNEL_HASH ? '🏟️ The Gantry' : `🏟️ ${teamName}`}
+      {/* Pinned header: navigation and match context */}
+      <div ref={headerRef} className="sticky top-0 z-20 bg-darkPurple/90 backdrop-blur border-b border-limeGreenOpacity/50">
+        <div className="px-4 pt-3 pb-2">
+          <div className="flex items-center gap-3 mb-2 text-md">
+            <Link href="/">&larr; Back</Link>
+          </div>
+          <div className="border border-limeGreenOpacity/50 rounded-lg p-2 bg-darkPurple/60">
+            <ForYouWhosPlaying eventId={eventId} />
+          </div>
+        </div>
       </div>
 
       {/* Room casts */}
-      <div ref={chatContainerRef} className="w-full flex-1 overflow-y-auto space-y-3 scroll-pb-44 scroll-smooth overscroll-contain">
+      <div
+        ref={chatContainerRef}
+        className="w-full px-4"
+        style={{ height: viewportHeight || undefined, paddingTop: 8 }}
+      >
+        {/* Bottom-anchored cast column with overflow hidden to create IRC-like vibe */}
+        <div className="h-full flex flex-col justify-end overflow-hidden space-y-3">
       {enrichedChat.map((cast) => (
         <div key={`${cast.author?.fid}-${cast.timestamp}`} className="flex items-start text-sm text-white space-x-3 transition-all duration-300 ease-out">
           <div className="relative w-6 h-6">
@@ -486,7 +672,7 @@ const ContentLiveChat = ({ teamId }: { teamId: string }) => {
                       [Link]
                     </a>
                   ) : (
-                    renderMessageWithEmojis(shortenLongWords(part)).map((node, j) => (
+                    renderMessageWithEmojis(shortenLongWords(part), availableEmojiPacks).map((node, j) => (
                       <React.Fragment key={j}>{node}</React.Fragment>
                     ))
                   )
@@ -495,56 +681,37 @@ const ContentLiveChat = ({ teamId }: { teamId: string }) => {
             </div>
           ))}
           <div ref={messagesEndRef} />
-      </div>
-      
-      {/* Authorize casting */}
-      {user?.farcaster && !user.farcaster?.signerPublicKey && (
-        <div className="flex flex-col gap-2 mt-4">
-          <button
-            onClick={() => requestFarcasterSignerFromWarpcast()}
-            className="w-full sm:w-38 bg-deepPink text-white py-2 px-4 rounded-lg transition-colors hover:bg-fontRed"
-          >
-            Authorize casting
-          </button>
-        </div>
-      )}
-      
-      
-      {/* Footer Desktop version - shown above content */}
-      <div className="hidden md:block mt-2">
-        <div className="flex border-t border-limeGreenOpacity w-full">
-          <button className="px-4 py-2 flex-1 text-gray-500">
-            Find match
-          </button>
-          <button className="px-4 py-2 flex-1 text-gray-500">
-            Create room
-          </button>
-          <button className="px-4 py-2 flex-1 text-gray-500">
-            Tip host
-          </button>
         </div>
       </div>
+      
+      {/* Neynar signer controls intentionally hidden in miniapp mode. Approval is opened automatically when needed. */}
+      
+      
+      {/* Desktop footer removed for miniapp-only UI */}
 
       {/* Footer Mobile version - fixed to bottom of screen */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 bg-darkPurple border-limeGreenOpacity z-20">
+      <div ref={footerRef} className="md:hidden fixed bottom-0 left-0 right-0 bg-darkPurple border-t border-limeGreenOpacity z-20">
         <div className="px-10 py-2 ml-3">       {/* hack need to fix when containers get wider */}
+          {
+            /* Read-only: still render input UI but submission is a no-op for now */
+          }
           <ChatInput
-            message={message}
-            setMessage={setMessage}
-            onSubmit={postMessage}
-            showEmojiPanel={showEmojiPanel}
-            setShowEmojiPanel={setShowEmojiPanel}
-            selectedPack={selectedPack}
-            setSelectedPack={setSelectedPack}
-            searchTerm={searchTerm}
-            setSearchTerm={setSearchTerm}
-            showPackDropdown={showPackDropdown}
-            setShowPackDropdown={setShowPackDropdown}
-            addEmoji={addEmoji}
-            isPosting={isPosting}
-          />
+              message={message}
+              setMessage={setMessage}
+              onSubmit={postMessage}
+              showEmojiPanel={showEmojiPanel}
+              setShowEmojiPanel={setShowEmojiPanel}
+              selectedPack={selectedPack}
+              setSelectedPack={setSelectedPack}
+              searchTerm={searchTerm}
+              setSearchTerm={setSearchTerm}
+              showPackDropdown={showPackDropdown}
+              setShowPackDropdown={setShowPackDropdown}
+              addEmoji={addEmoji}
+              isPosting={isPosting}
+                emojiPacks={availableEmojiPacks}
+            />
         </div>
-
       </div>
     </div>
   );

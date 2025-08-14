@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { zeroAddress } from 'viem';
-import frameSdk from "@farcaster/frame-sdk";
+import { sdk as frameSdk } from "@farcaster/miniapp-sdk";
 import FarcasterAvatar from '../FarcasterAvatar';
 import { fetchFarcasterProfileByAddress } from '../../utils/fetchFarcasterProfile';
 import LoadingSpinner from '../game/LoadingSpinner';

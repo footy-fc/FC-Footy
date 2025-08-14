@@ -5,7 +5,7 @@ import Image from 'next/image';
 import { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { useReadTFN } from './utils/readTFN'; // Adjust import path if necessary
-import sdk from '@farcaster/frame-sdk';
+import { sdk } from '@farcaster/miniapp-sdk';
 
 interface ContentFalseNineItem {
   title: string;

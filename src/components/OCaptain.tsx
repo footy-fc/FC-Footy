@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
 import { fetchPlayerElements } from './utils/fetchPlayerElements';
-import { sdk } from '@farcaster/frame-sdk';
+import { sdk } from '@farcaster/miniapp-sdk';
 
 interface Player {
   photo: string;

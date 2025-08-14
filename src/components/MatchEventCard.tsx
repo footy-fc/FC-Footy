@@ -11,7 +11,7 @@ import { fetchFanUserData } from './utils/fetchFCProfile';
 import { fetchTeamLogos } from './utils/fetchTeamLogos';
 import { GET_SS_GAMES } from '../lib/graphql/queries';
 // import FarcasterAvatar from './FarcasterAvatar';
-import sdk from '@farcaster/frame-sdk';
+import { sdk } from '@farcaster/miniapp-sdk';
 // import { fetchNativeTokenPrice } from '~/utils/fetchUsdPrice';
 // import ContestScoreSquare from './ContestScoreSquare';
 // import ContestScoreSquareCreate from './ContestScoreSquareCreate';
@@ -134,6 +134,8 @@ const MatchEventCard: React.FC<EventCardProps> = ({ event, sportId }) => {
   const awayTeamLogo = event.competitions[0]?.competitors[1]?.team.logo;
   const homeScore = event.competitions[0]?.competitors[0]?.score;
   const awayScore = event.competitions[0]?.competitors[1]?.score;
+  const [chatRoomHash, setChatRoomHash] = useState<string | null>(null);
+  const [checkingRoom, setCheckingRoom] = useState<boolean>(false);
 
   const keyMoments: KeyMoment[] = event.competitions[0]?.details
     ?.sort((a: Detail, b: Detail) => {
@@ -183,16 +185,51 @@ const MatchEventCard: React.FC<EventCardProps> = ({ event, sportId }) => {
         return `${moment.action} ${moment.teamName} by ${moment.playerName} at ${formattedTime}`;
       });
     
-      const normalizedSportId = sportId.replace(/\./g, "_");
-      const eventId = `${normalizedSportId}_${homeTeam}_${awayTeam}_`;
-      console.log("Event ID:", eventId);
+      // Build canonical eventId from league map (no trailing underscore)
+      const deriveLeagueId = () => {
+        try {
+          const homeAbbr = event.competitions[0]?.competitors[0]?.team.abbreviation?.toUpperCase();
+          const awayAbbr = event.competitions[0]?.competitors[1]?.team.abbreviation?.toUpperCase();
+          return (
+            (teams.find((t) => t.abbreviation.toUpperCase() === homeAbbr)?.league) ||
+            (teams.find((t) => t.abbreviation.toUpperCase() === awayAbbr)?.league) ||
+            'eng.1'
+          );
+        } catch {
+          return 'eng.1';
+        }
+      };
+      const leagueId = deriveLeagueId();
+      const baseId = `${leagueId.replace('.', '_')}_${homeTeam}_${awayTeam}`;
+      console.log("Event ID (canonical):", baseId);
+      // Check room using canonical, then legacy with trailing underscore
+      setCheckingRoom(true);
+      (async () => {
+        try {
+          const candidates = [baseId, `${baseId}_`];
+          let found: string | null = null;
+          for (const id of candidates) {
+            const res = await fetch(`/api/match-rooms?eventId=${encodeURIComponent(id)}`);
+            const data = await res.json();
+            if (data?.room?.castHash) {
+              found = data.room.castHash;
+              break;
+            }
+          }
+          setChatRoomHash(found);
+        } catch {
+          setChatRoomHash(null);
+        } finally {
+          setCheckingRoom(false);
+        }
+      })();
     
       // Only fetch on first open
       if (!showDetails && !hasQueried) {
         client
           .query({
             query: GET_SS_GAMES,
-            variables: { prefix: eventId },
+            variables: { prefix: `${baseId}_` },
           })
           .then((result) => {
             console.log("Subgraph GET_SS_GAMES:", result.data);
@@ -446,6 +483,54 @@ useEffect(() => {
             </>
           )}
 
+          {/* Link to Match Chat (conditional) */}
+          <div className="mt-3">
+            {(() => {
+              try {
+                const leagueId = (() => {
+                  const homeAbbr = event.competitions[0]?.competitors[0]?.team.abbreviation?.toUpperCase();
+                  const awayAbbr = event.competitions[0]?.competitors[1]?.team.abbreviation?.toUpperCase();
+                  const maybeLeague = (teams.find((t) => t.abbreviation.toUpperCase() === homeAbbr)?.league)
+                    || (teams.find((t) => t.abbreviation.toUpperCase() === awayAbbr)?.league) || 'eng.1';
+                  return maybeLeague;
+                })();
+                const home = event.competitions[0]?.competitors[0]?.team.abbreviation?.toUpperCase() || '';
+                const away = event.competitions[0]?.competitors[1]?.team.abbreviation?.toUpperCase() || '';
+                const baseId = `${leagueId.replace('.', '_')}_${home}_${away}`;
+                const appUrlRaw = process.env.NEXT_PUBLIC_URL || 'https://fc-footy.vercel.app';
+                const appUrl = appUrlRaw.startsWith('http') ? appUrlRaw : `https://${appUrlRaw}`;
+                const chatUrl = `${appUrl}/chat?eventId=${encodeURIComponent(baseId)}`;
+                const isChatPage = typeof window !== 'undefined' && window.location.pathname.startsWith('/chat');
+
+                if (isChatPage) return null;
+                if (checkingRoom) return <span className="text-xs text-gray-400">Checking chat…</span>;
+                if (chatRoomHash) {
+                  return (
+                    <a
+                      href={chatUrl}
+                      className="inline-flex items-center gap-2 text-sm text-blue-300 hover:text-white underline"
+                    >
+                      💬 Live Match Chat
+                    </a>
+                  );
+                }
+                // No room: render a compose suggestion link to ping the admin to create one
+                return (
+                  <a
+                    href={`https://warpcast.com/~/compose?text=${encodeURIComponent('hey @kmacb.eth please create a match chat for ' + baseId)}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-2 text-xs text-gray-300 hover:text-white underline"
+                  >
+                    ✍️ No live match chat. Ask mods to do something.
+                  </a>
+                );
+              } catch {
+                return null;
+              }
+            })()}
+          </div>
+          
           {/* Combined Fan Avatars Section */}
           <div className="mt-4">
             <h3 className="text-notWhite font-semibold mb-1">
@@ -575,6 +660,8 @@ useEffect(() => {
               <pre className="text-sm whitespace-pre-wrap break-words mb-4">{gameContext}</pre>
             </div>
           )}
+
+
           {/* {ssGames.length > 0 && (
             <div className="mt-4 space-y-2">
               <h4 className="text-notWhite font-semibold mb-2">ScoreSquare Games:</h4>

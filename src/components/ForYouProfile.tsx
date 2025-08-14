@@ -1,7 +1,7 @@
 /* eslint-disable @next/next/no-img-element */
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import React, { useEffect, useState } from 'react';
-import sdk from '@farcaster/frame-sdk';
+import { sdk } from '@farcaster/miniapp-sdk';
 import { getTeamPreferences, getFanCountForTeam, getFansForTeam } from '../lib/kvPerferences';
 import { getTeamLogo } from './utils/fetchTeamLogos';
 import { fetchMutualFollowers } from './utils/fetchCheckIfFollowing';

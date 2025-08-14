@@ -3,9 +3,13 @@
 
 import { Redis } from "@upstash/redis";
 import { useEffect, useState } from "react";
+import { get as idbGet, set as idbSet } from 'idb-keyval';
 import NotificationsTab from "../../components/admin/NotificationsTab";
 import TeamsTab from "../../components/admin/TeamsTab";
 import LeaguesTab from "../../components/admin/LeaguesTab";
+import MatchRoomsTab from "../../components/admin/MatchRoomsTab";
+import useEventsData from "../../components/utils/useEventsData";
+// import { parseEventId } from "../../utils/eventIdParser";
 
 const redis = new Redis({
   url: process.env.NEXT_PUBLIC_KV_REST_API_URL,
@@ -38,6 +42,7 @@ interface League {
 
 export default function AdminPage() {
   const [apiKeyInput, setApiKeyInput] = useState("");
+  const [rememberMe, setRememberMe] = useState<boolean>(false);
   const [authenticated, setAuthenticated] = useState(false);
   const [activeTab, setActiveTab] = useState("notifications");
   
@@ -497,10 +502,39 @@ export default function AdminPage() {
   const handleAuthenticate = () => {
     if (apiKeyInput === process.env.NEXT_PUBLIC_NOTIFICATION_API_KEY) {
       setAuthenticated(true);
+      try {
+        if (rememberMe && typeof window !== 'undefined') {
+          localStorage.setItem('footy_admin_passkey', apiKeyInput);
+          // Persist to IndexedDB as resilient fallback
+          void idbSet('footy_admin_passkey', apiKeyInput);
+        }
+      } catch {}
     } else {
       alert("Invalid Pass key");
     }
   };
+
+  // Auto-authenticate if stored key matches current env key
+  useEffect(() => {
+    try {
+      if (typeof window !== 'undefined') {
+        const stored = localStorage.getItem('footy_admin_passkey');
+        if (stored && stored === process.env.NEXT_PUBLIC_NOTIFICATION_API_KEY) {
+          setAuthenticated(true);
+          return;
+        }
+      }
+    } catch {}
+    // Fallback to IndexedDB if localStorage is cleared or unavailable
+    (async () => {
+      try {
+        const idbStored = await idbGet('footy_admin_passkey');
+        if (typeof idbStored === 'string' && idbStored === process.env.NEXT_PUBLIC_NOTIFICATION_API_KEY) {
+          setAuthenticated(true);
+        }
+      } catch {}
+    })();
+  }, []);
 
   if (!authenticated) {
     return (
@@ -516,6 +550,15 @@ export default function AdminPage() {
             onChange={(e) => setApiKeyInput(e.target.value)}
             className="w-full p-3 border border-limeGreenOpacity rounded-lg text-lightPurple bg-darkPurple focus:outline-none focus:ring-2 focus:ring-deepPink transition-all duration-200"
           />
+          <label className="mt-3 inline-flex items-center gap-2 text-lightPurple text-sm">
+            <input
+              type="checkbox"
+              checked={rememberMe}
+              onChange={(e) => setRememberMe(e.target.checked)}
+              className="h-4 w-4 text-deepPink focus:ring-deepPink border-limeGreenOpacity rounded bg-darkPurple"
+            />
+            Remember this device
+          </label>
           <button
             onClick={handleAuthenticate}
             className="w-full mt-6 bg-deepPink text-white p-3 rounded-lg hover:bg-fontRed transform transition-all duration-200 hover:scale-105"
@@ -552,7 +595,9 @@ export default function AdminPage() {
               {[
                 { id: "notifications", label: "Notifications" },
                 { id: "teams", label: "Teams" },
-                { id: "leagues", label: "Leagues" }
+                { id: "leagues", label: "Leagues" },
+                { id: "matchRooms", label: "Match Rooms" },
+                { id: "findEventId", label: "Find Event ID" },
               ].map((tab) => (
                 <button
                   key={tab.id}
@@ -618,8 +663,68 @@ export default function AdminPage() {
               refreshAllData={refreshAllData}
             />
           )}
+
+          {activeTab === "matchRooms" && (
+            <MatchRoomsTab />
+          )}
+
+          {activeTab === "findEventId" && (
+            <FindEventIdPanel />
+          )}
           </div>
       </div>
+    </div>
+  );
+}
+
+function FindEventIdPanel() {
+  const [leagueId, setLeagueId] = useState<string>("eng.1");
+  const { events, loading, error } = useEventsData(leagueId);
+  return (
+    <div className="space-y-3">
+      <h3 className="text-lg font-semibold text-notWhite">Find Event ID</h3>
+      <div className="flex gap-2 items-center">
+        <label className="text-sm text-lightPurple">League:</label>
+        <select
+          value={leagueId}
+          onChange={(e) => setLeagueId(e.target.value)}
+          className="p-2 border border-limeGreenOpacity rounded bg-darkPurple text-lightPurple"
+        >
+          <option value="eng.1">EPL</option>
+          <option value="esp.1">La Liga</option>
+          <option value="ita.1">Serie A</option>
+          <option value="ger.1">Bundesliga</option>
+          <option value="fra.1">Ligue 1</option>
+          <option value="uefa.champions">UCL</option>
+          <option value="uefa.europa">UEL</option>
+          <option value="usa.1">MLS</option>
+          <option value="eng.2">EFL Championship</option>
+        </select>
+      </div>
+      {loading ? (
+        <div className="text-lightPurple">Loading events…</div>
+      ) : error ? (
+        <div className="text-fontRed">Failed to load events</div>
+      ) : (
+        <div className="space-y-2">
+          {events.slice(0, 20).map((ev: any) => {
+            const comp = ev.competitions?.[0];
+            const home = comp?.competitors?.[0]?.team?.abbreviation || "";
+            const away = comp?.competitors?.[1]?.team?.abbreviation || "";
+            const iso = ev.date;
+            // Build eventId as used by the app: `${league}.${id}_${HOME}_${AWAY}_${YYYYMMDDHHMMSS}` or country format
+            const dt = new Date(iso);
+            const dateStr = `${dt.getFullYear()}${String(dt.getMonth()+1).padStart(2,'0')}${String(dt.getDate()).padStart(2,'0')}`;
+            const eventId = `${leagueId}_${home}_${away}_${dateStr}`.replace('.', '_');
+            return (
+              <div key={ev.id} className="p-2 border border-limeGreenOpacity rounded bg-darkPurple">
+                <div className="text-notWhite text-sm">{home} v {away}</div>
+                <div className="text-xs text-lightPurple break-all">{eventId}</div>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

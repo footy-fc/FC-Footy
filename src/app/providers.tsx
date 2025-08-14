@@ -9,6 +9,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ApolloProvider } from '@apollo/client';
 import { apolloClient } from '../lib/apollo-client';
 import { farcasterMiniApp as miniAppConnector } from '@farcaster/miniapp-wagmi-connector';
+// Neynar React removed for read-only chat mode
 
 export const config = createConfig({
   chains: [base, optimism, mainnet, degen],

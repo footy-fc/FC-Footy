@@ -1,4 +1,4 @@
-import { notificationDetailsSchema } from "@farcaster/frame-sdk";
+import { notificationDetailsSchema } from "@farcaster/miniapp-sdk";
 import { NextRequest } from "next/server";
 import { z } from "zod";
 import { setUserNotificationDetails } from "~/lib/kv";
@@ -53,4 +53,4 @@ export async function POST(request: NextRequest) {
 
   return Response.json({ success: true });
 }
-export const runtime = 'edge';
+export const runtime = 'nodejs';

@@ -1,6 +1,6 @@
 import React from 'react';
 import Image from 'next/image';
-import sdk from '@farcaster/frame-sdk'; // Import the Farcaster SDK
+import { sdk } from '@farcaster/miniapp-sdk'; // Import the Farcaster SDK
 
 interface Players {
   photo: string;

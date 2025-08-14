@@ -7,7 +7,7 @@ import { fetchTeamLogos } from "./utils/fetchTeamLogos";
 import { getTeamPreferences } from "../lib/kvPerferences";
 import * as Account from "fhub/Account";
 import { useUserUpdateMutation } from "~/hooks/fhub/useUserUpdateMutation";
-import frameSdk from "@farcaster/frame-sdk";
+import { sdk as frameSdk } from "@farcaster/miniapp-sdk";
 import toast, { Toaster } from "react-hot-toast";
 import { Rnd } from "react-rnd";
 

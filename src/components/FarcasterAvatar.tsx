@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
-import frameSdk, { sdk } from "@farcaster/frame-sdk";
+import { sdk as frameSdk, sdk } from "@farcaster/miniapp-sdk";
 import { fetchFarcasterProfileByAddress, getDefaultProfilePicture } from '../utils/fetchFarcasterProfile';
 import { formatAddress } from '../utils/formatters';
 

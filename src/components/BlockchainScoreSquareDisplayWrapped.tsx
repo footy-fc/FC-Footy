@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { sdk } from '@farcaster/miniapp-sdk';
 import { useAccount, useWriteContract, useWaitForTransactionReceipt, useContractRead } from 'wagmi';
 import { useGameContext } from '../context/GameContext';
 import GameMetadataCard from './game/GameMetadataCard';
@@ -10,6 +11,7 @@ import NoGameData from './game/NoGameData';
 import RefereeCard from './game/RefereeCard';
 import RefereeControls from './game/RefereeControls';
 import LiveMatchEvents from './game/LiveMatchEvents';
+import ContentLiveChat from './ContentLiveChat';
 import NotificationBanner from './game/NotificationBanner';
 import UserInstructions from './UserInstructions';
 import { SCORE_SQUARE_ADDRESS, BASE_URL } from '../lib/config';
@@ -270,6 +272,46 @@ useEffect(() => {
     keyMoments: [],
   };
 
+  // Compose a cast tagging @Commit with a short context
+  const handleComposeCommit = async () => {
+    try {
+      await sdk.actions.ready();
+      const contextText = gameDataState?.eventId ? ` for ${gameDataState.eventId}` : '';
+      await (sdk.actions as any).composeCast({
+        text: `@commit Diff of Working State${contextText}`,
+        channelKey: 'football',
+      });
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.error('composeCast failed', e);
+    }
+  };
+
+  // Resolve chat parent (cast hash and/or URL) for this event, if any
+  const [chatParentUrl, setChatParentUrl] = useState<string | null>(null);
+  const [chatCastHash, setChatCastHash] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      try {
+        if (!gameDataState?.eventId) return;
+        const res = await fetch(`/api/match-rooms?eventId=${encodeURIComponent(gameDataState.eventId)}`);
+        const data = await res.json();
+        if (!cancelled) {
+          setChatParentUrl(data?.room?.parentUrl || null);
+          setChatCastHash(data?.room?.castHash || null);
+        }
+      } catch {
+        if (!cancelled) {
+          setChatParentUrl(null);
+          setChatCastHash(null);
+        }
+      }
+    };
+    load();
+    return () => { cancelled = true; };
+  }, [gameDataState?.eventId]);
+
 const copyShareLink = async () => {
     try {
       const appUrlRaw = BASE_URL || 'https://fc-footy.vercel.app';
@@ -446,6 +488,14 @@ const copyShareLink = async () => {
           {/* Live Match Events Component */}
           <LiveMatchEvents events={matchEvents} />
 
+          {/* Match Chat (if room configured) */}
+          {(chatParentUrl || chatCastHash) && (
+            <div className="mt-3">
+              <h3 className="text-notWhite font-semibold mb-2">Match Chat</h3>
+              <ContentLiveChat parentCastHash={chatCastHash ?? undefined} parentUrl={chatParentUrl ?? undefined} />
+            </div>
+          )}
+
           {/* Notifications Banner */}
           <NotificationBanner />
 
@@ -476,6 +526,12 @@ const copyShareLink = async () => {
                   return 25 * squarePriceEth - deployerFee - communityFee;
                 })()}
               />
+              <button
+                onClick={handleComposeCommit}
+                className="w-full sm:w-auto bg-deepPink hover:bg-fontRed text-black py-2 px-4 rounded-lg transition-colors"
+              >
+                Tag @Commit
+              </button>
            <button
                 onClick={copyShareLink}
                 className="w-full sm:w-auto bg-gray-700 hover:bg-gray-600 text-white py-2 px-4 rounded-lg transition-colors"
