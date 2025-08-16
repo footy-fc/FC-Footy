@@ -15,7 +15,7 @@ interface AiResponseData {
 }
 
 const conversationHistory: { role: string; content: string; }[] = [];
-const MAX_TOKENS = 4096; // Adjust this according to the model's limits (for gpt-3.5-turbo, total tokens include input and output)
+const MAX_TOKENS = 128000; // Updated for GPT-4o which supports much higher limits
 
 const estimateTokens = (messages: { role: string; content: string; }[]): number => {
   return messages.reduce((total, message) => total + (message.content.length / 4), 0); // Rough estimate
@@ -27,7 +27,7 @@ const trimConversationHistory = () => {
   }
 };
 
-const sendOpenAi = async (aiPrompt: string, openAiApiKey: string): Promise<string> => {
+const sendOpenAi = async (aiPrompt: string, openAiApiKey: string): Promise<string | null> => {
   const notify = (message: string | number | boolean | null | undefined) => toast(message);
 
   if (!openAiApiKey) {
@@ -41,10 +41,11 @@ const sendOpenAi = async (aiPrompt: string, openAiApiKey: string): Promise<strin
   conversationHistory.push({ role: 'user', content: aiPrompt });
 
   const requestData = {
-    model: 'gpt-3.5-turbo',
+    model: 'gpt-4o',
     messages: conversationHistory,
-    temperature: 0.7,
-    max_tokens: 500,
+    temperature: 0.3, // More focused for match analysis
+    max_tokens: 2000, // Increased for more detailed responses
+    stream: true, // Enable streaming for real-time responses
   };
 
   const headers = {
@@ -53,19 +54,75 @@ const sendOpenAi = async (aiPrompt: string, openAiApiKey: string): Promise<strin
   };
 
   try {
-    const aiResponse = await axios.post<AiResponseData>(apiUrl, requestData, { headers }); // Type the response
+    // Handle streaming response
+    if (requestData.stream) {
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(requestData),
+      });
 
-    if (aiResponse.status === 200) {
-      const aiResponseContent = aiResponse.data.choices[0].message.content;
-      conversationHistory.push({ role: 'system', content: aiResponseContent });
-      console.log('aiResponseContent', aiResponseContent);
-      return aiResponseContent;  // Return valid AI response content
+      if (!response.ok) {
+        const errorMessage = `Failed to fetch AI. Status code: ${response.status}`;
+        notify(errorMessage);
+        throw new Error(errorMessage);
+      }
+
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
+      let fullResponse = '';
+
+      if (reader) {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          const chunk = decoder.decode(value);
+          const lines = chunk.split('\n');
+
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              const data = line.slice(6);
+              if (data === '[DONE]') {
+                conversationHistory.push({ role: 'assistant', content: fullResponse });
+                console.log('aiResponseContent', fullResponse);
+                return fullResponse;
+              }
+
+              try {
+                const parsed = JSON.parse(data);
+                if (parsed.choices?.[0]?.delta?.content) {
+                  const content = parsed.choices[0].delta.content;
+                  fullResponse += content;
+                  // You could emit progress updates here if needed
+                }
+              } catch (e) {
+                console.log('Error parsing JSON:', e); 
+                // Ignore parsing errors for incomplete chunks
+              }
+            }
+          }
+        }
+      }
     } else {
-      const errorMessage = `Failed to fetch AI. Status code: ${aiResponse.status}`;
-      notify(errorMessage);
-      throw new Error(errorMessage);  // Throw error on failed response
-    }
-  } catch (error) {
+      // Fallback to non-streaming for compatibility
+      const aiResponse = await axios.post<AiResponseData>(apiUrl, requestData, { headers });
+
+      if (aiResponse.status === 200) {
+        const aiResponseContent = aiResponse.data.choices[0].message.content;
+        conversationHistory.push({ role: 'assistant', content: aiResponseContent });
+        console.log('aiResponseContent', aiResponseContent);
+        return aiResponseContent;
+      } else {
+        const errorMessage = `Failed to fetch AI. Status code: ${aiResponse.status}`;
+        notify(errorMessage);
+        throw new Error(errorMessage);
+             }
+     }
+     
+     // Fallback return if streaming fails
+     return null;
+   } catch (error) {
     if (axios.isAxiosError(error)) {
       const axiosError = error as AxiosError<AiResponseData>; // Ensure that error response type is AiResponseData
       const errorMessage = axiosError.response?.data?.error?.message || 'An unknown error occurred while fetching AI.';

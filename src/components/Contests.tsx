@@ -1,10 +1,10 @@
 import React, { useState } from "react";
-// import ContestFCFantasy from "./ContestFCFantasy";
+import ContestFCFantasy from "./ContestFCFantasy";
 import FavoriteTeamLeaderboard from "./ContestFavoriteTeamLeaderboard";
 import ContestScoresPoints from "./ContestScoresPoints";
 
 const Contests = () => {
-  const [selectedTab, setSelectedTab] = useState<string>("scoresPoints"); // Default to "scoresPoints"
+  const [selectedTab, setSelectedTab] = useState<string>("fCFantasy"); // Default to FPL
 
   const handleTabSelect = (tab: string) => {
     setSelectedTab(tab);
@@ -15,14 +15,14 @@ const Contests = () => {
       {/* Horizontal Scrollable Menu for Tabs */}
       <h2 className="font-2xl text-notWhite font-bold mb-4">Leaderboards</h2>        
       <div className="flex overflow-x-auto space-x-4 mb-4">
-{/*         <button
+        <button
           onClick={() => handleTabSelect("fCFantasy")}
           className={`flex-shrink-0 py-1 px-6 text-sm font-semibold cursor-pointer rounded-full border-2 ${
             selectedTab === "fCFantasy" ? "border-limeGreenOpacity text-lightPurple" : "border-gray-500 text-gray-500"
           }`}
         >
           FC FEPL
-        </button> */}
+        </button>
 
         <button
           onClick={() => handleTabSelect("fanClubs")}
@@ -32,7 +32,7 @@ const Contests = () => {
         >
           Fan Clubs
         </button>
-           <button
+       {/*  <button
           onClick={() => handleTabSelect("scoresPoints")}
           className={`flex-shrink-0 py-1 px-6 text-sm font-semibold cursor-pointer rounded-full border-2 ${
             selectedTab === "scoresPoints" ? "border-limeGreenOpacity text-lightPurple" : "border-gray-500 text-gray-500"
@@ -40,11 +40,11 @@ const Contests = () => {
         >
           $SCORES
         </button>   
-
+ */}
       </div>
 
       <div className="bg-purplePanel text-lightPurple rounded-lg p-1">
-        {/* {selectedTab === "fCFantasy" && <ContestFCFantasy />} */}
+        {selectedTab === "fCFantasy" && <ContestFCFantasy />}
         {selectedTab === "fanClubs" && <FavoriteTeamLeaderboard />}
         {selectedTab === "scoresPoints" && <ContestScoresPoints />}
       </div>

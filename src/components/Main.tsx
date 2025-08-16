@@ -7,7 +7,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { Dispatch, SetStateAction } from "react";
 import TabNavigation from "./TabNavigation";
 import MatchesTab from "./MatchesTab";
-// import Contests from "./Contests";
+import Contests from "./Contests";
 import ContentTab from "./ContentTab";
 import Settings from "./Settings";
 import AdminDashboard from "./AdminDashboard";
@@ -206,7 +206,7 @@ export default function Main() {
                 />
               )}
               {/* Admins renders only AdminDashboard */}
-              {/* {selectedTab === "contests" && <Contests />} */}
+              {selectedTab === "contests" && <Contests />}
               {selectedTab === "moneyGames" && <MoneyGames />}
               {selectedTab === "oCaptain" && <OCaptain />}
               {selectedTab === "rewards" && <Rewards />}
@@ -215,7 +215,7 @@ export default function Main() {
               {selectedTab === "admins" && isAdminFid && <AdminDashboard />}
               {selectedTab === "forYou" && <ForYou />}
               {selectedTab === "scoutPlayers" && <Scout />}
-              {!["forYou", "matches", /* "contests", */ "scoutPlayers", "moneyGames", "oCaptain", "rewards", "extraTime", "settings", "admins"].includes(selectedTab) && (
+              {!["forYou", "matches", "contests", "scoutPlayers", "moneyGames", "oCaptain", "rewards", "extraTime", "settings", "admins"].includes(selectedTab) && (
                 <div className="text-center text-lg text-fontRed">Coming soon...</div>
               )}
             </div>
@@ -248,7 +248,7 @@ export default function Main() {
               />
             )}
               {/* Admins renders only AdminDashboard */}
-            {/* {selectedTab === "contests" && <Contests />} */}
+            {selectedTab === "contests" && <Contests />}
             {selectedTab === "moneyGames" && <MoneyGames />}
             {selectedTab === "oCaptain" && <OCaptain />}
             {selectedTab === "rewards" && <Rewards />}
@@ -257,7 +257,7 @@ export default function Main() {
             {selectedTab === "admins" && isAdminFid && <AdminDashboard />}
             {selectedTab === "forYou" && <ForYou />}
             {selectedTab === "scoutPlayers" && <Scout />}
-            {!["forYou", "matches", /* "contests", */ "scoutPlayers", "moneyGames", "oCaptain", "rewards", "extraTime", "settings", "admins"].includes(selectedTab) && (
+            {!["forYou", "matches", "contests", "scoutPlayers", "moneyGames", "oCaptain", "rewards", "extraTime", "settings", "admins"].includes(selectedTab) && (
               <div className="text-center text-lg text-fontRed">Coming soon...</div>
             )}
           </div>

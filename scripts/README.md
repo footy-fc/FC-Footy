@@ -1,23 +1,43 @@
-# Scripts Directory
+# Database Scripts
 
-This directory previously contained migration and utility scripts for the FC-Footy application. These scripts have been removed as they are no longer needed.
+This directory contains database migration and setup scripts.
 
-## Migration Status
+## Daily Rankings Cache
 
-All team migration scripts have been successfully completed and removed:
-- ✅ Team data migration completed
-- ✅ League structure migration completed  
-- ✅ Logo updates completed
-- ✅ Duplicate team cleanup completed
+### `create_daily_rankings_table.sql`
 
-## Current State
+Creates a table to cache daily FPL league standings to reduce API calls to the Fantasy Premier League API.
 
-The application now uses a Redis-based team management system with:
-- Automated team creation and management
-- League membership management
-- Real-time logo validation and fallbacks
-- Admin interface for team operations
+**Purpose:**
+- Store daily snapshots of league rankings
+- Reduce API calls to FPL (only fetch once per day)
+- Improve app performance and reduce rate limiting
 
-No manual migration scripts are required for normal operation.
+**Table Structure:**
+- `id` - Primary key
+- `date` - Date of the rankings (YYYY-MM-DD)
+- `league_id` - FPL league ID (e.g., 18526)
+- `rankings_data` - JSONB containing all standings data
+- `created_at` - When the record was created
+- `updated_at` - When the record was last updated
+
+**Features:**
+- Unique constraint on (date, league_id) to prevent duplicates
+- Indexes for fast lookups
+- Automatic timestamp updates
+- Cleanup function for old data (30+ days)
+
+**Usage:**
+```sql
+-- Run in Supabase SQL editor
+\i create_daily_rankings_table.sql
+```
+
+**How it works:**
+1. First user of the day requests rankings
+2. API checks if data exists for today
+3. If not found, fetches from FPL API and stores in DB
+4. Subsequent users get cached data
+5. Next day, process repeats with fresh data
 
  

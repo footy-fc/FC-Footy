@@ -68,6 +68,13 @@ export interface Player {
   form: number;
   expected_goals: number;
   team: number; // Links player to team
+  // Additional FPL fields
+  total_points?: number;
+  points_per_game?: number;
+  selected_by_percent?: number;
+  now_cost?: number;
+  status?: string;
+  chance_of_playing_next_round?: number | null;
 }
 
 export interface Team {

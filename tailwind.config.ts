@@ -23,6 +23,7 @@ export default {
         lightPurple: '#C0B2F0',
         fontRed: '#EC017C',
         notWhite: '#FEA282',
+        gold: '#FFD700',
       },
       keyframes: {
         'fall-in': {

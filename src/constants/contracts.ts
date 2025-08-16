@@ -8,6 +8,10 @@ export const TERMINAL_ADDRESS = '0xDB9644369c79C3633cDE70D2Df50d827D7dC7Dbc';
 export const PROJECT_ID = 53n;
 // constants/contracts.ts
 export const CONTRACT_ADDRESS_FEPL = '0xdCc32F6Efce28B595f255363ae6EEAA6Cd4B9499';
+
+// FEPL NFT Minting Price (in ETH)
+export const FEPL_MINT_PRICE = '0.0007'; // 0.0007 ETH per mint
+
 export const CONTRACT_ABI_FEPL = [
   {
     "inputs": [
@@ -26,6 +30,62 @@ export const CONTRACT_ABI_FEPL = [
       }
     ],
     "stateMutability": "payable",
+    "type": "function"
+  },
+  // Common ERC721 functions
+  {
+    "inputs": [],
+    "name": "owner",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  // Withdrawal function (common in NFT contracts)
+  {
+    "inputs": [],
+    "name": "withdraw",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  // Check contract balance
+  {
+    "inputs": [],
+    "name": "getBalance",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  // Check user's NFT balance
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "owner",
+        "type": "address"
+      }
+    ],
+    "name": "balanceOf",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
     "type": "function"
   }
 ];

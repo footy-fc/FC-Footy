@@ -264,15 +264,15 @@ const MatchEventCard: React.FC<EventCardProps> = ({ event, sportId }) => {
         if (!showGameContext && !gameContext) {
           setLoading(true);
           const data = await RAGameContext(event.id, sportId, competitorsLong);
-          if (data && typeof data === 'string') {
+          if (data) {
             setGameContext(data);
           } else {
-            setGameContext('Failed to fetch AI context.');
+            setGameContext('Failed to fetch AI context. Please try again.');
           }
         }
         setShowGameContext((prev) => !prev);
       } catch (error) {
-        setGameContext('Failed to fetch game context.');
+        setGameContext('Failed to fetch game context. Please check your connection and try again.');
         console.error('Failed to fetch game context:', error);
       } finally {
         setLoading(false);
@@ -516,14 +516,20 @@ useEffect(() => {
                 }
                 // No room: render a compose suggestion link to ping the admin to create one
                 return (
-                  <a
-                    href={`https://warpcast.com/~/compose?text=${encodeURIComponent('hey @kmacb.eth please create a match chat for ' + baseId)}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-2 text-xs text-gray-300 hover:text-white underline"
+                  <button
+                    onClick={async () => {
+                      try {
+                        await sdk.actions.composeCast({
+                          text: `hey @kmacb.eth please create a match chat for ${baseId}`
+                        });
+                      } catch (error) {
+                        console.error('Failed to compose cast:', error);
+                      }
+                    }}
+                    className="inline-flex items-center gap-2 text-xs text-gray-300 hover:text-white underline bg-transparent border-none cursor-pointer"
                   >
                     ✍️ No live match chat. Ask mods to do something.
-                  </a>
+                  </button>
                 );
               } catch {
                 return null;

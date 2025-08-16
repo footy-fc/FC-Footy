@@ -55,16 +55,16 @@ const FootballLeaderboardComponent = () => {
         // Merge leaderboard and fantasy data by fid
         const mergedData = leaderboardResponse.data.map((user) => {
           const fantasyInfo = fantasyData.find(
-            (entry) => entry.last_name && parseInt(entry.last_name) === user.fid
+            (entry) => entry.fid === user.fid
           );
 
           return {
             ...user,
             fantasy_rank: fantasyInfo?.rank || null,
-            fantasy_team: fantasyInfo?.entry_name || null,
-            fantasy_total: fantasyInfo?.total || null,
-            fav_team_logo: fantasyInfo?.team.logo || null,
-            fav_team_name: fantasyInfo?.team.name || null,
+            fantasy_team: fantasyInfo?.entryName || null,
+            fantasy_total: fantasyInfo?.totalPoints || null,
+            fav_team_logo: fantasyInfo?.team?.logo || null,
+            fav_team_name: fantasyInfo?.team?.name || null,
           };
         });
 

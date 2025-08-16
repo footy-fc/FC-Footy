@@ -1,10 +1,10 @@
-import { SummaryData, Standings, GameInfo, Odds, Team } from './interfaces';
+import { SummaryData, Standings, GameInfo, Odds, Team, Player } from './interfaces';
 
 /**
  * Constants for keys to include in previews and summaries.
  */
 const PREVIEW_KEEP_KEYS: (keyof SummaryData)[] = ['gameInfo', 'standings', 'odds', 'roster'];
-const SUMMARY_KEEP_KEYS: (keyof SummaryData)[] = ['keyEvents', 'gameInfo', 'standings'];
+const SUMMARY_KEEP_KEYS: (keyof SummaryData)[] = ['keyEvents', 'gameInfo', 'standings', 'roster'];
 
 /**
  * Filters an object to keep only specified keys.
@@ -66,15 +66,32 @@ function extractGameInfoDetails(gameInfo: GameInfo): string {
  * Extracts and formats moneyline odds with implied probabilities and vig.
  */
 function extractMoneylineOdds(odds: Odds[]): string {
-  if (!Array.isArray(odds) || odds.length === 0) {
-    return 'No odds information available.';
-  }
+  try {
+    if (!Array.isArray(odds) || odds.length === 0) {
+      return 'No odds information available.';
+    }
 
-  const primaryProvider = odds.find((o) => o.provider.priority === 1) || odds[0];
+    console.log('Processing odds data:', JSON.stringify(odds, null, 2));
 
-  const homeMoneyline = parseInt(primaryProvider.homeTeamOdds?.current.moneyLine.alternateDisplayValue ?? "0", 10);
-  const awayMoneyline = parseInt(primaryProvider.awayTeamOdds?.current.moneyLine.alternateDisplayValue ?? "0", 10);
-  const drawMoneyline = parseInt(primaryProvider.drawOdds?.moneyLine ?? "0", 10);
+    const primaryProvider = odds.find((o) => o.provider.priority === 1) || odds[0];
+    
+    console.log('Primary provider structure:', JSON.stringify(primaryProvider, null, 2));
+    if (primaryProvider?.homeTeamOdds) {
+      console.log('Home team odds structure:', JSON.stringify(primaryProvider.homeTeamOdds, null, 2));
+    }
+    if (primaryProvider?.awayTeamOdds) {
+      console.log('Away team odds structure:', JSON.stringify(primaryProvider.awayTeamOdds, null, 2));
+    }
+
+    // Check if primaryProvider has the required structure
+    if (!primaryProvider || !primaryProvider.homeTeamOdds || !primaryProvider.awayTeamOdds) {
+      return 'Odds data structure is incomplete.';
+    }
+
+    // Add null checks for moneyLine properties
+    const homeMoneyline = parseInt(primaryProvider.homeTeamOdds?.current?.moneyLine?.alternateDisplayValue ?? "0", 10);
+    const awayMoneyline = parseInt(primaryProvider.awayTeamOdds?.current?.moneyLine?.alternateDisplayValue ?? "0", 10);
+    const drawMoneyline = parseInt(primaryProvider.drawOdds?.moneyLine ?? "0", 10);
 
   if (isNaN(homeMoneyline) || isNaN(awayMoneyline) || isNaN(drawMoneyline)) {
     return 'Invalid odds data.';
@@ -104,6 +121,10 @@ Odds by ${primaryProvider.provider.name}:
 - Draw: ${drawMoneyline} (Implied: ${(normalizedDraw * 100).toFixed(2)}%)
 Bookmaker's margin (vig): ${(vig * 100).toFixed(2)}%
   `.trim();
+  } catch (error) {
+    console.error('Error processing odds data:', error);
+    return 'Error processing odds information.';
+  }
 }
 
 /**
@@ -120,10 +141,25 @@ function analyzeRosterForFPLPoints(roster: Team[]): string {
     const teamName = team.name || 'Unknown Team';
     const players = team.players || [];
     const keyPlayers = players
-      .filter((player) => player.form > 6 || player.expected_goals > 0.5)
+      .filter((player) => {
+        // Filter for players in good form, high expected goals, or high ownership
+        return player.form > 6 || 
+               player.expected_goals > 0.5 || 
+               (player.selected_by_percent && player.selected_by_percent > 10) ||
+               (player.points_per_game && player.points_per_game > 5);
+      })
       .map(
-        (player) =>
-          `${player.web_name} (Goals: ${player.goals_scored}, Assists: ${player.assists}, Form: ${player.form}, Expected Goals: ${player.expected_goals || 'N/A'})`
+        (player) => {
+          const status = player.status === 'a' ? 'Available' : 
+                        player.status === 'i' ? 'Injured' : 
+                        player.status === 's' ? 'Suspended' : 
+                        player.status === 'u' ? 'Unavailable' : 'Unknown';
+          
+          const chance = player.chance_of_playing_next_round !== null ? 
+                        `${player.chance_of_playing_next_round}% chance` : 'Unknown';
+          
+          return `${player.web_name} (Goals: ${player.goals_scored}, Assists: ${player.assists}, Form: ${player.form}, Expected Goals: ${player.expected_goals || 'N/A'}, Points: ${player.total_points || 0}, PPG: ${player.points_per_game || 'N/A'}, Ownership: ${player.selected_by_percent || 0}%, Status: ${status}, ${chance})`;
+        }
       );
 
     if (keyPlayers.length > 0) {
@@ -132,6 +168,71 @@ function analyzeRosterForFPLPoints(roster: Team[]): string {
   });
 
   return analysis.length > 0 ? analysis.join('\n\n') : 'No standout players found for FPL analysis.';
+}
+
+/**
+ * Analyzes FPL impact for post-match summaries.
+ */
+function analyzeFPLImpact(roster: Team[]): string {
+  if (!Array.isArray(roster) || roster.length === 0) {
+    return 'No FPL data available for impact analysis.';
+  }
+
+  const impactAnalysis: string[] = [];
+
+  roster.forEach((team) => {
+    const teamName = team.name || 'Unknown Team';
+    const players = team.players || [];
+    
+    // Find players who scored goals or assists (actual performance)
+    const performers = players
+      .filter((player) => player.goals_scored > 0 || player.assists > 0)
+      .map((player) => {
+        const fplPoints = calculateFPLPoints(player);
+        const ownership = player.selected_by_percent || 0;
+        const impact = ownership > 15 ? 'HIGH IMPACT' : ownership > 5 ? 'MEDIUM IMPACT' : 'LOW IMPACT';
+        
+        return `${player.web_name} (${player.goals_scored}G ${player.assists}A, ${fplPoints} FPL pts, ${ownership}% owned - ${impact})`;
+      });
+
+    // Find high-ownership players who didn't perform
+    const underperformers = players
+      .filter((player) => (player.selected_by_percent || 0) > 15 && player.goals_scored === 0 && player.assists === 0)
+      .map((player) => `${player.web_name} (${player.selected_by_percent}% owned, no returns)`);
+
+    if (performers.length > 0) {
+      impactAnalysis.push(`${teamName} Performers:\n- ${performers.join('\n- ')}`);
+    }
+    
+    if (underperformers.length > 0) {
+      impactAnalysis.push(`${teamName} Underperformers:\n- ${underperformers.join('\n- ')}`);
+    }
+  });
+
+  return impactAnalysis.length > 0 ? impactAnalysis.join('\n\n') : 'No significant FPL impact to report.';
+}
+
+/**
+ * Calculate estimated FPL points for a player based on their performance.
+ */
+function calculateFPLPoints(player: Player): number {
+  let points = 0;
+  
+  // Goals (varies by position, using average)
+  points += player.goals_scored * 4;
+  
+  // Assists
+  points += player.assists * 3;
+  
+  // Clean sheet bonus (if defender/midfielder, estimated)
+  // This would need actual match data to be accurate
+  
+  // Bonus points (estimated based on goals/assists)
+  if (player.goals_scored > 0 || player.assists > 0) {
+    points += Math.min(player.goals_scored + player.assists, 3);
+  }
+  
+  return points;
 }
 
 /**
@@ -215,6 +316,10 @@ Discuss likely outcomes based on team strategies, standout players, and other fa
     ? `Game Information:\n${extractGameInfoDetails(gameInfo)}`
     : 'No additional game information available.';
 
+  const rosterAnalysis = includeFPL && roster
+    ? `FPL Impact Analysis:\n${analyzeFPLImpact(roster)}`
+    : 'No FPL data available.';
+
   return `
 ${retrievedText}
 Use the retrieved insights and structured data below to provide a concise match summary for the match between ${competitors}. The retrieved insights should be used to enhance and supplement the structured data. If any information seems unclear, mention the uncertainty.
@@ -225,7 +330,9 @@ ${gameInfoText}
 
 ${standingsText}
 
-Summarize the match focusing on key moments, strategies, and standout players. Avoid external links or markdown. Keep concise and under 1200 characters.
+${rosterAnalysis}
+
+Summarize the match focusing on key moments, strategies, and standout players. Include FPL impact where relevant (e.g., "Player X scored 2 goals, earning 13 FPL points" or "High-ownership player Y got a red card"). Avoid external links or markdown. Keep concise and under 1200 characters.
   `.trim();
 }
 

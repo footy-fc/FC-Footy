@@ -5,19 +5,19 @@ import { sdk as frameSdk } from "@farcaster/miniapp-sdk";
 // import { BASE_URL } from '~/lib/config';
 
 export interface FantasyEntry {
+  id: number;
   rank: number;
-  pfp: string | null;
-  team: {
+  manager: string;
+  teamName: string;
+  totalPoints: number;
+  eventTotal: number;
+  entry: number;
+  entryName: string;
+  fid?: number;
+  team?: {
     name: string | null;
     logo: string | null;
   };
-  manager: string;
-  entry_name: string | null;
-  last_name: string | null;
-  fav_team: number | null;
-  total: number | null;
-  location: string | null;
-  fid: number | null;
 }
 
 
@@ -27,26 +27,47 @@ interface FantasyRowProps {
 }
 
 const FantasyRow: React.FC<FantasyRowProps> = ({ entry, onRowClick }) => {
-  const { manager, total, team } = entry;
-  const [context, setContext] = useState<unknown>(undefined);
-  const [isContextLoaded, setIsContextLoaded] = useState(false);
-  //const frameUrl = BASE_URL || 'fc-footy.vercel.app';
+  const { totalPoints, team, entryName } = entry;
+  const [pfpUrl, setPfpUrl] = useState<string>('/defifa_spinner.gif');
+  const [isLoadingPfp, setIsLoadingPfp] = useState(false);
 
   useEffect(() => {
-    const loadContext = async () => {
+    const fetchPfp = async () => {
+      if (!entry.fid) {
+        setPfpUrl('/defifa_spinner.gif');
+        return;
+      }
+
+      setIsLoadingPfp(true);
       try {
-        setContext(await frameSdk.context);
-        setIsContextLoaded(true);
+        // Fetch Farcaster profile data
+        const response = await fetch(`https://hub.merv.fun/v1/userDataByFid?fid=${entry.fid}`);
+        const data = await response.json();
+        
+        // Look for PFP in the user data
+        const messages = data.messages || [];
+        for (const message of messages) {
+          if (message.data?.userDataBody?.type === 'USER_DATA_TYPE_PFP') {
+            const pfp = message.data.userDataBody.value;
+            if (pfp && pfp !== '/defifa_spinner.gif') {
+              setPfpUrl(pfp);
+              return;
+            }
+          }
+        }
+        
+        // If no PFP found, use fallback
+        setPfpUrl('/defifa_spinner.gif');
       } catch (error) {
-        console.error("Failed to load Farcaster context:", error);
+        console.error('Error fetching PFP for FID:', entry.fid, error);
+        setPfpUrl('/defifa_spinner.gif');
+      } finally {
+        setIsLoadingPfp(false);
       }
     };
 
-    if (!isContextLoaded) {
-      console.log('loading context', context);
-      loadContext();
-    }
-  }, [isContextLoaded]);
+    fetchPfp();
+  }, [entry.fid]);
 
 
   return (
@@ -58,13 +79,14 @@ const FantasyRow: React.FC<FantasyRowProps> = ({ entry, onRowClick }) => {
       </td>
       <td className="py-2 px-2 flex items-center space-x-2">
         <Image
-          src={entry.pfp || '/defifa_spinner.gif'}
+          src={pfpUrl}
           alt="Manager Avatar"
           className="rounded-full w-8 h-8"
-          width={30}
-          height={30}
+          width={32}
+          height={32}
+          onError={() => setPfpUrl('/defifa_spinner.gif')}
         />
-        {team.logo && team.logo !== '/defifa_spinner.gif' && (
+        {team?.logo && team.logo !== '/defifa_spinner.gif' && (
           <Image
             src={team.logo || '/default-team-logo.png'}
             alt="Team Logo"
@@ -76,10 +98,10 @@ const FantasyRow: React.FC<FantasyRowProps> = ({ entry, onRowClick }) => {
         )}
       </td>
       <td className="py-2 px-2 text-lightPurple font-medium text-left">
-        {manager}
+        {entryName}
       </td>
       <td className="py-2 px-2 text-center text-lightPurple">
-        {total ?? 'N/A'}
+        {totalPoints ?? 'N/A'}
       </td>
     </tr>
   );

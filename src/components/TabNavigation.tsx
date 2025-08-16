@@ -16,7 +16,7 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
   const tabsBase = [
     "forYou",
     "matches",
-    // "contests",
+    "contests",
     // "scoutPlayers",
     "moneyGames",
     // "oCaptain",
