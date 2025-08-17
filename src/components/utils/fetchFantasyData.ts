@@ -1,5 +1,6 @@
 import axios from "axios";
 import { getTeamPreferences } from '../../lib/kvPerferences';
+import fantasyManagersLookup from '../../data/fantasy-managers-lookup.json';
 
 // Define FPL API response types
 interface FPLStandingResult {
@@ -55,6 +56,7 @@ interface FPLStandingsResponse {
 // Define FantasyEntry type to match our app's expected data structure
 export interface FantasyEntry {
   id: number;
+  entry_id: number;
   rank: number;
   manager: string;
   teamName: string;
@@ -100,43 +102,57 @@ export const fetchFPLLeagueData = async (leagueId: number = 18526): Promise<Fant
     // Transform FPL data to match our FantasyEntry interface
     const transformedData = await Promise.all(
       allStandings.map(async (entry: FPLStandingResult) => {
+        // Look up FID and team name from our lookup file
+        const lookupEntry = fantasyManagersLookup.find(
+          (lookup) => lookup.entry_id === entry.entry
+        );
+        
         let username = entry.player_name || 'Unknown';
         let fid: number | null = null;
+        let teamName = entry.entry_name;
 
-        // Try to extract FID from entry_name or player_name
-        const entryName = entry.entry_name || '';
-        const playerName = entry.player_name || '';
-        
-        // Look for FID patterns in names
-        const fidMatch = entryName.match(/(\d{3,})/) || playerName.match(/(\d{3,})/);
-        if (fidMatch) {
-          fid = parseInt(fidMatch[1], 10);
+        if (lookupEntry) {
+          // Use data from lookup file
+          fid = lookupEntry.fid;
+          username = lookupEntry.team_name;
+          teamName = lookupEntry.team_name;
+        } else {
+          // Fallback to old regex-based extraction for entries not in lookup
+          const entryName = entry.entry_name || '';
+          const playerName = entry.player_name || '';
           
-          if (Number.isInteger(fid)) {
-            const server = "https://hub.merv.fun";
-            try {
-              // Fetch user data by fid
-              const response = await axios.get(`${server}/v1/userDataByFid?fid=${fid}`);
+          // Look for FID patterns in names
+          const fidMatch = entryName.match(/(\d{3,})/) || playerName.match(/(\d{3,})/);
+          if (fidMatch) {
+            fid = parseInt(fidMatch[1], 10);
+            
+            if (Number.isInteger(fid)) {
+              const server = "https://hub.merv.fun";
+              try {
+                // Fetch user data by fid
+                const response = await axios.get(`${server}/v1/userDataByFid?fid=${fid}`);
 
-              // Extract username from response
-              const messages = response.data.messages || [];
-              for (const message of messages) {
-                if (message.data?.userDataBody?.type === 'USER_DATA_TYPE_USERNAME') {
-                  username = message.data.userDataBody.value;
-                  break;
+                // Extract username from response
+                const messages = response.data.messages || [];
+                for (const message of messages) {
+                  if (message.data?.userDataBody?.type === 'USER_DATA_TYPE_USERNAME') {
+                    username = message.data.userDataBody.value;
+                    break;
+                  }
                 }
+              } catch (e) {
+                console.error("Error fetching user data for fid:", fid, e);
               }
-            } catch (e) {
-              console.error("Error fetching user data for fid:", fid, e);
             }
           }
         }
 
         return {
           id: entry.id,
+          entry_id: entry.entry,
           rank: entry.rank,
           manager: username,
-          teamName: entry.entry_name,
+          teamName: teamName,
           totalPoints: entry.total,
           eventTotal: entry.event_total,
           entry: entry.entry,
@@ -144,7 +160,7 @@ export const fetchFPLLeagueData = async (leagueId: number = 18526): Promise<Fant
           fid: fid || undefined
         };
       })
-  );
+      );
 
     return transformedData;
   } catch (error) {

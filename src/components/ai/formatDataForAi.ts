@@ -1,4 +1,20 @@
-import { SummaryData, Standings, GameInfo, Odds, Team, Player } from './interfaces';
+import { SummaryData, Standings, GameInfo, Odds, Team } from './interfaces';
+
+// Define Player interface locally to avoid circular imports
+interface Player {
+  web_name: string;
+  goals_scored: number;
+  assists: number;
+  form: number;
+  expected_goals: number;
+  team: number;
+  total_points?: number;
+  points_per_game?: number;
+  selected_by_percent?: number;
+  now_cost?: number;
+  status?: string;
+  chance_of_playing_next_round?: number | null;
+}
 
 /**
  * Constants for keys to include in previews and summaries.

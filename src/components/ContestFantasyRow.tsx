@@ -1,32 +1,19 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useEffect, useState } from 'react';
 import Image from 'next/image';
-import { sdk as frameSdk } from "@farcaster/miniapp-sdk";
+// import { sdk as frameSdk } from "@farcaster/miniapp-sdk";
+import { FantasyEntry } from './utils/fetchFantasyData';
 // import { BASE_URL } from '~/lib/config';
-
-export interface FantasyEntry {
-  id: number;
-  rank: number;
-  manager: string;
-  teamName: string;
-  totalPoints: number;
-  eventTotal: number;
-  entry: number;
-  entryName: string;
-  fid?: number;
-  team?: {
-    name: string | null;
-    logo: string | null;
-  };
-}
 
 
 interface FantasyRowProps {
   entry: FantasyEntry;  // Consistent FantasyEntry type
   onRowClick: (entry: FantasyEntry) => void;
+  currentUserEntry?: FantasyEntry | null;  // Add currentUserEntry prop
+  currentUserFid?: number | null;  // Add currentUserFid for highlighting
 }
 
-const FantasyRow: React.FC<FantasyRowProps> = ({ entry, onRowClick }) => {
+const FantasyRow: React.FC<FantasyRowProps> = ({ entry, onRowClick, currentUserEntry, currentUserFid }) => {
   const { totalPoints, team, entryName } = entry;
   const [pfpUrl, setPfpUrl] = useState<string>('/defifa_spinner.gif');
   const [isLoadingPfp, setIsLoadingPfp] = useState(false);
@@ -46,34 +33,52 @@ const FantasyRow: React.FC<FantasyRowProps> = ({ entry, onRowClick }) => {
         
         // Look for PFP in the user data
         const messages = data.messages || [];
+        let pfpFound = false;
+        
         for (const message of messages) {
           if (message.data?.userDataBody?.type === 'USER_DATA_TYPE_PFP') {
             const pfp = message.data.userDataBody.value;
             if (pfp && pfp !== '/defifa_spinner.gif') {
               setPfpUrl(pfp);
-              return;
+              pfpFound = true;
+              break;
             }
           }
         }
         
-        // If no PFP found, use fallback
-        setPfpUrl('/defifa_spinner.gif');
+        if (!pfpFound) {
+          setPfpUrl('/defifa_spinner.gif');
+        }
       } catch (error) {
         console.error('Error fetching PFP for FID:', entry.fid, error);
         setPfpUrl('/defifa_spinner.gif');
       } finally {
         setIsLoadingPfp(false);
+        console.log('load', isLoadingPfp);
       }
     };
 
     fetchPfp();
-  }, [entry.fid]);
+  }, [entry.fid, entry.entry_id]);
 
 
+  // Determine if user can interact with this row (is in fantasy league)
+  const canInteract = currentUserEntry !== null && currentUserEntry !== undefined;
+  
+  // Check if this is the user's own row
+  const isUserRow = currentUserFid && entry.fid === currentUserFid;
+  
   return (
     <tr
-      className="border-b border-limeGreenOpacity hover:bg-purplePanel transition-colors text-lightPurple text-sm cursor-pointer"
-      onClick={() => onRowClick(entry)}>
+      className={`border-b border-limeGreenOpacity transition-colors text-lightPurple text-sm ${
+        isUserRow
+          ? 'bg-limeGreenOpacity/20 border-limeGreenOpacity/50 font-bold' // Highlight user's row
+          : canInteract 
+            ? 'hover:bg-purplePanel cursor-pointer' 
+            : 'hover:bg-gray-700 cursor-pointer opacity-80'
+      }`}
+      onClick={() => onRowClick(entry)}
+      title={!canInteract ? 'Join the Fantasy Manager League to mint season passes' : undefined}>
       <td className="py-2 px-2 text-center text-lightPurple font-bold">
         {entry.rank ?? 'N/A'}
       </td>

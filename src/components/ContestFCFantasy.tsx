@@ -4,7 +4,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { sdk as frameSdk, sdk } from "@farcaster/miniapp-sdk";
 import FantasyRow from './ContestFantasyRow';
-import { fetchFantasyData } from './utils/fetchFantasyData';
+import { fetchFantasyData, FantasyEntry } from './utils/fetchFantasyData';
 import { usePrivy } from '@privy-io/react-auth';
 import { toPng } from 'html-to-image';
 import dayjs from 'dayjs';
@@ -13,22 +13,7 @@ import { ethers } from 'ethers';
 import { useWriteContract } from 'wagmi';
 import { CONTRACT_ADDRESS_FEPL, CONTRACT_ABI_FEPL } from '../constants/contracts';
 
-// Define FantasyEntry type to match fetchFantasyData return type
-type FantasyEntry = {
-  id: number;
-  rank: number;
-  manager: string;
-  teamName: string;
-  totalPoints: number;
-  eventTotal: number;
-  entry: number;
-  entryName: string;
-  fid?: number;
-  team?: {
-    name: string | null;
-    logo: string | null;
-  };
-};
+// FantasyEntry type is now imported from fetchFantasyData
 
 const testing = false; // Toggle this for testing - will not mint NFTs
 
@@ -87,7 +72,14 @@ const ContestFCFantasy = () => {
           return;
         }
         setIsContextLoaded(true);
+        
+        // 🧪 TESTING: Mock FID for testing "not in league" experience
+        // Uncomment the next line to mock FID = 2 (not in fantasy league)
+        // setCurrentUserFid(2);
+        
+        // Real FID from context
         setCurrentUserFid(ctx.user?.fid || null);
+        
         //console.log('🔍 Farcaster context user:', ctx.user);
       } catch (error) {
         console.error("Failed to load Farcaster context:", error);
@@ -291,26 +283,30 @@ const ContestFCFantasy = () => {
         
         // Look for PFP in the user data
         const messages = data.messages || [];
+        let pfpFound = false;
+        
         for (const message of messages) {
           if (message.data?.userDataBody?.type === 'USER_DATA_TYPE_PFP') {
             const pfp = message.data.userDataBody.value;
             if (pfp && pfp !== '/defifa_spinner.gif') {
               setCardPfpUrl(pfp);
-              return;
+              pfpFound = true;
+              break;
             }
           }
         }
         
-        // If no PFP found, use fallback
-        setCardPfpUrl('/defifa_spinner.gif');
+        if (!pfpFound) {
+          setCardPfpUrl('/defifa_spinner.gif');
+        }
       } catch (error) {
-        console.error('Error fetching PFP for card FID:', selectedEntry.fid, error);
+        console.error('Error fetching card PFP for FID:', selectedEntry.fid, error);
         setCardPfpUrl('/defifa_spinner.gif');
       }
     };
 
     fetchCardPfp();
-  }, [selectedEntry?.fid]);
+  }, [selectedEntry?.fid, selectedEntry?.entry_id]);
     
   
     const handleRowSelect = async (selected: FantasyEntry) => {
@@ -474,6 +470,7 @@ const ContestFCFantasy = () => {
               <span>•</span>
               <span>Platform: Fantasy Premier League</span>
             </div>
+            
             <button 
               onClick={async () => {
                 try {
@@ -606,27 +603,49 @@ const ContestFCFantasy = () => {
 
       {!loadingFantasy && cardEntry && (
         <div className="flex justify-center mt-4 w-full">
-          <button
-            onClick={handleMintImage}
-            disabled={mintingInProgress || !cardEntry}
-            className={`py-3 px-8 bg-deepPink text-white rounded-lg hover:bg-fontRed transition shadow-lg text-lg font-bold ${
-              mintingInProgress ? 'opacity-50' : ''
-            }`}
-          >
-            {mintingInProgress ? 'Minting...' : 'Collect Season Pass'}
-          </button>
-            {testing && (
-              <button
-                onClick={handleCheckHash}
-                disabled={mintingInProgress || !cardEntry}
-                className={`flex-1 py-3 bg-deepPink text-white rounded-lg hover:bg-fontRed transition shadow-lg text-lg font-bold ${
-                  mintingInProgress ? 'opacity-50' : ''
-                }`}
-              >
-                {mintingInProgress ? 'Processing...' : 'Check Hash'}
-              </button>
-            )}
-          </div>
+          {currentUserEntry ? (
+            // User is in the fantasy league - show mint button
+            <button
+              onClick={handleMintImage}
+              disabled={mintingInProgress || !cardEntry}
+              className={`py-3 px-8 bg-deepPink text-white rounded-lg hover:bg-fontRed transition shadow-lg text-lg font-bold ${
+                mintingInProgress ? 'opacity-50' : ''
+              }`}
+            >
+              {mintingInProgress ? 'Minting...' : 'Collect Season Pass'}
+            </button>
+          ) : (
+            // User is not in the fantasy league - show registration prompt
+            <div className="text-center">
+              <div className="bg-gray-800 rounded-lg p-6 mb-4">
+                <h3 className="text-xl font-bold text-lightPurple mb-3">🏆 Join the Fantasy League</h3>
+                <p className="text-lightPurple mb-4">
+                  OG season passes are for the managers in the Farcaster Fantasy EPL.
+                </p>
+                <button
+                  onClick={async () => {
+                    await sdk.actions.openUrl("https://farcaster.xyz/miniapps/Zak_J0bS0z03/fantasy-manager-league");
+                  }}
+                  className="py-3 px-8 bg-deepPink text-white rounded-lg hover:bg-fontRed transition shadow-lg text-lg font-bold"
+                >
+                  Join Fantasy Manager League
+                </button>
+              </div>
+            </div>
+          )}
+          
+          {testing && currentUserEntry && (
+            <button
+              onClick={handleCheckHash}
+              disabled={mintingInProgress || !cardEntry}
+              className={`flex-1 py-3 bg-deepPink text-white rounded-lg hover:bg-fontRed transition shadow-lg text-lg font-bold ${
+                mintingInProgress ? 'opacity-50' : ''
+              }`}
+            >
+              {mintingInProgress ? 'Processing...' : 'Check Hash'}
+            </button>
+          )}
+        </div>
       )}
 
       {statusMessage && <div className="mt-4 bg-gray-800 text-white p-3 rounded-lg">{statusMessage}</div>}
@@ -705,7 +724,16 @@ const ContestFCFantasy = () => {
       
       <div className="mt-6">
           <h2 className="text-2xl font-bold text-notWhite mb-4 text-center">League Standings</h2>
-          <h3 className="text-md font-bold text-lightPurple mb-4 text-center">Select to collect</h3>
+          <h3 className="text-md font-bold text-lightPurple mb-4 text-center">Select and collect</h3>
+          <h3 className="text-md font-bold text-lightPurple mb-4 text-center">Proceeds back $SCORES treasury</h3>
+
+          {!currentUserEntry && currentUserFid && (
+            <div className="text-center mb-4 p-3 bg-gray-800 rounded-lg">
+              <p className="text-lightPurple text-sm">
+                💡 <strong>Not in the Fantasy League?</strong> Click any row to see the season pass and join the league!
+              </p>
+            </div>
+          )}
           {loadingFantasy ? (
             <div className="text-center">Loading...</div>
           ) : errorFantasy ? (
@@ -728,11 +756,17 @@ const ContestFCFantasy = () => {
                   </th>
                 </tr>
               </thead>
-              <tbody>
-                {fantasyData.map((entry, index) => (
-                  <FantasyRow key={index} entry={entry} onRowClick={handleRowSelect} />
-                ))}
-              </tbody>
+                              <tbody>
+                  {fantasyData.map((entry, index) => (
+                    <FantasyRow 
+                      key={index} 
+                      entry={entry} 
+                      onRowClick={handleRowSelect} 
+                      currentUserEntry={currentUserEntry} 
+                      currentUserFid={currentUserFid}
+                    />
+                  ))}
+                </tbody>
             </table>
           ) : (
             <div>No fantasy data available.</div>
