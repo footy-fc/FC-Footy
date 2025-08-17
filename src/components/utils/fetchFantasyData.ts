@@ -80,12 +80,13 @@ export const fetchFPLLeagueData = async (leagueId: number = 18526): Promise<Fant
   try {
     // Use our server-side proxy with daily caching
     const url = `/api/fpl-league?leagueId=${leagueId}`;
-    //console.log(`Fetching from cached endpoint: ${url}`);
+    console.log(`Fetching from cached endpoint: ${url}`);
     
     const response = await fetch(url);
     
     if (!response.ok) {
       console.error(`FPL API failed:`, response.status, response.statusText);
+      console.error(`FPL API URL:`, url);
       throw new Error(`FPL API failed: ${response.status}`);
     }
     
@@ -165,7 +166,68 @@ export const fetchFPLLeagueData = async (leagueId: number = 18526): Promise<Fant
     return transformedData;
   } catch (error) {
     console.error('Error fetching FPL league data:', error);
-    throw error;
+    
+    // Fallback: try direct FPL API if our proxy fails
+    try {
+      console.log('🔄 Trying direct FPL API as fallback...');
+      const directUrl = `https://fantasy.premierleague.com/api/leagues-classic/${leagueId}/standings/`;
+      const response = await fetch(directUrl, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Direct FPL API failed: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      
+      if (!data.standings?.results) {
+        throw new Error('No standings data in direct API response');
+      }
+      
+      console.log('✅ Direct FPL API fallback successful');
+      
+      // Transform the data the same way
+      const allStandings = data.standings.results;
+      const transformedData = await Promise.all(
+        allStandings.map(async (entry: FPLStandingResult) => {
+          // Look up FID and team name from our lookup file
+          const lookupEntry = fantasyManagersLookup.find(
+            (lookup) => lookup.entry_id === entry.entry
+          );
+          
+          let username = entry.player_name || 'Unknown';
+          let fid: number | null = null;
+          let teamName = entry.entry_name;
+
+          if (lookupEntry) {
+            fid = lookupEntry.fid;
+            username = lookupEntry.team_name;
+            teamName = lookupEntry.team_name;
+          }
+
+          return {
+            id: entry.id,
+            entry_id: entry.entry,
+            rank: entry.rank,
+            manager: username,
+            teamName: teamName,
+            totalPoints: entry.total,
+            eventTotal: entry.event_total,
+            entry: entry.entry,
+            entryName: entry.entry_name,
+            fid: fid || undefined
+          };
+        })
+      );
+      
+      return transformedData;
+    } catch (fallbackError) {
+      console.error('❌ Both proxy and direct API failed:', fallbackError);
+      throw error; // Throw the original error
+    }
   }
 };
 
