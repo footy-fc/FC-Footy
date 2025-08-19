@@ -8,6 +8,7 @@ import NotificationsTab from "../../components/admin/NotificationsTab";
 import TeamsTab from "../../components/admin/TeamsTab";
 import LeaguesTab from "../../components/admin/LeaguesTab";
 import MatchRoomsTab from "../../components/admin/MatchRoomsTab";
+import GameWeekSummaryStepByStep from "../../components/admin/GameWeekSummaryStepByStep";
 import useEventsData from "../../components/utils/useEventsData";
 // import { parseEventId } from "../../utils/eventIdParser";
 
@@ -597,6 +598,7 @@ export default function AdminPage() {
                 { id: "teams", label: "Teams" },
                 { id: "leagues", label: "Leagues" },
                 { id: "matchRooms", label: "Match Rooms" },
+                { id: "gameWeekSummary", label: "Game Week Casts" },
                 { id: "findEventId", label: "Find Event ID" },
               ].map((tab) => (
                 <button
@@ -666,6 +668,10 @@ export default function AdminPage() {
 
           {activeTab === "matchRooms" && (
             <MatchRoomsTab />
+          )}
+
+          {activeTab === "gameWeekSummary" && (
+            <GameWeekSummaryStepByStep />
           )}
 
           {activeTab === "findEventId" && (
