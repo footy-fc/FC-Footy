@@ -129,14 +129,26 @@ async function getBootstrapData(): Promise<BootstrapData> {
       return cachedData as BootstrapData;
     }
 
-    // Fetch from our cached endpoint
-    const response = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/fpl-bootstrap`);
+    // Fetch directly from FPL API instead of internal endpoint
+    const response = await fetch('https://fantasy.premierleague.com/api/bootstrap-static/', {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+      }
+    });
     
     if (!response.ok) {
-      throw new Error(`Bootstrap API error: ${response.status}`);
+      throw new Error(`FPL API error: ${response.status}`);
     }
 
     const data = await response.json();
+    
+    // Cache the data for 24 hours
+    try {
+      await redis.setex('fc-footy:fpl-bootstrap', 86400, data);
+    } catch (cacheError) {
+      console.error('❌ Error caching bootstrap data:', cacheError);
+    }
+    
     return data;
   } catch (error) {
     console.error('Error getting bootstrap data:', error);
