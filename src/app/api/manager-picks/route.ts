@@ -187,6 +187,12 @@ async function findLatestGameweek(entryId: number): Promise<number> {
   throw new Error(`No available gameweek found for entry ${entryId}`);
 }
 
+interface FantasyManagerLookup {
+  entry_id: number;
+  fid: number;
+  team_name: string;
+}
+
 // Function to look up entry ID from FID using fantasy managers lookup
 async function getEntryIdFromFid(fid: number): Promise<number | null> {
   try {
@@ -196,7 +202,7 @@ async function getEntryIdFromFid(fid: number): Promise<number | null> {
       ? fantasyManagersLookup.default 
       : fantasyManagersLookup;
     
-    const manager = managers.find((m: any) => m.fid === fid);
+    const manager = (managers as FantasyManagerLookup[]).find((m) => m.fid === fid);
     return manager ? manager.entry_id : null;
   } catch (error) {
     console.error('Error looking up entry ID from FID:', error);

@@ -99,15 +99,15 @@ export async function getFansForTeams(uniqueTeamIds: string[]): Promise<number[]
       console.error(`Error fetching fans for ${uniqueTeamIds[index]}:`, result);
     } else if (result && typeof result === 'object' && 'data' in result) {
       // Handle case where result might be wrapped in an object
-      const data = (result as any).data;
-      if (Array.isArray(data)) {
-        data.forEach((fid) => fanFidsSet.add(fid));
+      const wrappedResult = result as { data: unknown };
+      if (Array.isArray(wrappedResult.data)) {
+        wrappedResult.data.forEach((fid) => fanFidsSet.add(fid as number));
       }
     } else if (result && typeof result === 'object' && 'result' in result) {
       // Handle case where result might be wrapped in a result property
-      const data = (result as any).result;
-      if (Array.isArray(data)) {
-        data.forEach((fid) => fanFidsSet.add(fid));
+      const wrappedResult = result as { result: unknown };
+      if (Array.isArray(wrappedResult.result)) {
+        wrappedResult.result.forEach((fid) => fanFidsSet.add(fid as number));
       }
     }
   });
@@ -215,9 +215,9 @@ export async function getFansForTeamWithLeagues(teamAbbr: string, leagueIds: str
       console.error(`Error fetching fans for ${teamIds[index]}:`, result);
     } else if (result && typeof result === 'object' && 'data' in result) {
       // Handle case where result might be wrapped in an object
-      const data = (result as any).data;
-      if (Array.isArray(data)) {
-        data.forEach((fid) => fanFidsSet.add(fid));
+      const wrappedResult = result as { data: unknown };
+      if (Array.isArray(wrappedResult.data)) {
+        wrappedResult.data.forEach((fid) => fanFidsSet.add(fid as number));
       }
     }
   });

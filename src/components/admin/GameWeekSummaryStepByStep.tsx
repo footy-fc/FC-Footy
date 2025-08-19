@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { sdk } from "@farcaster/miniapp-sdk";
 
 interface FPLManager {
@@ -14,32 +14,44 @@ interface FPLManager {
   username?: string;
 }
 
+interface StepData {
+  count?: number;
+  managersWithFIDs?: number;
+  source?: string;
+  selectedType?: string;
+  error?: string;
+  url?: string;
+  preview?: string;
+}
+
 interface Step {
   id: number;
   title: string;
   description: string;
   status: "pending" | "loading" | "completed" | "error";
-  data?: any;
+  data?: StepData;
 }
+
+type CastType = "topBottom" | "biggestMovers";
 
 export default function GameWeekSummaryStepByStep() {
   const [currentStep, setCurrentStep] = useState(1);
   const [steps, setSteps] = useState<Step[]>([
-    { id: 1, title: "Load FPL Data", description: "Fetch current league standings", status: "pending" },
-    { id: 2, title: "Process Manager FIDs", description: "Match managers with Farcaster accounts", status: "pending" },
+    { id: 1, title: "Load FPL Data & Process FIDs", description: "Fetch standings and match with Farcaster usernames", status: "pending" },
+    { id: 2, title: "Select Cast Type", description: "Choose the type of cast to generate", status: "pending" },
     { id: 3, title: "Generate Infographic", description: "Create and upload visual summary to IPFS", status: "pending" },
     { id: 4, title: "Review Cast", description: "Preview the generated cast text", status: "pending" },
     { id: 5, title: "Post to Farcaster", description: "Compose and publish the cast", status: "pending" }
   ]);
   
-  const [fplData, setFplData] = useState<FPLManager[]>([]);
   const [managersWithFIDs, setManagersWithFIDs] = useState<FPLManager[]>([]);
   const [castText, setCastText] = useState("");
   const [infographicUrl, setInfographicUrl] = useState("");
   const [gameWeek, setGameWeek] = useState(1);
   const [responseMessage, setResponseMessage] = useState("");
+  const [selectedCastType, setSelectedCastType] = useState<CastType>("topBottom");
 
-  const updateStep = (stepId: number, status: Step["status"], data?: any) => {
+  const updateStep = (stepId: number, status: Step["status"], data?: StepData) => {
     setSteps(prev => prev.map(step => 
       step.id === stepId 
         ? { ...step, status, data }
@@ -47,8 +59,8 @@ export default function GameWeekSummaryStepByStep() {
     ));
   };
 
-  // Step 1: Load FPL Data
-  const loadFPLData = async () => {
+  // Step 1: Load FPL Data & Process FIDs (Combined)
+  const loadFPLDataAndProcessFIDs = async () => {
     updateStep(1, "loading");
     try {
       // Check if we're in a miniapp context
@@ -89,8 +101,6 @@ export default function GameWeekSummaryStepByStep() {
             headers: {
               'Accept': 'application/json',
             },
-            // Remove mode: 'cors' as it can cause issues in miniapp context
-            // Let the browser handle CORS automatically
           });
           
           if (response.ok) {
@@ -103,9 +113,10 @@ export default function GameWeekSummaryStepByStep() {
             console.log(`❌ Failed to fetch from ${base}: ${response.status} ${response.statusText}`);
           }
         } catch (error) {
-          console.log(`❌ Error fetching from ${base}:`, error.message);
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          console.log(`❌ Error fetching from ${base}:`, errorMessage);
           // If it's a CORS error, log it specifically
-          if (error.message.includes('CORS') || error.message.includes('cors')) {
+          if (errorMessage.includes('CORS') || errorMessage.includes('cors')) {
             console.log(`🚫 CORS error detected for ${base} - skipping to next source`);
           }
         }
@@ -130,34 +141,30 @@ export default function GameWeekSummaryStepByStep() {
             throw new Error(`FPL API returned ${response.status}: ${response.statusText}`);
           }
         } catch (error) {
-          console.error('❌ Failed to fetch from direct FPL API:', error.message);
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          console.error('❌ Failed to fetch from direct FPL API:', errorMessage);
           // If all else fails, throw the error to be caught by the outer try-catch
-          throw new Error(`Failed to fetch FPL data from all sources: ${error.message}`);
+          throw new Error(`Failed to fetch FPL data from all sources: ${errorMessage}`);
         }
       }
 
-      setFplData(standings);
-      updateStep(1, "completed", { 
-        count: standings.length,
-        source: sourceUsed 
-      });
-      setCurrentStep(2);
-    } catch (error) {
-      console.error('Error loading FPL data:', error);
-      updateStep(1, "error", { error: error.message });
-    }
-  };
+      // We don't need to store fplData separately since we process it immediately
+      console.log(`📊 FPL Data: ${standings.length} total managers`);
 
-  // Step 2: Process Manager FIDs
-  const processManagerFIDs = async () => {
-    updateStep(2, "loading");
-    try {
+      // Now process FIDs
+      console.log('🔍 Processing manager FIDs...');
       const fantasyManagersLookup = await import('../../data/fantasy-managers-lookup.json');
       const managersWithFIDs: FPLManager[] = [];
       
-      for (const entry of fplData) {
+      interface LookupEntry {
+        entry_id: number;
+        fid: number;
+        team_name: string;
+      }
+
+      for (const entry of standings) {
         const lookupEntry = fantasyManagersLookup.default.find(
-          (lookup: any) => lookup.entry_id === entry.entry
+          (lookup: LookupEntry) => lookup.entry_id === entry.entry
         );
         
         if (lookupEntry && lookupEntry.fid) {
@@ -180,11 +187,18 @@ export default function GameWeekSummaryStepByStep() {
       }
       
       setManagersWithFIDs(managersWithFIDs.sort((a, b) => b.total - a.total));
-      updateStep(2, "completed", { count: managersWithFIDs.length });
-      setCurrentStep(3);
+      console.log(`📊 Managers with FIDs: ${managersWithFIDs.length}`);
+      
+      updateStep(1, "completed", { 
+        count: standings.length,
+        managersWithFIDs: managersWithFIDs.length,
+        source: sourceUsed 
+      });
+      setCurrentStep(2);
     } catch (error) {
-      console.error('Error processing manager FIDs:', error);
-      updateStep(2, "error", { error: error.message });
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error('Error loading FPL data and processing FIDs:', errorMessage);
+      updateStep(1, "error", { error: errorMessage });
     }
   };
 
@@ -199,6 +213,20 @@ export default function GameWeekSummaryStepByStep() {
       console.error(`Error fetching username for FID ${fid}:`, error);
     }
     return null;
+  };
+
+  // Step 2: Select Cast Type
+  const selectCastType = () => {
+    updateStep(2, "loading");
+    try {
+      // This step is just for selection, no processing needed
+      updateStep(2, "completed", { selectedType: selectedCastType });
+      setCurrentStep(3);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error('Error selecting cast type:', errorMessage);
+      updateStep(2, "error", { error: errorMessage });
+    }
   };
 
   // Step 3: Generate Infographic
@@ -230,8 +258,9 @@ export default function GameWeekSummaryStepByStep() {
         throw new Error(result.error || 'Failed to generate infographic');
       }
     } catch (error) {
-      console.error('Error generating infographic:', error);
-      updateStep(3, "error", { error: error.message });
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error('Error generating infographic:', errorMessage);
+      updateStep(3, "error", { error: errorMessage });
     }
   };
 
@@ -239,11 +268,14 @@ export default function GameWeekSummaryStepByStep() {
   const generateCastText = () => {
     updateStep(4, "loading");
     try {
-      const sortedByTotal = [...managersWithFIDs].sort((a, b) => b.total - a.total);
-      const top3 = sortedByTotal.slice(0, 3);
-      const bottom3 = sortedByTotal.slice(-3);
+      let text = "";
+      
+      if (selectedCastType === "topBottom") {
+        const sortedByTotal = [...managersWithFIDs].sort((a, b) => b.total - a.total);
+        const top3 = sortedByTotal.slice(0, 3);
+        const bottom3 = sortedByTotal.slice(-3);
 
-      const text = `🎮 Game Week ${gameWeek} Summary - Farcaster Fantasy League! 🏆
+        text = `🎮 Game Week ${gameWeek} Summary - Farcaster Fantasy League! 🏆
 
 🥇 @${top3[0].username} - The king stays king! 👑⚽️ (${top3[0].total}pts)
 🥈 @${top3[1].username} - So close, yet so far! 😅⚽️ (${top3[1].total}pts)
@@ -254,13 +286,22 @@ export default function GameWeekSummaryStepByStep() {
 💪 @${bottom3[0].username} - Keep fighting! 💪⚽️ (${bottom3[0].total}pts)
 
 ⚽ Keep the banter friendly and the competition fierce! 🔥`;
+      } else if (selectedCastType === "biggestMovers") {
+        // Placeholder for biggest movers cast
+        text = `📈 Game Week ${gameWeek} - Biggest Movers! 🚀
+
+🎯 Coming soon: Highlighting managers with the biggest rank changes this week!
+
+⚽ Stay tuned for more exciting content! 🔥`;
+      }
 
       setCastText(text);
       updateStep(4, "completed", { preview: text.substring(0, 100) + "..." });
       setCurrentStep(5);
     } catch (error) {
-      console.error('Error generating cast text:', error);
-      updateStep(4, "error", { error: error.message });
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error('Error generating cast text:', errorMessage);
+      updateStep(4, "error", { error: errorMessage });
     }
   };
 
@@ -270,30 +311,29 @@ export default function GameWeekSummaryStepByStep() {
     try {
       await sdk.actions.ready();
       
-      const embeds = ['https://fc-footy.vercel.app'];
-      if (infographicUrl) {
-        embeds.push(infographicUrl);
-      }
+      const baseEmbeds = ['https://fc-footy.vercel.app'];
+      const finalEmbeds = infographicUrl ? [...baseEmbeds, infographicUrl] : baseEmbeds;
 
       await sdk.actions.composeCast({
         text: castText,
-        embeds,
+        embeds: finalEmbeds as [string, string] | [string] | [],
         channelKey: 'football'
       });
 
-      updateStep(5, "completed", { success: true });
+      updateStep(5, "completed", { url: "Cast posted successfully" });
       setResponseMessage('Cast posted successfully! 🎉');
     } catch (error) {
-      console.error('Error posting cast:', error);
-      updateStep(5, "error", { error: error.message });
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error('Error posting cast:', errorMessage);
+      updateStep(5, "error", { error: errorMessage });
       setResponseMessage('Failed to post cast. Please try again.');
     }
   };
 
   const executeStep = async (stepId: number) => {
     switch (stepId) {
-      case 1: await loadFPLData(); break;
-      case 2: await processManagerFIDs(); break;
+      case 1: await loadFPLDataAndProcessFIDs(); break;
+      case 2: selectCastType(); break;
       case 3: await generateInfographic(); break;
       case 4: generateCastText(); break;
       case 5: await postToFarcaster(); break;
@@ -303,7 +343,7 @@ export default function GameWeekSummaryStepByStep() {
   const resetAll = () => {
     setSteps(prev => prev.map(step => ({ ...step, status: "pending" as const })));
     setCurrentStep(1);
-    setFplData([]);
+    // No need to reset fplData since we don't store it separately
     setManagersWithFIDs([]);
     setCastText("");
     setInfographicUrl("");
@@ -375,15 +415,17 @@ export default function GameWeekSummaryStepByStep() {
                 <div>
                   <h4 className="text-notWhite font-semibold">{step.title}</h4>
                   <p className="text-lightPurple text-sm">{step.description}</p>
-                                     {step.data && (
-                     <p className="text-xs text-gray-400 mt-1">
-                       {step.data.count && `${step.data.count} items`}
-                       {step.data.source && ` | Source: ${step.data.source}`}
-                       {step.data.error && `Error: ${step.data.error}`}
-                       {step.data.url && `URL: ${step.data.url.substring(0, 50)}...`}
-                       {step.data.preview && `Preview: ${step.data.preview}`}
-                     </p>
-                   )}
+                  {step.data && (
+                    <p className="text-xs text-gray-400 mt-1">
+                      {step.data.count && `${step.data.count} total managers`}
+                      {step.data.managersWithFIDs && ` | ${step.data.managersWithFIDs} with FIDs`}
+                      {step.data.source && ` | Source: ${step.data.source}`}
+                      {step.data.selectedType && ` | Type: ${step.data.selectedType}`}
+                      {step.data.error && `Error: ${step.data.error}`}
+                      {step.data.url && `URL: ${step.data.url.substring(0, 50)}...`}
+                      {step.data.preview && `Preview: ${step.data.preview}`}
+                    </p>
+                  )}
                 </div>
               </div>
               
@@ -414,6 +456,43 @@ export default function GameWeekSummaryStepByStep() {
                 )}
               </div>
             </div>
+            
+            {/* Cast Type Selection for Step 2 */}
+            {step.id === 2 && step.status === "pending" && currentStep === 2 && (
+              <div className="mt-4 p-4 bg-darkPurple rounded-lg border border-limeGreenOpacity">
+                <h5 className="text-notWhite font-semibold mb-3">Select Cast Type:</h5>
+                <div className="space-y-3">
+                  <label className="flex items-center space-x-3 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="castType"
+                      value="topBottom"
+                      checked={selectedCastType === "topBottom"}
+                      onChange={(e) => setSelectedCastType(e.target.value as CastType)}
+                      className="text-deepPink"
+                    />
+                    <div>
+                      <span className="text-lightPurple font-medium">🏆 Top 3 vs Bottom 3</span>
+                      <p className="text-xs text-gray-400">Congratulate top performers and playfully mention bottom performers</p>
+                    </div>
+                  </label>
+                  <label className="flex items-center space-x-3 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="castType"
+                      value="biggestMovers"
+                      checked={selectedCastType === "biggestMovers"}
+                      onChange={(e) => setSelectedCastType(e.target.value as CastType)}
+                      className="text-deepPink"
+                    />
+                    <div>
+                      <span className="text-lightPurple font-medium">📈 Biggest Movers</span>
+                      <p className="text-xs text-gray-400">Highlight managers with biggest rank changes this week (Coming Soon)</p>
+                    </div>
+                  </label>
+                </div>
+              </div>
+            )}
           </div>
         ))}
       </div>
@@ -437,14 +516,14 @@ export default function GameWeekSummaryStepByStep() {
             disabled={steps[0].status === "loading"}
             className="px-3 py-1 bg-blue-600 text-white rounded text-sm disabled:opacity-50"
           >
-            Step 1: Load Data
+            Step 1: Load & Process
           </button>
           <button
             onClick={() => executeStep(2)}
             disabled={steps[1].status === "loading" || steps[0].status !== "completed"}
             className="px-3 py-1 bg-blue-600 text-white rounded text-sm disabled:opacity-50"
           >
-            Step 2: Process FIDs
+            Step 2: Select Type
           </button>
           <button
             onClick={() => executeStep(3)}
