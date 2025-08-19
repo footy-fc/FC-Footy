@@ -81,7 +81,9 @@ async function getCurrentGameweek(): Promise<number> {
     });
 
     if (!response.ok) {
-      throw new Error(`FPL API error: ${response.status}`);
+      console.error(`❌ FPL API error in getCurrentGameweek: ${response.status}`);
+      // Return a fallback gameweek instead of throwing
+      return 1;
     }
 
     const data: { events: Array<{ id: number; is_current?: boolean; finished?: boolean }> } = await response.json();
@@ -94,18 +96,27 @@ async function getCurrentGameweek(): Promise<number> {
         .sort((a, b) => b.id - a.id)[0];
       
       if (latestEvent) {
-        await redis.setex('fc-footy:current-gameweek', 3600, latestEvent.id); // Cache for 1 hour
+        try {
+          await redis.setex('fc-footy:current-gameweek', 3600, latestEvent.id); // Cache for 1 hour
+        } catch (cacheError) {
+          console.error('❌ Error caching current gameweek:', cacheError);
+        }
         return latestEvent.id;
       }
       
-      throw new Error('No current or latest gameweek found');
+      console.error('❌ No current or latest gameweek found, returning fallback');
+      return 1; // Return fallback instead of throwing
     }
 
-    await redis.setex('fc-footy:current-gameweek', 3600, currentEvent.id); // Cache for 1 hour
+    try {
+      await redis.setex('fc-footy:current-gameweek', 3600, currentEvent.id); // Cache for 1 hour
+    } catch (cacheError) {
+      console.error('❌ Error caching current gameweek:', cacheError);
+    }
     return currentEvent.id;
   } catch (error) {
-    console.error('Error getting current gameweek:', error);
-    throw error;
+    console.error('❌ Error getting current gameweek:', error);
+    return 1; // Return fallback instead of throwing
   }
 }
 
@@ -168,8 +179,12 @@ async function findLatestGameweek(entryId: number): Promise<number> {
 async function getEntryIdFromFid(fid: number): Promise<number | null> {
   try {
     // Import the lookup data directly from the JSON file
-    const fantasyManagersLookup: { default: Array<{ fid: number; entry_id: number }> } = await import('../../../data/fantasy-managers-lookup.json');
-    const manager = fantasyManagersLookup.default.find((m) => m.fid === fid);
+    const fantasyManagersLookup = await import('../../../data/fantasy-managers-lookup.json');
+    const managers = Array.isArray(fantasyManagersLookup.default) 
+      ? fantasyManagersLookup.default 
+      : fantasyManagersLookup;
+    
+    const manager = managers.find((m: any) => m.fid === fid);
     return manager ? manager.entry_id : null;
   } catch (error) {
     console.error('Error looking up entry ID from FID:', error);
@@ -185,6 +200,8 @@ export async function GET(request: NextRequest) {
     const gameweek = searchParams.get('gameweek');
     const refresh = searchParams.get('refresh') === 'true';
 
+    console.log(`🔍 Manager picks request:`, { entryId, fid, gameweek, refresh });
+
     let targetEntryId: number;
 
     // Handle FID lookup if provided
@@ -197,16 +214,24 @@ export async function GET(request: NextRequest) {
         );
       }
       
-      const resolvedEntryId = await getEntryIdFromFid(fidNum);
-      if (!resolvedEntryId) {
+      try {
+        const resolvedEntryId = await getEntryIdFromFid(fidNum);
+        if (!resolvedEntryId) {
+          return NextResponse.json(
+            { error: `No manager found for FID ${fidNum}` },
+            { status: 404 }
+          );
+        }
+        
+        targetEntryId = resolvedEntryId;
+        console.log(`🔍 Found entry ID ${targetEntryId} for FID ${fidNum}`);
+      } catch (error) {
+        console.error(`❌ Error looking up entry ID for FID ${fidNum}:`, error);
         return NextResponse.json(
-          { error: `No manager found for FID ${fidNum}` },
-          { status: 404 }
+          { error: 'Failed to look up manager entry ID' },
+          { status: 500 }
         );
       }
-      
-      targetEntryId = resolvedEntryId;
-      console.log(`🔍 Found entry ID ${targetEntryId} for FID ${fidNum}`);
     } else if (entryId) {
       targetEntryId = parseInt(entryId, 10);
       if (isNaN(targetEntryId)) {
@@ -234,12 +259,29 @@ export async function GET(request: NextRequest) {
       }
     } else {
       // Find the latest available gameweek for this manager
-      targetGameweek = await findLatestGameweek(targetEntryId);
+      try {
+        targetGameweek = await findLatestGameweek(targetEntryId);
+      } catch (error) {
+        console.error(`❌ Error finding latest gameweek for entry ${targetEntryId}:`, error);
+        return NextResponse.json(
+          { error: 'Failed to determine available gameweek for this manager' },
+          { status: 500 }
+        );
+      }
     }
+
+    console.log(`🎯 Target: entry ${targetEntryId}, gameweek ${targetGameweek}`);
 
     // Check cache first (unless refresh is requested)
     const cacheKey = `fc-footy:manager-picks:${targetEntryId}:${targetGameweek}`;
-    const cachedPicks = refresh ? null : await redis.get(cacheKey);
+    let cachedPicks = null;
+    
+    try {
+      cachedPicks = refresh ? null : await redis.get(cacheKey);
+    } catch (cacheError) {
+      console.error(`❌ Error checking cache:`, cacheError);
+      // Continue without cache if Redis fails
+    }
     
     if (cachedPicks) {
       console.log(`✅ Returning cached manager picks for entry ${targetEntryId}, gameweek ${targetGameweek}`);
@@ -248,12 +290,17 @@ export async function GET(request: NextRequest) {
 
     console.log(`🔄 Fetching manager picks for entry ${targetEntryId}, gameweek ${targetGameweek}...`);
 
-    // Fetch manager picks from FPL API
-    const response = await fetch(`https://fantasy.premierleague.com/api/entry/${targetEntryId}/event/${targetGameweek}/picks/`, {
+    // Fetch manager picks from FPL API with better error handling
+    const fplUrl = `https://fantasy.premierleague.com/api/entry/${targetEntryId}/event/${targetGameweek}/picks/`;
+    console.log(`🌐 Fetching from FPL API: ${fplUrl}`);
+    
+    const response = await fetch(fplUrl, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
       }
     });
+
+    console.log(`📡 FPL API response status: ${response.status}`);
 
     if (!response.ok) {
       if (response.status === 404) {
@@ -262,13 +309,39 @@ export async function GET(request: NextRequest) {
           { status: 404 }
         );
       }
-      throw new Error(`FPL API error: ${response.status}`);
+      
+      const errorText = await response.text();
+      console.error(`❌ FPL API error ${response.status}:`, errorText);
+      throw new Error(`FPL API error: ${response.status} - ${errorText}`);
     }
 
     const picksData: ManagerPicksResponse = await response.json();
+    console.log(`✅ Successfully fetched picks data for entry ${targetEntryId}, gameweek ${targetGameweek}`);
 
     // Get bootstrap data to enrich player information
-    const bootstrapData = await getBootstrapData();
+    let bootstrapData: BootstrapData;
+    try {
+      bootstrapData = await getBootstrapData();
+      console.log(`✅ Successfully fetched bootstrap data`);
+    } catch (error) {
+      console.error(`❌ Error fetching bootstrap data:`, error);
+      // Return picks data without enrichment rather than failing completely
+      const basicData = {
+        ...picksData,
+        gameweek: targetGameweek,
+        entry_id: targetEntryId,
+        fetched_at: new Date().toISOString(),
+        note: 'Player enrichment failed, returning basic picks data'
+      };
+      
+      // Cache the basic data for 1 hour
+      try {
+        await redis.setex(cacheKey, 3600, basicData);
+      } catch (cacheError) {
+        console.error(`❌ Error caching basic data:`, cacheError);
+      }
+      return NextResponse.json(basicData);
+    }
     
     // Enrich picks with player and team information
     const enrichedPicks = picksData.picks.map(pick => {
@@ -307,15 +380,33 @@ export async function GET(request: NextRequest) {
     };
 
     // Cache the enriched data for 1 hour
-    await redis.setex(cacheKey, 3600, enrichedData);
-    console.log(`✅ Cached manager picks for entry ${targetEntryId}, gameweek ${targetGameweek}`);
+    try {
+      await redis.setex(cacheKey, 3600, enrichedData);
+      console.log(`✅ Cached manager picks for entry ${targetEntryId}, gameweek ${targetGameweek}`);
+    } catch (cacheError) {
+      console.error(`❌ Error caching manager picks:`, cacheError);
+      // Still return the data even if caching fails
+    }
 
     return NextResponse.json(enrichedData);
 
   } catch (error) {
     console.error('❌ Error fetching manager picks:', error);
+    
+    // Provide more specific error messages
+    let errorMessage = 'Failed to fetch manager picks';
+    let errorDetails = error instanceof Error ? error.message : 'Unknown error';
+    
+    if (error instanceof TypeError && error.message.includes('fetch')) {
+      errorMessage = 'Network error - unable to reach FPL API';
+      errorDetails = 'fetch failed';
+    } else if (error instanceof Error && error.message.includes('FPL API error')) {
+      errorMessage = 'FPL API error';
+      errorDetails = error.message;
+    }
+    
     return NextResponse.json(
-      { error: 'Failed to fetch manager picks', details: error instanceof Error ? error.message : 'Unknown error' },
+      { error: errorMessage, details: errorDetails },
       { status: 500 }
     );
   }
