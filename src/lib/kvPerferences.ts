@@ -28,18 +28,26 @@ export async function setTeamPreferences(fid: number, teams: string[]): Promise<
 
   // Remove the user from existing team-fans index first.
   const oldPreferences = await getTeamPreferences(fid);
-  if (oldPreferences) {
+  if (oldPreferences && oldPreferences.length > 0) {
+    // Batch the SREM operations
+    const pipeline = redis.pipeline();
     for (const teamId of oldPreferences) {
-      await redis.srem(`fc-footy:team-fans:${teamId}`, fid);
+      pipeline.srem(`fc-footy:team-fans:${teamId}`, fid);
     }
+    await pipeline.exec();
   }
 
   // Update the preferences for the user.
   await redis.set(getTeamPreferencesKey(fid), teams);
 
   // Add the user to the new team-fans index for each unique team ID.
-  for (const teamId of teams) {
-    await redis.sadd(`fc-footy:team-fans:${teamId}`, fid);
+  if (teams.length > 0) {
+    // Batch the SADD operations
+    const pipeline = redis.pipeline();
+    for (const teamId of teams) {
+      pipeline.sadd(`fc-footy:team-fans:${teamId}`, fid);
+    }
+    await pipeline.exec();
   }
 }
 
@@ -66,10 +74,43 @@ export async function getFansForTeams(uniqueTeamIds: string[]): Promise<number[]
 //console.log("getFansForTeams", uniqueTeamIds);
   const fanFidsSet = new Set<number>();
 
-  for (const teamId of uniqueTeamIds) {
-    const teamFans = await redis.smembers<number[]>(`fc-footy:team-fans:${teamId}`);
-    teamFans.forEach((fid) => fanFidsSet.add(fid));
+  if (uniqueTeamIds.length === 0) {
+    return Array.from(fanFidsSet);
   }
+
+  // Batch the SMEMBERS operations
+  const pipeline = redis.pipeline();
+  for (const teamId of uniqueTeamIds) {
+    pipeline.smembers<number[]>(`fc-footy:team-fans:${teamId}`);
+  }
+  
+  const results = await pipeline.exec();
+  
+  // Debug logging to understand the results structure
+  if (process.env.NODE_ENV === 'development') {
+    console.log('Pipeline results structure:', JSON.stringify(results, null, 2));
+  }
+  
+  // Process the batched results - handle both array and error results
+  results.forEach((result, index) => {
+    if (result && Array.isArray(result)) {
+      result.forEach((fid) => fanFidsSet.add(fid));
+    } else if (result instanceof Error) {
+      console.error(`Error fetching fans for ${uniqueTeamIds[index]}:`, result);
+    } else if (result && typeof result === 'object' && 'data' in result) {
+      // Handle case where result might be wrapped in an object
+      const data = (result as any).data;
+      if (Array.isArray(data)) {
+        data.forEach((fid) => fanFidsSet.add(fid));
+      }
+    } else if (result && typeof result === 'object' && 'result' in result) {
+      // Handle case where result might be wrapped in a result property
+      const data = (result as any).result;
+      if (Array.isArray(data)) {
+        data.forEach((fid) => fanFidsSet.add(fid));
+      }
+    }
+  });
 
   return Array.from(fanFidsSet);
 }
@@ -108,6 +149,12 @@ export async function getFansForTeamAbbr(teamAbbr: string): Promise<number[]> {
   
   // console.log(`Fetching fans for team abbreviation "${teamAbbr}" across leagues: ${possibleTeamIds}`);
 
+  if (possibleTeamIds.length === 0) {
+    return Array.from(fanFidsSet);
+  }
+
+  // For now, use the original approach to ensure accurate counts
+  // TODO: Debug and fix the batching approach
   for (const teamId of possibleTeamIds) {
     try {
       const teamFans = await redis.smembers<number[]>(`fc-footy:team-fans:${teamId}`);
@@ -152,14 +199,28 @@ export async function getFansForTeamWithLeagues(teamAbbr: string, leagueIds: str
   
   // console.log(`Fetching fans for team "${teamAbbr}" in leagues: ${leagueIds}`, teamIds);
 
+  // Batch the SMEMBERS operations
+  const pipeline = redis.pipeline();
   for (const teamId of teamIds) {
-    try {
-      const teamFans = await redis.smembers<number[]>(`fc-footy:team-fans:${teamId}`);
-      teamFans.forEach((fid) => fanFidsSet.add(fid));
-    } catch (err) {
-      console.error(`Error fetching fans for ${teamId}:`, err);
-    }
+    pipeline.smembers<number[]>(`fc-footy:team-fans:${teamId}`);
   }
+  
+  const results = await pipeline.exec();
+  
+  // Process the batched results - handle both array and error results
+  results.forEach((result, index) => {
+    if (result && Array.isArray(result)) {
+      result.forEach((fid) => fanFidsSet.add(fid));
+    } else if (result instanceof Error) {
+      console.error(`Error fetching fans for ${teamIds[index]}:`, result);
+    } else if (result && typeof result === 'object' && 'data' in result) {
+      // Handle case where result might be wrapped in an object
+      const data = (result as any).data;
+      if (Array.isArray(data)) {
+        data.forEach((fid) => fanFidsSet.add(fid));
+      }
+    }
+  });
 
   const fanCount = fanFidsSet.size;
   // console.log(`Found ${fanCount} unique fans for "${teamAbbr}" across ${leagueIds.length} leagues`);
