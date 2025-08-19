@@ -4,7 +4,8 @@ import Image from 'next/image';
 // import Link from 'next/link';
 // import { FaTrophy, FaTicketAlt } from 'react-icons/fa';
 // import RefereeIcon from '../components/ui/RefereeIcon';
-import RAGameContext from './ai/RAGameContext';
+// import RAGameContext from './ai/RAGameContext';
+import AIResponseDisplay from './ui/AIResponseDisplay';
 import { WarpcastShareButton } from './ui/WarpcastShareButton';
 import { getFansForTeam } from '../lib/kvPerferences';
 import { fetchFanUserData } from './utils/fetchFCProfile';
@@ -70,11 +71,31 @@ interface Team {
   logoUrl: string;
 }
 
+// Types for formatted FPL picks enrichment
+type EnrichedPlayer = {
+  web_name: string;
+  team?: { short_name?: string } | null;
+  element_type: number;
+  total_points?: number;
+  selected_by_percent?: number;
+  expected_goals?: number;
+  expected_assists?: number;
+};
+type EnrichedPick = {
+  player?: EnrichedPlayer;
+  is_captain?: boolean;
+  is_vice_captain?: boolean;
+  multiplier?: number;
+};
+type PicksData = { picks?: EnrichedPick[] };
+
 const MatchEventCard: React.FC<EventCardProps> = ({ event, sportId }) => {
   const [selectedMatch, setSelectedMatch] = useState<SelectedMatch | null>(null);
   const [gameContext, setGameContext] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [showGameContext, setShowGameContext] = useState(false);
+  const [userFid, setUserFid] = useState<number | null>(null);
+  const [isInFantasyLeague, setIsInFantasyLeague] = useState<boolean | null>(null);
   const [showDetails, setShowDetails] = useState(false);
   // State for fan avatar rows for team1 and team2
   const [matchFanAvatarsTeam1, setMatchFanAvatarsTeam1] = useState<Array<{ fid: number; pfp: string }>>([]);
@@ -107,6 +128,36 @@ const MatchEventCard: React.FC<EventCardProps> = ({ event, sportId }) => {
   useEffect(() => {
     fetchTeamLogos().then((data) => setTeams(data));
   }, []);
+
+  // Check if user's FID belongs to a manager in the FPL league (eng.1)
+  useEffect(() => {
+    if (sportId !== 'eng.1') {
+      setIsInFantasyLeague(false);
+      return;
+    }
+
+    let isActive = true;
+    (async () => {
+      try {
+        const context = await sdk.context;
+        const fid = context?.user?.fid as number | undefined;
+        if (!fid) {
+          if (isActive) setIsInFantasyLeague(false);
+          return;
+        }
+        if (isActive) setUserFid(fid);
+        console.log("userFid:", userFid);
+        const res = await fetch(`/api/manager-picks?fid=${fid}`);
+        if (isActive) setIsInFantasyLeague(res.ok);
+      } catch {
+        if (isActive) setIsInFantasyLeague(false);
+      }
+    })();
+
+    return () => {
+      isActive = false;
+    };
+  }, [sportId]);
    // useEffect(() => {
    //   const fetchPrice = async () => {
    //     try {
@@ -258,35 +309,137 @@ const MatchEventCard: React.FC<EventCardProps> = ({ event, sportId }) => {
       setShowDetails((prev) => !prev);
     };
 
-  const fetchAiSummary = async () => {
+
+
+  const fetchFantasyImpact = async () => {
     if (selectedMatch) {
       try {
         if (!showGameContext && !gameContext) {
           setLoading(true);
-          const data = await RAGameContext(event.id, sportId, competitorsLong);
-          if (data) {
-            setGameContext(data);
+          
+          // Get user's FID from SDK
+          const context = await sdk.context;
+          const fid = context?.user?.fid;
+          
+          if (fid) {
+            console.log('🔍 Checking fantasy league for FID:', fid);
+            
+            // Check if user is in fantasy league by looking up their entry_id
+            const response = await fetch(`/api/manager-picks?fid=${fid}&gameweek=1&refresh=true`);
+            
+            if (response.ok) {
+              const picksData = await response.json();
+              console.log('✅ User found in fantasy league, entry_id:', picksData.entry_id);
+              
+              // Show user's team picks
+              const picksTable = formatUserTeamPicks(picksData);
+              setGameContext(picksTable);
+            } else {
+              console.log('❌ User not found in fantasy league');
+              // Show no fantasy impact message
+              setGameContext('**FANTASY IMPACT**\n\nNo fantasy league impact to report.\n\nYou are not currently participating in the FC-Footy Fantasy League.');
+            }
           } else {
-            setGameContext('Failed to fetch AI context. Please try again.');
+            console.log('❌ No FID found in SDK context');
+            setGameContext('**FANTASY IMPACT**\n\nNo fantasy league impact to report.\n\nUnable to identify your Farcaster ID.');
           }
         }
         setShowGameContext((prev) => !prev);
       } catch (error) {
-        setGameContext('Failed to fetch game context. Please check your connection and try again.');
-        console.error('Failed to fetch game context:', error);
+        console.error('Failed to fetch fantasy impact:', error);
+        setGameContext('Failed to fetch fantasy impact. Please check your connection and try again.');
       } finally {
         setLoading(false);
       }
     }
   };
 
-  const readMatchSummary = () => {
-    if (gameContext) {
-      const utterance = new SpeechSynthesisUtterance(gameContext);
-      utterance.rate = 1.5;
-      window.speechSynthesis.speak(utterance);
+  // Format user's team picks into a table
+  const formatUserTeamPicks = (picksData: PicksData): string => {
+    if (!picksData.picks || picksData.picks.length === 0) {
+      return '**FANTASY IMPACT**\n\nNo team picks available.';
     }
+
+    // Get current match teams for highlighting
+    const currentMatchTeams = selectedMatch ? [
+      selectedMatch.homeTeam.toLowerCase(),
+      selectedMatch.awayTeam.toLowerCase()
+    ] : [];
+
+    const headers = ['Player', 'Points', 'Own%', 'xG/xA', 'Status'];
+    const rows = [headers];
+
+    picksData.picks.forEach((pick) => {
+      const player = pick.player;
+      if (player) {
+        // Convert position number to position name
+        const getPositionName = (elementType: number) => {
+          switch (elementType) {
+            case 1: return 'GK';
+            case 2: return 'DEF';
+            case 3: return 'MID';
+            case 4: return 'FWD';
+            default: return 'N/A';
+          }
+        };
+        
+        // Combine captain/bench status
+        let status = '';
+        if (pick.is_captain) {
+          status = 'C';
+        } else if (pick.is_vice_captain) {
+          status = 'VC';
+        } else if (pick.multiplier === 0) {
+          status = 'BENCH';
+        }
+        
+        // Check if player is in current match
+        const playerTeam = player.team?.short_name?.toLowerCase() || '';
+        const isInCurrentMatch = currentMatchTeams.includes(playerTeam);
+        
+        // Get team logo from admin KV teams DB
+        const teamAbbr = player.team?.short_name?.toLowerCase();
+        const teamLogoUrl = teamAbbr
+          ? (teams.find((t) => t.abbreviation.toLowerCase() === teamAbbr)?.logoUrl || '/defifa_spinner.gif')
+          : '/defifa_spinner.gif';
+        
+        // Debug team logo lookup for MCI
+        if (player.team?.short_name === 'MCI') {
+          console.log('🔍 MCI Team Logo Debug:');
+          console.log('  - Player team short_name:', player.team.short_name);
+          console.log('  - Available teams:', teams.map(t => ({ abbr: t.abbreviation, logo: t.logoUrl })));
+          console.log('  - Found team:', teams.find(t => t.abbreviation.toLowerCase() === (player.team?.short_name || '').toLowerCase()));
+          console.log('  - Final logo URL:', teamLogoUrl);
+        }
+        
+        const row = [
+          `${teamLogoUrl} ${player.web_name} ${player.team?.short_name || 'N/A'} ${getPositionName(player.element_type)}`, // Team logo, player name, team abbreviation, and position
+          '', // Empty team column since we moved team info to player column
+          player.total_points?.toString() || '0',
+          `${player.selected_by_percent?.toFixed(1) || '0.0'}%`,
+          `${player.expected_goals?.toFixed?.(2) ?? '0.00'}/${player.expected_assists?.toFixed?.(2) ?? '0.00'}`,
+          status
+        ];
+        
+        // Add highlighting marker if player is in current match
+        if (isInCurrentMatch) {
+          row.push('MATCH_PLAYER');
+        }
+        
+        rows.push(row);
+      }
+    });
+
+    // Format as markdown table
+    const headerLine = `| ${headers.join(' | ')} |`;
+    const dividerLine = `| ${headers.map(() => '---').join(' | ')} |`;
+    const dataLines = rows.slice(1).map((row) => `| ${row.join(' | ')} |`);
+
+    const summary = `${headerLine}\n${dividerLine}\n${dataLines.join('\n')}`;
+    return summary;
   };
+
+  // Removed unused readMatchSummary to satisfy linter
 
   const toggleDetails = () => {
     setShowDetails(!showDetails);
@@ -602,46 +755,48 @@ useEffect(() => {
 
           {/* AI Summary Section */}
           <div className="mt-4 flex flex-row gap-4 justify-center items-center">
-            <button
-              className="w-full sm:w-38 bg-deepPink text-white py-2 px-4 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed hover:bg-fontRed"
-              onClick={async () => {
-                try {
-                  await sdk.haptics.impactOccurred('medium');
-                } catch {
-                  // ignore haptics errors
-                }
-                fetchAiSummary();
-              }}
-              disabled={loading}
-            >
-              {loading ? (
-                <div className="flex items-center justify-center">
-                  <svg
-                    className="animate-spin h-5 w-5 mr-2 text-white"
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                  >
-                    <circle
-                      className="opacity-25"
-                      cx="12"
-                      cy="12"
-                      r="10"
-                      stroke="currentColor"
-                      strokeWidth="4"
-                    ></circle>
-                    <path
-                      className="opacity-75"
-                      fill="currentColor"
-                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 2.577 1.03 4.91 2.709 6.709l1.291-1.418z"
-                    ></path>
-                  </svg>
-                  Waiting for VAR...
-                </div>
-              ) : (
-                showGameContext ? "Hide" : eventStarted ? "Summary" : "Preview"
-              )}
-            </button>
+            {sportId === 'eng.1' && isInFantasyLeague === true && (
+              <button
+                className="w-full sm:w-38 bg-deepPink text-white py-2 px-4 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed hover:bg-fontRed"
+                onClick={async () => {
+                  try {
+                    await sdk.haptics.impactOccurred('medium');
+                  } catch {
+                    // ignore haptics errors
+                  }
+                  fetchFantasyImpact();
+                }}
+                disabled={loading}
+              >
+                {loading ? (
+                  <div className="flex items-center justify-center">
+                    <svg
+                      className="animate-spin h-5 w-5 mr-2 text-white"
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      ></circle>
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 2.577 1.03 4.91 2.709 6.709l1.291-1.418z"
+                      ></path>
+                    </svg>
+                    Waiting for VAR...
+                  </div>
+                ) : (
+                  showGameContext ? "Hide" : "Fantasy Impact"
+                )}
+              </button>
+            )}
 
             <WarpcastShareButton
               selectedMatch={selectedMatch}
@@ -657,14 +812,10 @@ useEffect(() => {
             />
           </div>
           {showGameContext && gameContext && (
-            <div className="mt-4 text-lightPurple bg-purplePanel">
-              <h2 className="font-2xl text-notWhite font-bold mb-4">
-                <button onClick={readMatchSummary}>
-                  {eventStarted ? `[AI] Match Summary 🗣️🎧1.5x` : `[AI] Match Preview 🗣️🎧1.5x`}
-                </button>
-              </h2>
-              <pre className="text-sm whitespace-pre-wrap break-words mb-4">{gameContext}</pre>
-            </div>
+            <AIResponseDisplay 
+              content={gameContext}
+              isPreview={false}
+            />
           )}
 
 

@@ -6,6 +6,7 @@ import {
 } from './interfaces';
 import formatSummaryDataToPrompt from './formatDataForAi';
 import sendOpenAi from './sendOpenAi';
+import { buildMatchSummary } from './buildFantasyImpactTable';
 
 // FPL API Types
 interface FPLTeam {
@@ -240,24 +241,30 @@ const RAGameContext = async (
 ): Promise<string | null> => {
   const openAiApiKey = process.env.NEXT_PUBLIC_OPENAIKEY;
   const prefix = "Clear the context history and start over with the following info:";
-  const bootstrapUrl = "https://tjftzpjqfqnbtvodsigk.supabase.co/storage/v1/object/public/screenshots/bootstrap.json";
 
   if (!openAiApiKey) {
     console.error('OpenAI API key is missing');
     return null;
   }
 
-  console.log('RAGameContext called with:', { eventId, tournament, competitors });
+  console.log('🔍 RAGameContext called with:', { eventId, tournament, competitors });
 
   const fetchBootstrapData = async (): Promise<{ teams: Team[]; elements: Player[] } | null> => {
     try {
-      // Try the official FPL API first
-      console.log('Fetching FPL data from official API...');
-      const fplResponse = await fetch('https://fantasy.premierleague.com/api/bootstrap-static/');
+      // Use our cached API endpoint
+      console.log('📊 Fetching FPL bootstrap data from cached endpoint...');
+      const response = await fetch('/api/fpl-bootstrap');
       
-      if (fplResponse.ok) {
-        console.log('Successfully fetched from FPL API');
-        const fplData: FPLBootstrapData = await fplResponse.json();
+      if (response.ok) {
+        console.log('✅ Successfully fetched from cached FPL API');
+        const fplData: FPLBootstrapData = await response.json();
+        
+        console.log('📈 FPL Data Summary:', {
+          totalTeams: fplData.teams.length,
+          totalPlayers: fplData.elements.length,
+          totalEvents: fplData.events.length,
+          currentEvent: fplData.events.find(e => e.is_current)?.id || 'None'
+        });
         
         // Transform FPL data to match our expected format
         const transformedData = {
@@ -284,23 +291,27 @@ const RAGameContext = async (
           }))
         };
         
+        console.log('🔄 Transformed FPL Data:', {
+          teamsCount: transformedData.teams.length,
+          playersCount: transformedData.elements.length,
+          topFormPlayers: transformedData.elements
+            .filter(p => p.form > 5)
+            .slice(0, 5)
+            .map(p => `${p.web_name} (${p.form})`),
+          highOwnershipPlayers: transformedData.elements
+            .filter(p => p.selected_by_percent > 20)
+            .slice(0, 5)
+            .map(p => `${p.web_name} (${p.selected_by_percent}%)`)
+        });
+        
         return transformedData;
       } else {
-        console.log('FPL API failed, falling back to Supabase...');
-        // Fallback to Supabase
-        const response = await fetch(bootstrapUrl);
-        return response.json();
-      }
-    } catch (error) {
-      console.error('Error fetching bootstrap data:', error);
-      console.log('Falling back to Supabase...');
-      try {
-        const response = await fetch(bootstrapUrl);
-        return response.json();
-      } catch (fallbackError) {
-        console.error('Supabase fallback also failed:', fallbackError);
+        console.error('❌ Cached FPL API failed:', response.status);
         return null;
       }
+    } catch (error) {
+      console.error('❌ Error fetching bootstrap data:', error);
+      return null;
     }
   };
 
@@ -312,32 +323,38 @@ const RAGameContext = async (
     const scoreboardUrl = `https://site.api.espn.com/apis/site/v2/sports/soccer/${tournament}/scoreboard`;
     const summaryUrl = (eventId: string) => `https://site.api.espn.com/apis/site/v2/sports/soccer/${tournament}/summary?event=${eventId}`;
 
-    console.log('Fetching event data from:', scoreboardUrl);
+    console.log('🏟️ Fetching event data from:', scoreboardUrl);
 
     try {
       const scoreboardResponse = await fetch(scoreboardUrl);
-      console.log('Scoreboard response status:', scoreboardResponse.status);
+      console.log('📡 Scoreboard response status:', scoreboardResponse.status);
       
       if (!scoreboardResponse.ok) {
-        console.error('Scoreboard API failed:', scoreboardResponse.status, scoreboardResponse.statusText);
+        console.error('❌ Scoreboard API failed:', scoreboardResponse.status, scoreboardResponse.statusText);
         return null;
       }
       
       const scoreboardData = await scoreboardResponse.json();
       const events: Event[] = scoreboardData.events;
 
+      console.log('📅 Events Summary:', {
+        totalEvents: events.length,
+        eventIds: events.slice(0, 5).map(e => e.id),
+        eventNames: events.slice(0, 5).map(e => e.name)
+      });
+
       const matchingEvent = events.find((event) => event.id === eventId);
-      console.log('Looking for event ID:', eventId, 'Found:', !!matchingEvent, 'Total events:', events.length);
+      console.log('🎯 Looking for event ID:', eventId, 'Found:', !!matchingEvent, 'Total events:', events.length);
 
       if (matchingEvent) {
         let summaryData: SummaryData;
         let includeFPL = false;
 
         if (tournament === "eng.1") {
-          console.log("Fetching EPL data with enhanced FPL integration...");
+          console.log("⚽ Fetching EPL data with enhanced FPL integration...");
           const bootstrapData = await fetchBootstrapData();
           if (!bootstrapData) {
-            console.error("Bootstrap data is unavailable.");
+            console.error("❌ Bootstrap data is unavailable.");
             return null;
           }
 
@@ -347,16 +364,57 @@ const RAGameContext = async (
             (c) => c.team.abbreviation
           );
 
+          console.log('🏆 Match Teams:', {
+            teamAbbreviations,
+            competitors: matchingEvent.competitions[0].competitors.map(c => ({
+              name: c.team.shortName,
+              abbreviation: c.team.abbreviation,
+              score: c.score
+            }))
+          });
+
           const matchPlayers = elements.filter((player) => {
             const playerTeam = teams.find((team) => team.id === player.team);
             return playerTeam && teamAbbreviations.includes(playerTeam.short_name);
+          });
+
+          console.log('👥 Match Players Summary:', {
+            totalMatchPlayers: matchPlayers.length,
+            playersByTeam: teamAbbreviations.map(abbr => {
+              const team = teams.find(t => t.short_name === abbr);
+              const teamPlayers = matchPlayers.filter(p => p.team === team?.id);
+              return {
+                team: abbr,
+                playerCount: teamPlayers.length,
+                topFormPlayers: teamPlayers
+                  .filter(p => p.form > 4)
+                  .slice(0, 3)
+                  .map(p => `${p.web_name} (${p.form})`),
+                highOwnershipPlayers: teamPlayers
+                  .filter(p => (p.selected_by_percent || 0) > 15)
+                  .slice(0, 3)
+                  .map(p => `${p.web_name} (${p.selected_by_percent || 0}%)`)
+              };
+            })
           });
 
           const teamInfo = teams
             .filter((team) => teamAbbreviations.includes(team.short_name))
             .map((team) => {
               const teamPlayers = matchPlayers.filter((player) => player.team === team.id);
-              console.log(`Found ${teamPlayers.length} players for ${team.name} (${team.short_name})`);
+              console.log(`📊 Found ${teamPlayers.length} players for ${team.name} (${team.short_name})`);
+              
+              // Log Fantasy-relevant insights for this team
+              const inFormPlayers = teamPlayers.filter(p => p.form > 5);
+                             const highOwnershipPlayers = teamPlayers.filter(p => (p.selected_by_percent || 0) > 20);
+               const differentialPlayers = teamPlayers.filter(p => (p.selected_by_percent || 0) < 5 && p.form > 3);
+               
+               console.log(`🎯 ${team.short_name} Fantasy Insights:`, {
+                 inFormPlayers: inFormPlayers.map(p => `${p.web_name} (${p.form})`),
+                 highOwnership: highOwnershipPlayers.map(p => `${p.web_name} (${p.selected_by_percent || 0}%)`),
+                 differentials: differentialPlayers.map(p => `${p.web_name} (${p.form}, ${p.selected_by_percent || 0}%)`)
+               });
+              
               return {
                 ...team,
                 players: teamPlayers,
@@ -372,19 +430,46 @@ const RAGameContext = async (
           summaryData = await summaryResponse.json();
         }
 
-        const retrievedInsights = ''; // TODO: Replace this with actual RAG data if you have it.
-        const formattedPrompt = formatSummaryDataToPrompt(summaryData, competitors, includeFPL, retrievedInsights);
-        console.log("Formatted prompt length:", formattedPrompt.length);
-        console.log("Calling sendOpenAi...");
-        const aiResponse = await sendOpenAi(formattedPrompt, openAiApiKey);
-        console.log("AI response received:", !!aiResponse);
-        return aiResponse;
+        // Check if this is a summary (has key events) or preview (no key events)
+        const isSummary = summaryData.keyEvents && summaryData.keyEvents.length > 0;
+        
+        if (isSummary) {
+          // Use direct data pipeline for summaries
+          console.log("📊 Building summary from match data...");
+          const summary = buildMatchSummary(
+            summaryData.roster || [],
+            summaryData.keyEvents || [],
+            summaryData.gameInfo,
+          );
+          console.log("✅ Summary built from data:", summary.length, "characters");
+          return summary;
+        } else {
+          // Use AI for previews
+          console.log("🤖 Using AI for match preview...");
+          const retrievedInsights = ''; // TODO: Replace this with actual RAG data if you have it.
+          const formattedPrompt = formatSummaryDataToPrompt(summaryData, competitors, includeFPL, retrievedInsights);
+          console.log("📝 Formatted prompt length:", formattedPrompt.length);
+          const aiResponse = await sendOpenAi(formattedPrompt, openAiApiKey);
+          console.log("✅ AI response received:", !!aiResponse);
+          
+          if (aiResponse) {
+            console.log("📊 AI Response Analysis:", {
+              responseLength: aiResponse.length,
+              hasPrediction: aiResponse.toLowerCase().includes('prediction') || aiResponse.toLowerCase().includes('winner'),
+              hasFantasyTips: aiResponse.toLowerCase().includes('fantasy') || aiResponse.toLowerCase().includes('fpl'),
+              hasPlayerRecommendations: aiResponse.toLowerCase().includes('player') || aiResponse.toLowerCase().includes('recommend'),
+              responsePreview: aiResponse.substring(0, 200) + '...'
+            });
+          }
+          
+          return aiResponse;
+        }
       }
 
-      console.error("No matching event found for event ID:", eventId);
+      console.error("❌ No matching event found for event ID:", eventId);
       return null;
     } catch (error) {
-      console.error("Error fetching event data:", error);
+      console.error("❌ Error fetching event data:", error);
       return null;
     }
   };

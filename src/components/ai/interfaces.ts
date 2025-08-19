@@ -67,6 +67,7 @@ export interface Player {
   assists: number;
   form: number;
   expected_goals: number;
+  expected_assists?: number;
   team: number; // Links player to team
   // Additional FPL fields
   total_points?: number;

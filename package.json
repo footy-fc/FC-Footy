@@ -11,7 +11,14 @@
     "check": "next lint && tsc",
     "subgraph:codegen": "cd subgraph && yarn codegen",
     "subgraph:build": "cd subgraph && yarn build",
-    "subgraph:deploy": "cd subgraph && yarn deploy"
+    "subgraph:deploy": "cd subgraph && yarn deploy",
+    "rag:test": "node scripts/rag-test.mjs",
+    "rag:test:arsenal": "node scripts/rag-test.mjs --preset arsenal-chelsea",
+    "rag:test:man-utd": "node scripts/rag-test.mjs --preset man-utd-liverpool",
+    "rag:test:man-city": "node scripts/rag-test.mjs --preset man-city-arsenal",
+    "rag:test:chelsea": "node scripts/rag-test.mjs --preset chelsea-liverpool",
+    "rag:test:leeds": "node scripts/rag-test.mjs --preset leeds-everton",
+    "rag:test:help": "node scripts/rag-test.mjs --help"
   },
   "type": "module",
   "engines": {

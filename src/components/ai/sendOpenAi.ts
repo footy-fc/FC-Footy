@@ -97,8 +97,12 @@ const sendOpenAi = async (aiPrompt: string, openAiApiKey: string): Promise<strin
                   // You could emit progress updates here if needed
                 }
               } catch (e) {
-                console.log('Error parsing JSON:', e); 
-                // Ignore parsing errors for incomplete chunks
+                // Only log parsing errors for debugging, but don't treat them as fatal
+                // These are expected when parsing incomplete streaming chunks
+                if (process.env.NODE_ENV === 'development') {
+                  console.log('Streaming chunk parse error (expected):', e instanceof Error ? e.message : String(e)); 
+                }
+                // Continue processing - this is normal for streaming
               }
             }
           }

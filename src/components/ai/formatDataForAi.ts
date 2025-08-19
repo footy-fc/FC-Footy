@@ -1,20 +1,4 @@
-import { SummaryData, Standings, GameInfo, Odds, Team } from './interfaces';
-
-// Define Player interface locally to avoid circular imports
-interface Player {
-  web_name: string;
-  goals_scored: number;
-  assists: number;
-  form: number;
-  expected_goals: number;
-  team: number;
-  total_points?: number;
-  points_per_game?: number;
-  selected_by_percent?: number;
-  now_cost?: number;
-  status?: string;
-  chance_of_playing_next_round?: number | null;
-}
+import { SummaryData, Standings, GameInfo, Odds, Team, Player } from './interfaces';
 
 /**
  * Constants for keys to include in previews and summaries.
@@ -156,34 +140,52 @@ function analyzeRosterForFPLPoints(roster: Team[]): string {
   roster.forEach((team) => {
     const teamName = team.name || 'Unknown Team';
     const players = team.players || [];
-    const keyPlayers = players
-      .filter((player) => {
-        // Filter for players in good form, high expected goals, or high ownership
-        return player.form > 6 || 
-               player.expected_goals > 0.5 || 
-               (player.selected_by_percent && player.selected_by_percent > 10) ||
-               (player.points_per_game && player.points_per_game > 5);
-      })
-      .map(
-        (player) => {
-          const status = player.status === 'a' ? 'Available' : 
-                        player.status === 'i' ? 'Injured' : 
-                        player.status === 's' ? 'Suspended' : 
-                        player.status === 'u' ? 'Unavailable' : 'Unknown';
-          
-          const chance = player.chance_of_playing_next_round !== null ? 
-                        `${player.chance_of_playing_next_round}% chance` : 'Unknown';
-          
-          return `${player.web_name} (Goals: ${player.goals_scored}, Assists: ${player.assists}, Form: ${player.form}, Expected Goals: ${player.expected_goals || 'N/A'}, Points: ${player.total_points || 0}, PPG: ${player.points_per_game || 'N/A'}, Ownership: ${player.selected_by_percent || 0}%, Status: ${status}, ${chance})`;
-        }
-      );
+    
+    // High confidence picks (form >6, ownership >10%, or high expected stats)
+    const highConfidence = players
+      .filter((player) => 
+        player.form > 6 || 
+        (player.selected_by_percent && player.selected_by_percent > 10) ||
+        (player.expected_goals && player.expected_goals > 0.3)
+      )
+      .slice(0, 3)
+      .map((player) => ({
+        name: player.web_name,
+        team: teamName,
+        form: player.form,
+        ownership: player.selected_by_percent || 0,
+        xG: player.expected_goals || 0,
+        xA: player.expected_assists || 0,
+        risk: player.status === 'a' ? 'Low' : 'Medium'
+      }));
 
-    if (keyPlayers.length > 0) {
-      analysis.push(`${teamName} Key Players:\n- ${keyPlayers.join('\n- ')}`);
+    // Differential picks (low ownership, good form)
+    const differentials = players
+      .filter((player) => 
+        (player.selected_by_percent && player.selected_by_percent < 5) &&
+        player.form > 4
+      )
+      .slice(0, 2)
+      .map((player) => ({
+        name: player.web_name,
+        team: teamName,
+        form: player.form,
+        ownership: player.selected_by_percent || 0,
+        xG: player.expected_goals || 0,
+        xA: player.expected_assists || 0,
+        risk: 'High'
+      }));
+
+    if (highConfidence.length > 0) {
+      analysis.push(`${teamName} High Confidence: ${highConfidence.map(p => `${p.name} (${p.form} form, ${p.ownership}% owned)`).join(', ')}`);
+    }
+    
+    if (differentials.length > 0) {
+      analysis.push(`${teamName} Differentials: ${differentials.map(p => `${p.name} (${p.form} form, ${p.ownership}% owned)`).join(', ')}`);
     }
   });
 
-  return analysis.length > 0 ? analysis.join('\n\n') : 'No standout players found for FPL analysis.';
+  return analysis.length > 0 ? analysis.join('\n') : 'No standout players found for FPL analysis.';
 }
 
 /**
@@ -260,6 +262,16 @@ function formatSummaryDataToPrompt(
   includeFPL: boolean,
   retrievedInsights: string
 ): string {
+  console.log('🎯 formatSummaryDataToPrompt called with:', {
+    hasSummaryData: !!summaryData,
+    competitors,
+    includeFPL,
+    hasRetrievedInsights: !!retrievedInsights,
+    summaryDataKeys: summaryData ? Object.keys(summaryData) : [],
+    hasKeyEvents: summaryData?.keyEvents?.length > 0,
+    keyEventsCount: summaryData?.keyEvents?.length || 0
+  });
+  
   const isPreview = !summaryData.keyEvents || summaryData.keyEvents.length === 0;
 
   const filteredData = isPreview
@@ -267,6 +279,17 @@ function formatSummaryDataToPrompt(
     : keepKeys(summaryData, SUMMARY_KEEP_KEYS);
 
   const { keyEvents, gameInfo, standings, odds, roster } = filteredData as SummaryData;
+
+  console.log('📊 Prompt Data Analysis:', {
+    isPreview,
+    hasKeyEvents: !!keyEvents?.length,
+    hasGameInfo: !!gameInfo,
+    hasStandings: !!standings,
+    hasOdds: !!odds?.length,
+    hasRoster: !!roster?.length,
+    rosterTeamCount: roster?.length || 0,
+    rosterPlayerCount: roster?.reduce((total, team) => total + (team.players?.length || 0), 0) || 0
+  });
 
   const retrievedText = retrievedInsights
     ? `Retrieved insights:\n${retrievedInsights}\n`
@@ -291,14 +314,47 @@ function formatSummaryDataToPrompt(
     console.log('Roster Analysis:', rosterAnalysis);
     const fplRules = includeFPL
       ? `
-Use the following **Fantasy Premier League (FPL) scoring rules** to identify players who might score a lot of points during the match:
-...`
+**FPL SCORING RULES**
+- Goals: FWD 4pts, MID 5pts, DEF/GK 6pts
+- Assists: 3pts
+- Clean Sheet: DEF/GK 4pts, MID 1pt
+- Bonus: Top 3 performers get 3/2/1pts
+- Cards: Yellow -1pt, Red -3pts
+
+**FANTASY FOCUS**
+- High ownership players (>15%) = High impact
+- Form rating >6 = Good pick
+- Expected goals/assists >0.3 = High potential
+- Low ownership + high form = Differential pick`
       : '';
 
     return `
 ${retrievedText}
-Use the retrieved insights and structured data below to provide a detailed match preview for the upcoming match between ${competitors}. The retrieved insights should be used to enhance and supplement the structured data. If any information seems unclear, mention the uncertainty.
+Use the retrieved insights and structured data below to provide a CONCISE match preview for ${competitors}. Format your response with clear sections and tables where appropriate.
 
+**MATCH PREDICTION**
+- Winner: [Team] (Confidence: High/Medium/Low)
+- Expected Score: [X-X]
+- Key Factors: [List 2-3 main factors]
+
+**FANTASY PICKS**
+Format as a table with columns: Player | Team | Form | Ownership% | Expected Points | Risk Level
+
+**TOP PICKS (High Confidence)**
+| Player | Team | Form | Ownership% | xG/xA | Risk |
+|--------|------|------|------------|-------|------|
+[Fill with top 3-4 players]
+
+**DIFFERENTIAL PICKS (Low Ownership)**
+| Player | Team | Form | Ownership% | xG/xA | Risk |
+|--------|------|------|------------|-------|------|
+[Fill with 2-3 differentials]
+
+**CAPTAIN SUGGESTIONS**
+1. [Player] - [Reason]
+2. [Player] - [Reason]
+
+**MATCH DATA**
 ${gameInfoText}
 
 ${standingsText}
@@ -309,7 +365,7 @@ ${rosterAnalysis}
 
 ${fplRules}
 
-Discuss likely outcomes based on team strategies, standout players, and other factors influencing the match. Use concise language and avoid past tense.
+Keep response under 800 characters. Use tables for data presentation. Focus on actionable Fantasy insights.
     `.trim();
   }
 
@@ -338,17 +394,24 @@ Discuss likely outcomes based on team strategies, standout players, and other fa
 
   return `
 ${retrievedText}
-Use the retrieved insights and structured data below to provide a concise match summary for the match between ${competitors}. The retrieved insights should be used to enhance and supplement the structured data. If any information seems unclear, mention the uncertainty.
+Use the retrieved insights and structured data below to provide a CONCISE match summary for ${competitors}. Format with tables and clear sections.
 
+**FANTASY PERFORMANCE**
+| Player | Team | G | A | Points | Bonus | Status |
+|--------|------|---|----|--------|-------|--------|
+[Fill with top performers and any disasters - use "GOOD" for performers, "RED CARD" for red cards, "INJURY" for injuries, etc. in Status column]
+
+**KEY EVENTS**
 ${keyEventsText}
 
+**MATCH DATA**
 ${gameInfoText}
 
 ${standingsText}
 
 ${rosterAnalysis}
 
-Summarize the match focusing on key moments, strategies, and standout players. Include FPL impact where relevant (e.g., "Player X scored 2 goals, earning 13 FPL points" or "High-ownership player Y got a red card"). Avoid external links or markdown. Keep concise and under 1200 characters.
+Keep response under 600 characters. Use tables for data. Focus on Fantasy impact.
   `.trim();
 }
 
