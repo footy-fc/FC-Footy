@@ -4,12 +4,14 @@ import React, { useState, useEffect } from 'react';
 import { useAccount, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { parseEther, isAddress } from 'viem';
 import { Info } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { SCORE_SQUARE_ADDRESS } from '../lib/config';
 import sportsData from './utils/sportsData';
 import getTeamAbbreviation, { detectLeagueFromTeams } from './utils/teamAbbreviations';
 import useEventsData from './utils/useEventsData';
 import UserInstructions from './UserInstructions';
 import { sdk } from "@farcaster/miniapp-sdk";
+import { useScoresTokenGate } from '../hooks/useScoresTokenGate';
 
 // ScoreSquare contract ABI (partial, only what we need for createGame)
 const SCORE_SQUARE_ABI = [
@@ -124,7 +126,9 @@ const BlockchainScoreSquareCreateDetails: React.FC<BlockchainScoreSquareCreateDe
   const [currentFid, setCurrentFid] = useState<number | null>(null);
 
   const { address } = useAccount();
+  const { hasScores, isLoading: tokenLoading, isConnected } = useScoresTokenGate();
   const { events, loading: eventsLoading, error: eventsError } = useEventsData(selectedSportId);
+  const router = useRouter();
   // console.log("🏀 Available Matches:", events);
 
   // Add the useWriteContract hook
@@ -186,21 +190,7 @@ const BlockchainScoreSquareCreateDetails: React.FC<BlockchainScoreSquareCreateDe
     loadFid();
   }, []);
 
-  const canDeploy = currentFid === 4163 || currentFid === 420564;
-
-  const handleRequestReferee = async () => {
-    try {
-      await sdk.haptics.impactOccurred('medium');
-    } catch {}
-    try {
-      await sdk.actions.composeCast({
-        text: "Hey @kmacb.eth, I'd like to be a ScoreSquare referee on Footy.",
-        embeds: [],
-      });
-    } catch (e) {
-      console.error('composeCast failed:', e);
-    }
-  };
+  const canDeploy = hasScores;
 
   // Fetch ETH -> USD price for display
   useEffect(() => {
@@ -389,10 +379,10 @@ const BlockchainScoreSquareCreateDetails: React.FC<BlockchainScoreSquareCreateDe
 
   return (
     <>
-      <div className="mb-4">
+      <div className="mb-2">
         <h1 className="text-2xl text-notWhite font-bold">Create Game</h1>
       </div>
-      <div className="rounded-lg shadow-lg max-w-md mx-auto border border-purplePanel bg-purplePanel p-4">
+      <div className="rounded-lg shadow-lg max-w-md mx-auto border border-purplePanel bg-purplePanel p-3">
         {/* Header with Toggle Button for Instructions */}
         {/* Modal for Instructions */}
         {showInstructions && (
@@ -442,23 +432,27 @@ const BlockchainScoreSquareCreateDetails: React.FC<BlockchainScoreSquareCreateDe
             </a>
           </div>
         )}
-        {!canDeploy ? (
+        {tokenLoading ? (
+          <div className="p-3 bg-gray-800/60 border border-gray-700 rounded text-center text-sm text-lightPurple">
+            <div>Checking $SCORES balance...</div>
+          </div>
+        ) : !canDeploy ? (
           <div className="p-3 bg-gray-800/60 border border-gray-700 rounded text-center text-sm text-lightPurple space-y-3">
             <div>
-              You don’t have permission to create ScoreSquare games. Please contact an admin to be added as a referee.
+              You need $SCORES tokens to create ScoreSquare games. Get $SCORES to unlock game creation and earn from ticket sales.
             </div>
             <button
               type="button"
-              onClick={handleRequestReferee}
+              onClick={() => router.push('/?tab=forYou&showBuyPoints=true')}
               className="inline-flex items-center justify-center px-4 py-2 rounded bg-deepPink hover:bg-fontRed text-white"
             >
-              Request referee access
+              Get $SCORES Tokens
             </button>
           </div>
         ) : (
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-3">
         <div>
-          <label className="block text-notWhite font-semibold mb-1">League/Competition:</label>
+          <label className="block text-notWhite font-semibold mb-1 text-sm">League/Competition:</label>
           <select
             value={selectedSportId}
             onChange={(e) => {
@@ -556,27 +550,29 @@ const BlockchainScoreSquareCreateDetails: React.FC<BlockchainScoreSquareCreateDe
           </div>
         )}
         
-        <div className="text-xs text-gray-400 mt-2">
+        <div className="text-xs text-gray-400">
           <p>Note: 4% community fee goes into treasury</p>
         </div>
-        <button
-          type="button"
-          onClick={() => setShowInstructions(!showInstructions)}
-          className="text-sm text-deepPink hover:text-fontRed focus:outline-none"
-        >
-          <Info className="inline w-5 h-5" /> {showInstructions ? "Hide" : "Show"} Instructions
-        </button>
-        <div className="flex items-center gap-2 text-sm text-notWhite">
-          <input
-            type="checkbox"
-            id="acknowledge"
-            checked={instructionsAcknowledged}
-            onChange={(e) => setInstructionsAcknowledged(e.target.checked)}
-            className="accent-deepPink w-4 h-4"
-          />
-          <label htmlFor="acknowledge">
-            I understand the game and my responsibilities as the referee.
-          </label>
+        <div className="flex items-center justify-between">
+          <button
+            type="button"
+            onClick={() => setShowInstructions(!showInstructions)}
+            className="text-sm text-deepPink hover:text-fontRed focus:outline-none"
+          >
+            <Info className="inline w-4 h-4" /> {showInstructions ? "Hide" : "Show"} Instructions
+          </button>
+          <div className="flex items-center gap-2 text-sm text-notWhite">
+            <input
+              type="checkbox"
+              id="acknowledge"
+              checked={instructionsAcknowledged}
+              onChange={(e) => setInstructionsAcknowledged(e.target.checked)}
+              className="accent-deepPink w-4 h-4"
+            />
+            <label htmlFor="acknowledge" className="text-xs">
+              I understand the game and my responsibilities as the referee.
+            </label>
+          </div>
         </div>
 
       <button 
@@ -602,7 +598,7 @@ const BlockchainScoreSquareCreateDetails: React.FC<BlockchainScoreSquareCreateDe
               : !address 
                 ? 'Connect Wallet to Deploy' 
                 : !canDeploy
-                  ? 'Not Authorized'
+                  ? 'Need $SCORES Tokens'
                   : 'Deploy Game'}
         </button>
         </form>

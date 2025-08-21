@@ -5,6 +5,7 @@ import ActiveGamesBrowser from './ActiveGamesBrowser';
 import CompletedGamesBrowser from './CompletedGamesBrowser';
 import GameStateNavigation from './GameStateNavigation';
 import BlockchainScoreSquareDisplayWrapped from './BlockchainScoreSquareDisplayWrapped';
+import ScoreSquareTokenGate from './ScoreSquareTokenGate';
 import { GameProvider } from '~/context/GameContext';
 
 /**
@@ -84,7 +85,9 @@ const MoneyGamesContent: React.FC = () => {
       />
 
       {gameState === 'create' ? (
-        <BlockchainScoreSquareCreate />
+        <ScoreSquareTokenGate>
+          <BlockchainScoreSquareCreate />
+        </ScoreSquareTokenGate>
       ) : gameState === 'active' && eventId ? (
         <GameProvider eventId={eventId}>
           <BlockchainScoreSquareDisplayWrapped eventId={eventId} />
