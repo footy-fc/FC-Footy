@@ -288,10 +288,10 @@ ${bottomBanter}
       }
 
       // Create template URL with data
-      const templateUrl = `/templates/gameweek-table-toppers?` + 
-        `top5=${encodeURIComponent(JSON.stringify(top5))}&` +
-        `bottom5=${encodeURIComponent(JSON.stringify(bottom5))}&` +
-        `gameWeek=${gameWeek}`;
+                        const templateUrl = `https://fc-footy.vercel.app/templates/gameweek-table-toppers?` + 
+                    `top5=${encodeURIComponent(JSON.stringify(top5))}&` +
+                    `bottom5=${encodeURIComponent(JSON.stringify(bottom5))}&` +
+                    `gameWeek=${gameWeek}`;
 
       console.log('🔍 Admin: Template URL created:', templateUrl);
       console.log('🔍 Admin: Cast text generated:', castText.substring(0, 100) + '...');
