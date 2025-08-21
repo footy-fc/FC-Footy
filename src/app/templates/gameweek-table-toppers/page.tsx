@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 
@@ -18,7 +18,7 @@ interface TemplateData {
   gameWeek: number;
 }
 
-const GameWeekTableToppersTemplate = () => {
+const GameWeekTableToppersContent = () => {
   const searchParams = useSearchParams();
   const [data, setData] = useState<TemplateData | null>(null);
   const [profilePictures, setProfilePictures] = useState<{ [username: string]: string }>({});
@@ -212,6 +212,21 @@ const GameWeekTableToppersTemplate = () => {
         </div>
       </div>
     </div>
+  );
+};
+
+const GameWeekTableToppersTemplate = () => {
+  return (
+    <Suspense fallback={
+      <div 
+        id="gameweek-template"
+        className="w-[1000px] h-[600px] flex items-center justify-center bg-gradient-to-b from-[#1a1a2e] to-[#16213e] text-white"
+      >
+        <div className="text-xl">Loading template...</div>
+      </div>
+    }>
+      <GameWeekTableToppersContent />
+    </Suspense>
   );
 };
 
