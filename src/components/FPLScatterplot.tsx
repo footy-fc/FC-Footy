@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { Chart, ChartData } from 'chart.js/auto';
 
 interface PlayerData {
@@ -37,19 +37,19 @@ interface FPLBootstrapData {
   teams: FPLTeam[];
 }
 
-
-
 const FPLScatterplot: React.FC = () => {
   const chartRef = useRef<HTMLCanvasElement>(null);
   const chartInstance = useRef<Chart | null>(null);
+  const resizeObserverRef = useRef<ResizeObserver | null>(null);
   const [showNames, setShowNames] = useState(false);
   const [showLogos, setShowLogos] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [visiblePositions, setVisiblePositions] = useState<Set<number>>(new Set([1, 2, 3, 4]));
+  const [isMobile, setIsMobile] = useState(false);
 
   // Team logo mapping
-  const teamLogoMapping: Record<string, string> = {
+/*   const teamLogoMapping: Record<string, string> = {
     "Arsenal": "http://tjftzpjqfqnbtvodsigk.supabase.co/storage/v1/object/public/d33m_images/teams/leagues/eng.1/ars.png",
     "Aston Villa": "http://tjftzpjqfqnbtvodsigk.supabase.co/storage/v1/object/public/d33m_images/teams/leagues/eng.1/avl.png",
     "Bournemouth": "http://tjftzpjqfqnbtvodsigk.supabase.co/storage/v1/object/public/d33m_images/teams/leagues/eng.1/bou.png",
@@ -72,7 +72,7 @@ const FPLScatterplot: React.FC = () => {
     "Leeds": "https://tjftzpjqfqnbtvodsigk.supabase.co/storage/v1/object/public/d33m_images/teams/leagues/eng.2/lee.png",
     "Man City": "http://tjftzpjqfqnbtvodsigk.supabase.co/storage/v1/object/public/d33m_images/teams/leagues/eng.1/mnc.png",
     "Liverpool": "https://tjftzpjqfqnbtvodsigk.supabase.co/storage/v1/object/public/d33m_images/teams/leagues/eng.1/liv.png"
-  };
+  }; */
 
   const positions = {
     1: { name: 'Goalkeepers', color: '#FEA282' },
@@ -81,7 +81,47 @@ const FPLScatterplot: React.FC = () => {
     4: { name: 'Forwards', color: '#FFD700' }
   };
 
-  const calculateLinearRegression = (data: PlayerData[]) => {
+  // Detect mobile device
+  useEffect(() => {
+    const checkMobile = () => {
+      const mobile = window.innerWidth <= 768 || 
+                    /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+      setIsMobile(mobile);
+    };
+
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    window.addEventListener('orientationchange', checkMobile);
+
+    return () => {
+      window.removeEventListener('resize', checkMobile);
+      window.removeEventListener('orientationchange', checkMobile);
+    };
+  }, []);
+
+  // ResizeObserver for responsive chart resizing
+  useEffect(() => {
+    if (!chartRef.current) return;
+
+    const resizeObserver = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        if (chartInstance.current) {
+          chartInstance.current.resize();
+        }
+      }
+    });
+
+    resizeObserver.observe(chartRef.current.parentElement!);
+    resizeObserverRef.current = resizeObserver;
+
+    return () => {
+      if (resizeObserverRef.current) {
+        resizeObserverRef.current.disconnect();
+      }
+    };
+  }, []);
+
+  const calculateLinearRegression = useCallback((data: PlayerData[]) => {
     if (data.length < 2) return [];
     
     // Validate input data
@@ -132,7 +172,7 @@ const FPLScatterplot: React.FC = () => {
       { x: minX, y: y1 },
       { x: maxX, y: y2 }
     ];
-  };
+  }, []);
 
   const fetchFPLData = async (): Promise<FPLBootstrapData> => {
     try {
@@ -161,14 +201,14 @@ const FPLScatterplot: React.FC = () => {
     }
   };
 
-  const removeTextLabels = () => {
+  const removeTextLabels = useCallback(() => {
     const labels = document.querySelectorAll('.player-label');
     const logos = document.querySelectorAll('.team-logo');
     labels.forEach(label => label.remove());
     logos.forEach(logo => logo.remove());
-  };
+  }, []);
 
-  const updateChartLabels = () => {
+  const updateChartLabels = useCallback(() => {
     removeTextLabels();
     
     if (!chartInstance.current) return;
@@ -194,7 +234,7 @@ const FPLScatterplot: React.FC = () => {
               textElement.textContent = player.label;
               textElement.style.cssText = `
                 position: absolute;
-                font-size: 10px;
+                font-size: ${isMobile ? '8px' : '10px'};
                 color: white;
                 background: rgba(0,0,0,0.7);
                 padding: 2px 4px;
@@ -202,9 +242,11 @@ const FPLScatterplot: React.FC = () => {
                 pointer-events: none;
                 z-index: 10;
                 white-space: nowrap;
+                max-width: ${isMobile ? '60px' : '80px'};
+                overflow: hidden;
+                text-overflow: ellipsis;
               `;
               
-              // const canvasRect = chart.canvas.getBoundingClientRect();
               const chartArea = chart.chartArea;
               const x = chartArea.left + (chartPoint.x - chart.scales.x.min) / (chart.scales.x.max - chart.scales.x.min) * chartArea.width;
               const y = chartArea.top + (chart.scales.y.max - chartPoint.y) / (chart.scales.y.max - chart.scales.y.min) * chartArea.height;
@@ -234,8 +276,8 @@ const FPLScatterplot: React.FC = () => {
                 
                 logoElement.style.cssText = `
                   position: absolute;
-                  width: 16px;
-                  height: 16px;
+                  width: ${isMobile ? '12px' : '16px'};
+                  height: ${isMobile ? '12px' : '16px'};
                   pointer-events: none;
                   z-index: 0;
                   border-radius: 2px;
@@ -262,9 +304,7 @@ const FPLScatterplot: React.FC = () => {
         });
       }
     });
-  };
-
-
+  }, [showNames, showLogos, isMobile, removeTextLabels]);
 
   useEffect(() => {
     const initChart = async () => {
@@ -344,8 +384,9 @@ const FPLScatterplot: React.FC = () => {
                 data: validScatterData,
                 backgroundColor: positionInfo.color,
                 borderColor: positionInfo.color,
-                pointRadius: 4,
-                pointHoverRadius: 6
+                pointRadius: isMobile ? 3 : 4,
+                pointHoverRadius: isMobile ? 5 : 6,
+                borderWidth: isMobile ? 0.5 : 1
               });
               
               // Regression line dataset
@@ -361,7 +402,7 @@ const FPLScatterplot: React.FC = () => {
                   showLine: true,
                   fill: false,
                   tension: 0,
-                  borderWidth: 2,
+                  borderWidth: isMobile ? 1.5 : 2,
                   borderDash: [5, 5]
                 });
               }
@@ -398,6 +439,15 @@ const FPLScatterplot: React.FC = () => {
               options: {
                 responsive: true,
                 maintainAspectRatio: false,
+                animation: {
+                  duration: isMobile ? 0 : 1000, // Disable animations on mobile for performance
+                  easing: 'easeInOutQuart'
+                },
+                interaction: {
+                  mode: 'nearest',
+                  axis: 'xy',
+                  intersect: false
+                },
                 plugins: {
                   legend: {
                     display: false
@@ -410,6 +460,12 @@ const FPLScatterplot: React.FC = () => {
                     borderWidth: 1,
                     cornerRadius: 8,
                     displayColors: false,
+                    titleFont: {
+                      size: isMobile ? 12 : 14
+                    },
+                    bodyFont: {
+                      size: isMobile ? 11 : 13
+                    },
                     callbacks: {
                       label: function(context) {
                         const player = (context.raw as ChartPoint).playerData;
@@ -432,10 +488,17 @@ const FPLScatterplot: React.FC = () => {
                     title: {
                       display: true,
                       text: 'Cost (£m)',
-                      color: '#C0B2F0'
+                      color: '#C0B2F0',
+                      font: {
+                        size: isMobile ? 12 : 14
+                      }
                     },
                     ticks: {
-                      color: '#C0B2F0'
+                      color: '#C0B2F0',
+                      font: {
+                        size: isMobile ? 10 : 12
+                      },
+                      maxTicksLimit: isMobile ? 6 : 10
                     },
                     grid: {
                       color: 'rgba(162, 230, 52, 0.1)'
@@ -445,10 +508,17 @@ const FPLScatterplot: React.FC = () => {
                     title: {
                       display: true,
                       text: 'Total Points',
-                      color: '#C0B2F0'
+                      color: '#C0B2F0',
+                      font: {
+                        size: isMobile ? 12 : 14
+                      }
                     },
                     ticks: {
-                      color: '#C0B2F0'
+                      color: '#C0B2F0',
+                      font: {
+                        size: isMobile ? 10 : 12
+                      },
+                      maxTicksLimit: isMobile ? 6 : 10
                     },
                     grid: {
                       color: 'rgba(162, 230, 52, 0.1)'
@@ -487,13 +557,13 @@ const FPLScatterplot: React.FC = () => {
         chartInstance.current.destroy();
       }
     };
-  }, []);
+  }, [calculateLinearRegression, isMobile]);
 
   useEffect(() => {
     updateChartLabels();
-  }, [showNames, showLogos]);
+  }, [updateChartLabels]);
 
-  const handleLegendClick = (position: number) => {
+  const handleLegendClick = useCallback((position: number) => {
     if (!chartInstance.current) return;
     
     const chart = chartInstance.current;
@@ -517,7 +587,7 @@ const FPLScatterplot: React.FC = () => {
       }
       
       setVisiblePositions(newVisiblePositions);
-      chart.update();
+      chart.update('none'); // Use 'none' mode for better performance
       
       // Auto-disable names and logos when toggling positions
       if (showNames || showLogos) {
@@ -525,7 +595,7 @@ const FPLScatterplot: React.FC = () => {
         setShowLogos(false);
       }
     }
-  };
+  }, [visiblePositions, showNames, showLogos]);
 
   if (loading) {
     return (
@@ -552,14 +622,12 @@ const FPLScatterplot: React.FC = () => {
       </div>
 
       {/* Chart Container */}
-      <div className="p-4 relative" style={{ height: '400px' }}>
+      <div className="p-4 relative" style={{ height: isMobile ? '300px' : '400px' }}>
         <canvas ref={chartRef} />
       </div>
 
-
-
       {/* Legend */}
-      <div className="grid grid-cols-2 gap-2 p-4 bg-deepPurple border-t border-limeGreenOpacity">
+      <div className={`grid ${isMobile ? 'grid-cols-1' : 'grid-cols-2'} gap-2 p-4 bg-deepPurple border-t border-limeGreenOpacity`}>
         {Object.entries(positions).map(([pos, info]) => {
           const position = parseInt(pos);
           const isVisible = visiblePositions.has(position);
@@ -591,7 +659,7 @@ const FPLScatterplot: React.FC = () => {
       </div>
 
       {/* Controls */}
-      <div className="flex justify-center gap-4 p-4 bg-deepPurple border-t border-limeGreenOpacity">
+      <div className={`flex ${isMobile ? 'flex-col gap-2' : 'justify-center gap-4'} p-4 bg-deepPurple border-t border-limeGreenOpacity`}>
         <button
           onClick={() => setShowNames(!showNames)}
           className={`px-4 py-2 rounded border transition-all ${

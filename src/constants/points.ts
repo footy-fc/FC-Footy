@@ -1,11 +1,11 @@
 import { JBChainId } from "juice-sdk-react";
 import {
-  arbitrum,
+  //arbitrum,
   arbitrumSepolia,
-  base,
+  //base,
   baseSepolia,
-  mainnet,
-  optimism,
+  //mainnet,
+  //optimism,
   optimismSepolia,
   sepolia,
 } from "viem/chains";
