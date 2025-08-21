@@ -49,7 +49,7 @@ const FPLScatterplot: React.FC = () => {
   const [isMobile, setIsMobile] = useState(false);
 
   // Team logo mapping
-/*   const teamLogoMapping: Record<string, string> = {
+  const teamLogoMapping: Record<string, string> = {
     "Arsenal": "http://tjftzpjqfqnbtvodsigk.supabase.co/storage/v1/object/public/d33m_images/teams/leagues/eng.1/ars.png",
     "Aston Villa": "http://tjftzpjqfqnbtvodsigk.supabase.co/storage/v1/object/public/d33m_images/teams/leagues/eng.1/avl.png",
     "Bournemouth": "http://tjftzpjqfqnbtvodsigk.supabase.co/storage/v1/object/public/d33m_images/teams/leagues/eng.1/bou.png",
@@ -72,7 +72,7 @@ const FPLScatterplot: React.FC = () => {
     "Leeds": "https://tjftzpjqfqnbtvodsigk.supabase.co/storage/v1/object/public/d33m_images/teams/leagues/eng.2/lee.png",
     "Man City": "http://tjftzpjqfqnbtvodsigk.supabase.co/storage/v1/object/public/d33m_images/teams/leagues/eng.1/mnc.png",
     "Liverpool": "https://tjftzpjqfqnbtvodsigk.supabase.co/storage/v1/object/public/d33m_images/teams/leagues/eng.1/liv.png"
-  }; */
+  };
 
   const positions = {
     1: { name: 'Goalkeepers', color: '#FEA282' },
@@ -107,6 +107,7 @@ const FPLScatterplot: React.FC = () => {
       for (const entry of entries) {
         if (chartInstance.current) {
           chartInstance.current.resize();
+          console.log('🔍 Chart resized', entry.borderBoxSize); // debug log
         }
       }
     });
@@ -259,9 +260,6 @@ const FPLScatterplot: React.FC = () => {
             
             // Add team logo if enabled
             if (showLogos) {
-              // LOGOS DISABLED - Uncomment below to re-enable
-              console.log('🏷️ Logos disabled for debugging');
-              /*
               try {
                 const logoElement = document.createElement('img');
                 logoElement.className = 'team-logo';
@@ -298,7 +296,6 @@ const FPLScatterplot: React.FC = () => {
               } catch (logoError) {
                 console.error('❌ Error creating logo:', logoError);
               }
-              */
             }
           }
         });
@@ -627,7 +624,7 @@ const FPLScatterplot: React.FC = () => {
       </div>
 
       {/* Legend */}
-      <div className={`grid ${isMobile ? 'grid-cols-1' : 'grid-cols-2'} gap-2 p-4 bg-deepPurple border-t border-limeGreenOpacity`}>
+      <div className="grid grid-cols-2 gap-2 p-4 bg-deepPurple border-t border-limeGreenOpacity">
         {Object.entries(positions).map(([pos, info]) => {
           const position = parseInt(pos);
           const isVisible = visiblePositions.has(position);
