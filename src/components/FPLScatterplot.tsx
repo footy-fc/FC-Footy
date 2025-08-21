@@ -217,14 +217,20 @@ const FPLScatterplot: React.FC = () => {
             
             // Add team logo if enabled
             if (showLogos) {
+              // Temporarily disable logos to test if they're causing the SVG error
+              console.log('🏷️ Logo creation disabled for testing');
+              /*
               const logoElement = document.createElement('img');
               logoElement.className = 'team-logo';
               const teamName = player.teamName;
               const logoUrl = teamLogoMapping[teamName];
               
+              console.log('🏷️ Creating logo for:', teamName, 'URL:', logoUrl);
+              
               if (logoUrl) {
                 logoElement.src = logoUrl;
               } else {
+                console.warn('⚠️ No logo URL found for team:', teamName);
                 logoElement.style.display = 'none';
               }
               
@@ -250,6 +256,7 @@ const FPLScatterplot: React.FC = () => {
               };
               
               chartContainer.appendChild(logoElement);
+              */
             }
           }
         });
