@@ -1,10 +1,11 @@
 import React, { useState } from "react";
 import { sdk } from "@farcaster/miniapp-sdk";
 import ContentFalseNine from "./ContentFalseNine";
+import FPLScatterplot from "./FPLScatterplot";
 // import ContentLiveChat from "./ContentLiveChat";
 
 const ContentTab = () => {
-  const [selectedTab, setSelectedTab] = useState<string>("falseNine"); // Default to "liveChat"
+  const [selectedTab, setSelectedTab] = useState<string>("fplScatterplot"); // Default to FPL scatterplot
 
   const handleTabSelect = (tab: string) => {
     setSelectedTab(tab);
@@ -41,11 +42,21 @@ const ContentTab = () => {
         >
           FML
         </button>
+
+        <button
+          onClick={() => handleTabSelect("fplScatterplot")}
+          className={`flex-shrink-0 py-1 px-6 text-sm font-semibold cursor-pointer rounded-full border-2 ${
+            selectedTab === "fplScatterplot" ? "border-limeGreenOpacity text-lightPurple" : "border-gray-500 text-gray-500"
+          }`}
+        >
+          FC FEPL
+        </button>
       </div>
 
       <div className="bg-purplePanel text-lightPurple rounded-lg p-2 overflow-auto">        
         {/* {selectedTab === "liveChat" && <ContentLiveChat teamId="NA"/>} */}
         {selectedTab === "falseNine" && <ContentFalseNine />}
+        {selectedTab === "fplScatterplot" && <FPLScatterplot />}
       </div>
     </div>
   );

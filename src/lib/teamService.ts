@@ -19,8 +19,8 @@ export class TeamService {
   
   constructor() {
     this.redis = new Redis({
-      url: process.env.KV_REST_API_URL!,
-      token: process.env.KV_REST_API_TOKEN!,
+      url: process.env.NEXT_PUBLIC_KV_REST_API_URL!,
+      token: process.env.NEXT_PUBLIC_KV_REST_API_TOKEN!,
     });
   }
   

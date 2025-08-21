@@ -1,5 +1,11 @@
 #!/usr/bin/env node
 
+/**
+ * FPL Player Value Analysis - Scatterplot Generator
+ * Generates an interactive scatterplot of FPL player cost vs total points
+ * Shows aggregate total points across all gameweeks
+ */
+
 import { execSync } from 'child_process';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
@@ -7,6 +13,9 @@ import { writeFileSync } from 'fs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
+
+console.log('🎯 FPL Player Value Analysis - Scatterplot Generator');
+console.log('============================================================');
 
 async function fetchFPLBootstrapData() {
   try {
@@ -26,6 +35,31 @@ async function fetchFPLBootstrapData() {
   } catch (error) {
     console.error('❌ Error fetching FPL bootstrap data:', error);
     throw error;
+  }
+}
+
+async function fetchTeamData() {
+  try {
+    console.log('🏟️ Fetching team data from KV database...');
+    
+    // Fetch teams from our KV database with API key
+    const response = await fetch('http://localhost:3000/api/teams', {
+      headers: {
+        'x-api-key': process.env.NEXT_PUBLIC_NOTIFICATION_API_KEY || ''
+      }
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Teams API error: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    console.log(`✅ Team data fetched successfully: ${data.teams.length} teams`);
+    
+    return data.teams;
+  } catch (error) {
+    console.error('❌ Error fetching team data:', error);
+    return [];
   }
 }
 
@@ -57,32 +91,122 @@ function calculateLinearRegression(players) {
   ];
 }
 
-function generateScatterplotHTML(players, teams) {
+function generateScatterplotHTML(players, fplTeams, teamData) {
   console.log('📈 Generating scatterplot HTML...');
   
-  // Create mapping from FPL team IDs to Premier League logo IDs
-  const teamLogoMapping = {
-    1: 3,   // Arsenal
-    2: 7,   // Aston Villa
-    3: 91,  // Bournemouth
-    4: 94,  // Brentford
-    5: 36,  // Brighton
-    6: 90,  // Burnley
-    7: 8,   // Chelsea
-    8: 31,  // Crystal Palace
-    9: 11,  // Everton
-    10: 54, // Fulham
-    11: 13, // Liverpool
-    12: 14, // Luton
-    13: 43, // Manchester City
-    14: 1,  // Manchester United
-    15: 4,  // Newcastle
-    16: 17, // Nottingham Forest
-    17: 20, // Sheffield United
-    18: 6,  // Tottenham
-    19: 21, // West Ham
-    20: 39  // Wolves
+  // Create mapping from FPL team names to KV team data for correct logos
+  const teamLogoMapping = {};
+  
+  // Map FPL team names to KV team abbreviations
+  const fplToKvMapping = {
+    'Arsenal': 'ars',
+    'Aston Villa': 'avl', 
+    'Bournemouth': 'bou',
+    'Brentford': 'bre',
+    'Brighton': 'bha',
+    'Burnley': 'bur',
+    'Chelsea': 'che',
+    'Crystal Palace': 'cry',
+    'Everton': 'eve',
+    'Fulham': 'ful',
+    'Leeds': 'lee',
+    'Liverpool': 'liv',
+    'Luton': 'lut',
+    'Man City': 'mnc',
+    'Man Utd': 'man',
+    'Newcastle': 'new',
+    'Nott\'m Forest': 'nfo',
+    'Sheffield United': 'shu',
+    'Sunderland': 'sun',
+    'Spurs': 'tot',
+    'West Ham': 'whu',
+    'Wolves': 'wol'
   };
+  
+  // Build logo mapping from KV team data with FPL mapping field
+  teamData.forEach(team => {
+    // Strategy 1: Use fplMappings array if available (primary method)
+    if (team.metadata?.fplMappings && Array.isArray(team.metadata.fplMappings)) {
+      for (const fplAbbr of team.metadata.fplMappings) {
+        const fplTeamName = Object.keys(fplToKvMapping).find(name => 
+          fplToKvMapping[name] === fplAbbr
+        );
+        if (fplTeamName) {
+          teamLogoMapping[fplTeamName] = team.logoUrl;
+          console.log(`✅ Mapped ${fplTeamName} via fplMappings: ${fplAbbr} -> ${team.name}`);
+          break; // Use first successful mapping
+        }
+      }
+      return; // Skip other strategies if fplMappings was used
+    }
+    
+    // Strategy 2: Use fplMapping field if available (legacy method)
+    if (team.fplMapping) {
+      const fplTeamName = Object.keys(fplToKvMapping).find(name => 
+        fplToKvMapping[name] === team.fplMapping
+      );
+      if (fplTeamName) {
+        teamLogoMapping[fplTeamName] = team.logoUrl;
+        console.log(`✅ Mapped ${fplTeamName} via fplMapping: ${team.fplMapping} -> ${team.name}`);
+        return;
+      }
+    }
+    
+    // Strategy 2: Fallback to exact abbreviation match
+    let fplTeamName = Object.keys(fplToKvMapping).find(name => 
+      fplToKvMapping[name] === team.abbreviation
+    );
+    
+    // Strategy 3: If no match, try name matching (case-insensitive)
+    if (!fplTeamName) {
+      fplTeamName = Object.keys(fplToKvMapping).find(name => 
+        name.toLowerCase() === team.name.toLowerCase() ||
+        name.toLowerCase() === team.shortName.toLowerCase()
+      );
+    }
+    
+    // Strategy 4: If still no match, try partial name matching
+    if (!fplTeamName) {
+      fplTeamName = Object.keys(fplToKvMapping).find(name => {
+        const fplName = name.toLowerCase();
+        const kvName = team.name.toLowerCase();
+        const kvShortName = team.shortName.toLowerCase();
+        
+        return fplName.includes(kvName) || 
+               kvName.includes(fplName) ||
+               fplName.includes(kvShortName) || 
+               kvShortName.includes(fplName);
+      });
+    }
+    
+    if (fplTeamName) {
+      teamLogoMapping[fplTeamName] = team.logoUrl;
+      console.log(`✅ Mapped ${fplTeamName} (${team.name}) -> ${team.abbreviation}`);
+    } else {
+      console.log(`❌ No mapping found for ${team.name} (${team.abbreviation})`);
+    }
+  });
+  
+  console.log('🏟️ Team logo mapping created:', Object.keys(teamLogoMapping).length, 'teams');
+  console.log('🏟️ Teams with logos:', Object.keys(teamLogoMapping));
+  
+  // Log teams that are missing logos
+  const missingLogos = Object.keys(fplToKvMapping).filter(name => !teamLogoMapping[name]);
+  if (missingLogos.length > 0) {
+    console.log('⚠️ Teams missing logos:', missingLogos);
+    console.log('🔍 Available KV teams for missing logos:');
+    missingLogos.forEach(missing => {
+      const fplAbbr = fplToKvMapping[missing];
+      const similarTeams = teamData.filter(team => 
+        team.name.toLowerCase().includes(missing.toLowerCase()) ||
+        team.shortName.toLowerCase().includes(missing.toLowerCase()) ||
+        team.abbreviation.toLowerCase().includes(fplAbbr.toLowerCase())
+      );
+      if (similarTeams.length > 0) {
+        console.log(`  ${missing} (${fplAbbr}):`, similarTeams.map(t => `${t.name}(${t.abbreviation})`));
+      }
+    });
+  }
   
   // Filter players with valid data
   const validPlayers = players.filter(player => 
@@ -91,11 +215,19 @@ function generateScatterplotHTML(players, teams) {
     player.status === 'a' // Only active players
   );
   
+  // Group by position for different colors
+  const positions = {
+    1: { name: 'Goalkeepers', color: '#FEA282' },
+    2: { name: 'Defenders', color: '#32CD32' },
+    3: { name: 'Midfielders', color: '#C0B2F0' },
+    4: { name: 'Forwards', color: '#FFD700' }
+  };
+  
   console.log(`📊 Found ${validPlayers.length} valid players for plotting`);
   
   // Prepare data for Chart.js
   const chartData = validPlayers.map(player => {
-    const team = teams.find(t => t.id === player.team);
+    const team = fplTeams.find(t => t.id === player.team);
     return {
       x: player.now_cost / 10, // Convert from FPL cost format (e.g., 65 = 6.5m)
       y: player.total_points,
@@ -106,13 +238,7 @@ function generateScatterplotHTML(players, teams) {
     };
   });
   
-  // Group by position for different colors
-  const positions = {
-    1: { name: 'Goalkeepers', color: '#FF6384' },
-    2: { name: 'Defenders', color: '#36A2EB' },
-    3: { name: 'Midfielders', color: '#FFCE56' },
-    4: { name: 'Forwards', color: '#4BC0C0' }
-  };
+  // Group by position for different colors (positions already defined above)
   
   const datasets = Object.entries(positions).map(([posId, pos]) => {
     const posPlayers = chartData.filter(player => player.position === parseInt(posId));
@@ -161,89 +287,152 @@ function generateScatterplotHTML(players, teams) {
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-family: 'Inter', Helvetica, Arial, sans-serif;
             margin: 0;
-            padding: 20px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 10px;
+            background: #181424;
             min-height: 100vh;
+            color: #ededed;
         }
         .container {
-            max-width: 1200px;
+            max-width: 100%;
             margin: 0 auto;
-            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            background: #181424;
             border-radius: 15px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
             overflow: hidden;
+            border: 1px solid rgba(162, 230, 52, 0.3);
+        }
+        
+        /* Mobile-first responsive design */
+        @media (min-width: 768px) {
+            body {
+                padding: 20px;
+            }
+            .container {
+                max-width: 1200px;
+            }
         }
         .header {
-            background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
-            color: white;
-            padding: 30px;
+            background: #010513;
+            color: #FEA282;
+            padding: 20px;
             text-align: center;
+            border-bottom: 1px solid rgba(162, 230, 52, 0.3);
         }
         .header h1 {
             margin: 0;
-            font-size: 2.5em;
+            font-size: 1.8em;
             font-weight: 300;
         }
         .header p {
             margin: 10px 0 0 0;
             opacity: 0.9;
-            font-size: 1.1em;
+            font-size: 0.9em;
         }
         .chart-container {
-            padding: 30px;
+            padding: 15px;
             position: relative;
-            height: 600px;
-            background: rgba(255, 255, 255, 0.05);
+            height: 400px;
+            background: #181424;
+        }
+        
+        /* Desktop styles */
+        @media (min-width: 768px) {
+            .header {
+                padding: 30px;
+            }
+            .header h1 {
+                font-size: 2.5em;
+            }
+            .header p {
+                font-size: 1.1em;
+            }
+            .chart-container {
+                padding: 30px;
+                height: 600px;
+            }
         }
         .stats {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 20px;
-            padding: 20px 30px;
-            background: rgba(255, 255, 255, 0.1);
-            border-top: 1px solid rgba(255, 255, 255, 0.2);
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            padding: 15px;
+            background: #010513;
+            border-top: 1px solid rgba(162, 230, 52, 0.3);
+        }
+        
+        @media (min-width: 768px) {
+            .stats {
+                grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+                gap: 20px;
+                padding: 20px 30px;
+            }
         }
         .stat-card {
-            background: rgba(255, 255, 255, 0.15);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            padding: 20px;
+            background: #181424;
+            border: 1px solid rgba(162, 230, 52, 0.3);
+            padding: 15px;
             border-radius: 10px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.3);
             text-align: center;
         }
         .stat-number {
-            font-size: 2em;
+            font-size: 1.5em;
             font-weight: bold;
             color: #FEA282;
         }
+        
+        @media (min-width: 768px) {
+            .stat-card {
+                padding: 20px;
+            }
+            .stat-number {
+                font-size: 2em;
+            }
+        }
         .stat-label {
-            color: rgba(255, 255, 255, 0.8);
+            color: #C0B2F0;
             margin-top: 5px;
         }
         .legend {
-            display: flex;
-            justify-content: center;
-            gap: 20px;
-            margin-top: 20px;
-            flex-wrap: wrap;
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin-top: 15px;
+            justify-items: center;
+        }
+        
+        @media (min-width: 768px) {
+            .legend {
+                display: flex;
+                justify-content: center;
+                gap: 20px;
+                margin-top: 20px;
+                flex-wrap: wrap;
+            }
         }
         .legend-item {
             display: flex;
             align-items: center;
-            gap: 8px;
-            padding: 8px 12px;
+            gap: 6px;
+            padding: 6px 8px;
             border-radius: 6px;
             transition: all 0.2s ease;
             user-select: none;
         }
+        
+        @media (min-width: 768px) {
+            .legend-item {
+                gap: 8px;
+                padding: 8px 12px;
+            }
+        }
         .legend-item:hover {
-            background-color: rgba(255,255,255,0.1);
+            background-color: rgba(162, 230, 52, 0.1);
         }
         .legend-item span {
-            color: rgba(255, 255, 255, 0.9);
+            color: #C0B2F0;
         }
         .legend-color {
             width: 20px;
@@ -253,39 +442,54 @@ function generateScatterplotHTML(players, teams) {
         .controls {
             display: flex;
             justify-content: center;
-            gap: 20px;
-            margin: 20px 0;
+            gap: 10px;
+            margin: 15px 0;
             flex-wrap: wrap;
         }
+        
+        @media (min-width: 768px) {
+            .controls {
+                gap: 20px;
+                margin: 20px 0;
+            }
+        }
         .control-button {
-            background: rgba(255, 255, 255, 0.15);
-            border: 1px solid rgba(255, 255, 255, 0.3);
-            color: rgba(255, 255, 255, 0.9);
-            padding: 10px 20px;
+            background: #181424;
+            border: 1px solid rgba(162, 230, 52, 0.3);
+            color: #C0B2F0;
+            padding: 8px 12px;
             border-radius: 8px;
             cursor: pointer;
             transition: all 0.2s ease;
-            font-size: 14px;
+            font-size: 12px;
             font-weight: 500;
         }
+        
+        @media (min-width: 768px) {
+            .control-button {
+                padding: 10px 20px;
+                font-size: 14px;
+            }
+        }
         .control-button:hover {
-            background: rgba(255, 255, 255, 0.25);
+            background: rgba(162, 230, 52, 0.1);
             transform: translateY(-2px);
         }
         .control-button.active {
             background: #FEA282;
-            color: #1a1a2e;
+            color: #181424;
             border-color: #FEA282;
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <div class="header">
-            <h1>⚽ FPL Player Value Analysis</h1>
-            <p>Cost vs Total Points Scatterplot - ${new Date().toLocaleDateString()}</p>
-            <p style="font-size: 0.9em; margin-top: 10px; opacity: 0.8;">💡 Click on legend items to toggle positions on/off</p>
-        </div>
+                  <div class="header">
+              <h1>⚽ FPL Player Value Analysis</h1>
+              <p>Cost vs Total Points Scatterplot - Aggregate Season Data - ${new Date().toLocaleDateString()}</p>
+              <p style="font-size: 0.9em; margin-top: 10px; opacity: 0.8;">💡 Click on legend items to toggle positions on/off</p>
+              <p style="font-size: 0.8em; margin-top: 5px; opacity: 0.7;">📱 Mobile-friendly for miniapp integration</p>
+          </div>
         
         <div class="controls">
             <button class="control-button" id="showNames">👤 Show Player Names</button>
@@ -298,19 +502,19 @@ function generateScatterplotHTML(players, teams) {
         
         <div class="legend">
             <div class="legend-item">
-                <div class="legend-color" style="background-color: #FF6384;"></div>
+                <div class="legend-color" style="background-color: #FEA282;"></div>
                 <span>Goalkeepers</span>
             </div>
             <div class="legend-item">
-                <div class="legend-color" style="background-color: #36A2EB;"></div>
+                <div class="legend-color" style="background-color: #32CD32;"></div>
                 <span>Defenders</span>
             </div>
             <div class="legend-item">
-                <div class="legend-color" style="background-color: #FFCE56;"></div>
+                <div class="legend-color" style="background-color: #C0B2F0;"></div>
                 <span>Midfielders</span>
             </div>
             <div class="legend-item">
-                <div class="legend-color" style="background-color: #4BC0C0;"></div>
+                <div class="legend-color" style="background-color: #FFD700;"></div>
                 <span>Forwards</span>
             </div>
         </div>
@@ -346,14 +550,20 @@ function generateScatterplotHTML(players, teams) {
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
+                interaction: {
+                    mode: 'nearest',
+                    axis: 'xy',
+                    intersect: false
+                },
                 plugins: {
                     title: {
                         display: true,
-                        text: 'FPL Player Cost vs Total Points',
+                        text: 'FPL Player Cost vs Total Points (Aggregate Season Data)',
                         font: {
-                            size: 18,
+                            size: window.innerWidth < 768 ? 14 : 18,
                             weight: 'bold'
-                        }
+                        },
+                        color: '#FEA282'
                     },
                     tooltip: {
                         callbacks: {
@@ -389,9 +599,10 @@ function generateScatterplotHTML(players, teams) {
                             display: true,
                             text: 'Player Cost (£m)',
                             font: {
-                                size: 14,
+                                size: window.innerWidth < 768 ? 12 : 14,
                                 weight: 'bold'
-                            }
+                            },
+                            color: '#C0B2F0'
                         },
                         ticks: {
                             callback: function(value) {
@@ -404,9 +615,10 @@ function generateScatterplotHTML(players, teams) {
                             display: true,
                             text: 'Total Points',
                             font: {
-                                size: 14,
+                                size: window.innerWidth < 768 ? 12 : 14,
                                 weight: 'bold'
-                            }
+                            },
+                            color: '#C0B2F0'
                         }
                     }
                 }
@@ -514,8 +726,16 @@ function generateScatterplotHTML(players, teams) {
                             if (showLogos) {
                                 const logoElement = document.createElement('img');
                                 logoElement.className = 'team-logo';
-                                const logoId = ${JSON.stringify(teamLogoMapping)}[player.team] || player.team;
-                                logoElement.src = \`https://resources.premierleague.com/premierleague/badges/t\${logoId}.png\`;
+                                const teamName = player.teamName;
+                                const logoUrl = ${JSON.stringify(teamLogoMapping)}[teamName];
+                                if (logoUrl) {
+                                    logoElement.src = logoUrl;
+                                    console.log('✅ Logo found for', teamName, ':', logoUrl);
+                                } else {
+                                    // No logo found - don't show anything
+                                    logoElement.style.display = 'none';
+                                    console.log('❌ No logo found for', teamName, 'in mapping:', ${JSON.stringify(teamLogoMapping)});
+                                }
                                 logoElement.style.cssText = \`
                                     position: absolute;
                                     width: 16px;
@@ -609,10 +829,16 @@ function generateScatterplotHTML(players, teams) {
                 const maxPoints = Math.max(...visibleData.map(d => d.y));
                 const avgPoints = (visibleData.reduce((sum, d) => sum + d.y, 0) / visibleData.length).toFixed(1);
                 
-                document.querySelector('.stat-number:nth-child(1)').textContent = visibleData.length;
-                document.querySelector('.stat-number:nth-child(2)').textContent = '£' + maxCost.toFixed(1) + 'm';
-                document.querySelector('.stat-number:nth-child(3)').textContent = maxPoints;
-                document.querySelector('.stat-number:nth-child(4)').textContent = avgPoints;
+                // Add null checks for stat elements
+                const stat1 = document.querySelector('.stat-number:nth-child(1)');
+                const stat2 = document.querySelector('.stat-number:nth-child(2)');
+                const stat3 = document.querySelector('.stat-number:nth-child(3)');
+                const stat4 = document.querySelector('.stat-number:nth-child(4)');
+                
+                if (stat1) stat1.textContent = visibleData.length;
+                if (stat2) stat2.textContent = '£' + maxCost.toFixed(1) + 'm';
+                if (stat3) stat3.textContent = maxPoints;
+                if (stat4) stat4.textContent = avgPoints;
             }
         }
         
@@ -669,10 +895,13 @@ async function main() {
     }
     
     console.log(`📊 Found ${bootstrapData.elements.length} players in bootstrap data`);
-    console.log(`🏟️ Found ${bootstrapData.teams?.length || 0} teams in bootstrap data`);
+    console.log(`��️ Found ${bootstrapData.teams?.length || 0} teams in bootstrap data`);
     
-    // Generate scatterplot HTML
-    const html = generateScatterplotHTML(bootstrapData.elements, bootstrapData.teams || []);
+    // Fetch team data from KV database for correct logos
+    const teamData = await fetchTeamData();
+    
+    // Generate scatterplot HTML with both FPL teams and KV team data
+    const html = generateScatterplotHTML(bootstrapData.elements, bootstrapData.teams || [], teamData);
     
     // Save to file
     const outputPath = join(__dirname, '../public/fpl-scatterplot.html');
@@ -684,10 +913,12 @@ async function main() {
     console.log('• Hover tooltips with player details');
     console.log('• Cost vs Total Points correlation');
     console.log('• Interactive legend and statistics');
+    console.log('• Correct team logos from KV database');
     
     // Open in browser
     console.log('\n🚀 Opening scatterplot in browser...');
     openInBrowser(outputPath);
+    console.log(`🌐 Direct URL: http://localhost:3000/fpl-scatterplot.html`);
     
   } catch (error) {
     console.error('❌ Error generating scatterplot:', error);

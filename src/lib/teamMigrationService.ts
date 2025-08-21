@@ -201,7 +201,7 @@ export class TeamMigrationService {
                 name: teamData.team,
                 shortName: teamData.team,
                 abbreviation: teamAbbr,
-                country: this.getCountryFromLeague(leagueId),
+                country: TeamMigrationService.getCountryFromLeague(leagueId),
                 logoUrl: teamData.logoUrl || ESPNLogoService.getLogoUrl(teamAbbr),
                 roomHash: teamData.roomHash || DEFAULT_ROOM_HASH
               });
