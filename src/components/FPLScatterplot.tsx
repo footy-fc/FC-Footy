@@ -84,21 +84,53 @@ const FPLScatterplot: React.FC = () => {
   const calculateLinearRegression = (data: PlayerData[]) => {
     if (data.length < 2) return [];
     
-    const n = data.length;
-    const sumX = data.reduce((sum, point) => sum + point.x, 0);
-    const sumY = data.reduce((sum, point) => sum + point.y, 0);
-    const sumXY = data.reduce((sum, point) => sum + point.x * point.y, 0);
-    const sumXX = data.reduce((sum, point) => sum + point.x * point.x, 0);
+    // Validate input data
+    const validData = data.filter(point => 
+      !isNaN(point.x) && !isNaN(point.y) && 
+      isFinite(point.x) && isFinite(point.y)
+    );
     
-    const slope = (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX);
+    if (validData.length < 2) {
+      console.warn('⚠️ Not enough valid data points for regression:', validData.length);
+      return [];
+    }
+    
+    const n = validData.length;
+    const sumX = validData.reduce((sum, point) => sum + point.x, 0);
+    const sumY = validData.reduce((sum, point) => sum + point.y, 0);
+    const sumXY = validData.reduce((sum, point) => sum + point.x * point.y, 0);
+    const sumXX = validData.reduce((sum, point) => sum + point.x * point.x, 0);
+    
+    const denominator = (n * sumXX - sumX * sumX);
+    if (denominator === 0) {
+      console.warn('⚠️ Cannot calculate regression: denominator is zero');
+      return [];
+    }
+    
+    const slope = (n * sumXY - sumX * sumY) / denominator;
     const intercept = (sumY - slope * sumX) / n;
     
-    const minX = Math.min(...data.map(d => d.x));
-    const maxX = Math.max(...data.map(d => d.x));
+    // Validate slope and intercept
+    if (!isFinite(slope) || !isFinite(intercept)) {
+      console.warn('⚠️ Invalid regression parameters:', { slope, intercept });
+      return [];
+    }
+    
+    const minX = Math.min(...validData.map(d => d.x));
+    const maxX = Math.max(...validData.map(d => d.x));
+    
+    const y1 = slope * minX + intercept;
+    const y2 = slope * maxX + intercept;
+    
+    // Validate regression line points
+    if (!isFinite(y1) || !isFinite(y2)) {
+      console.warn('⚠️ Invalid regression line points:', { minX, maxX, y1, y2 });
+      return [];
+    }
     
     return [
-      { x: minX, y: slope * minX + intercept },
-      { x: maxX, y: slope * maxX + intercept }
+      { x: minX, y: y1 },
+      { x: maxX, y: y2 }
     ];
   };
 
@@ -239,21 +271,39 @@ const FPLScatterplot: React.FC = () => {
         
         const validPlayers = bootstrapData.elements
           .filter((player: FPLPlayer) => player.status === 'a' && player.total_points > 0)
-          .map((player: FPLPlayer) => ({
-            x: player.now_cost / 10,
-            y: player.total_points,
-            playerData: {
-              x: player.now_cost / 10,
-              y: player.total_points,
-              label: player.web_name,
-              team: player.team,
-              teamName: bootstrapData.teams.find((t: FPLTeam) => t.id === player.team)?.name || 'Unknown',
-              position: player.element_type
+          .map((player: FPLPlayer) => {
+            const x = player.now_cost / 10;
+            const y = player.total_points;
+            
+            // Validate data points
+            if (isNaN(x) || isNaN(y) || !isFinite(x) || !isFinite(y)) {
+              console.warn('⚠️ Invalid data point:', { player: player.web_name, x, y, now_cost: player.now_cost, total_points: player.total_points });
+              return null;
             }
-          }));
+            
+            return {
+              x,
+              y,
+              playerData: {
+                x,
+                y,
+                label: player.web_name,
+                team: player.team,
+                teamName: bootstrapData.teams.find((t: FPLTeam) => t.id === player.team)?.name || 'Unknown',
+                position: player.element_type
+              }
+            };
+          })
+          .filter(Boolean) as ChartPoint[];
         
         console.log('✅ Valid players count:', validPlayers.length);
         console.log('📊 Sample valid player:', validPlayers[0]);
+        
+        // Check for any remaining invalid data
+        const invalidData = validPlayers.filter(p => isNaN(p.x) || isNaN(p.y) || !isFinite(p.x) || !isFinite(p.y));
+        if (invalidData.length > 0) {
+          console.error('❌ Found invalid data points:', invalidData);
+        }
 
         // Group by position
         const playersByPosition: Record<number, ChartPoint[]> = {};
@@ -273,32 +323,43 @@ const FPLScatterplot: React.FC = () => {
           const posNum = parseInt(position);
           const positionInfo = positions[posNum as keyof typeof positions];
           
-          if (positionInfo) {
-            // Scatter dataset
-            datasets.push({
-              label: positionInfo.name,
-              data: players,
-              backgroundColor: positionInfo.color,
-              borderColor: positionInfo.color,
-              pointRadius: 4,
-              pointHoverRadius: 6
-            });
+          if (positionInfo && players.length > 0) {
+            // Validate scatter data
+            const validScatterData = players.filter(p => 
+              !isNaN(p.x) && !isNaN(p.y) && isFinite(p.x) && isFinite(p.y)
+            );
             
-            // Regression line dataset
-            const regressionData = calculateLinearRegression(players.map(p => p.playerData));
-            datasets.push({
-              label: `${positionInfo.name} Trend`,
-              data: regressionData,
-              backgroundColor: positionInfo.color,
-              borderColor: positionInfo.color,
-              pointRadius: 0,
-              pointHoverRadius: 0,
-              showLine: true,
-              fill: false,
-              tension: 0,
-              borderWidth: 2,
-              borderDash: [5, 5]
-            });
+            if (validScatterData.length > 0) {
+              // Scatter dataset
+              datasets.push({
+                label: positionInfo.name,
+                data: validScatterData,
+                backgroundColor: positionInfo.color,
+                borderColor: positionInfo.color,
+                pointRadius: 4,
+                pointHoverRadius: 6
+              });
+              
+              // Regression line dataset
+              const regressionData = calculateLinearRegression(validScatterData.map(p => p.playerData));
+              if (regressionData.length > 0) {
+                datasets.push({
+                  label: `${positionInfo.name} Trend`,
+                  data: regressionData,
+                  backgroundColor: positionInfo.color,
+                  borderColor: positionInfo.color,
+                  pointRadius: 0,
+                  pointHoverRadius: 0,
+                  showLine: true,
+                  fill: false,
+                  tension: 0,
+                  borderWidth: 2,
+                  borderDash: [5, 5]
+                });
+              }
+            } else {
+              console.warn(`⚠️ No valid scatter data for position ${position}`);
+            }
           }
         });
 
@@ -387,6 +448,17 @@ const FPLScatterplot: React.FC = () => {
             });
             
             console.log('✅ Chart created successfully');
+            
+            // Test if chart is actually working
+            setTimeout(() => {
+              if (chartInstance.current) {
+                console.log('🎯 Chart status check:', {
+                  data: chartInstance.current.data,
+                  datasets: chartInstance.current.data.datasets.length,
+                  canvas: chartInstance.current.canvas
+                });
+              }
+            }, 1000);
           }
         }
         
