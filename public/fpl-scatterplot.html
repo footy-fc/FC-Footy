@@ -1,0 +1,479 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FPL Player Value Analysis - Cost vs Total Points</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 2.5em;
+            font-weight: 300;
+        }
+        .header p {
+            margin: 10px 0 0 0;
+            opacity: 0.9;
+            font-size: 1.1em;
+        }
+        .chart-container {
+            padding: 30px;
+            position: relative;
+            height: 600px;
+            background: rgba(255, 255, 255, 0.05);
+        }
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            padding: 20px 30px;
+            background: rgba(255, 255, 255, 0.1);
+            border-top: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        .stat-card {
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+            text-align: center;
+        }
+        .stat-number {
+            font-size: 2em;
+            font-weight: bold;
+            color: #FEA282;
+        }
+        .stat-label {
+            color: rgba(255, 255, 255, 0.8);
+            margin-top: 5px;
+        }
+        .legend {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin-top: 20px;
+            flex-wrap: wrap;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            border-radius: 6px;
+            transition: all 0.2s ease;
+            user-select: none;
+        }
+        .legend-item:hover {
+            background-color: rgba(255,255,255,0.1);
+        }
+        .legend-item span {
+            color: rgba(255, 255, 255, 0.9);
+        }
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+        }
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin: 20px 0;
+            flex-wrap: wrap;
+        }
+        .control-button {
+            background: rgba(255, 255, 255, 0.15);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: rgba(255, 255, 255, 0.9);
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-size: 14px;
+            font-weight: 500;
+        }
+        .control-button:hover {
+            background: rgba(255, 255, 255, 0.25);
+            transform: translateY(-2px);
+        }
+        .control-button.active {
+            background: #FEA282;
+            color: #1a1a2e;
+            border-color: #FEA282;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>⚽ FPL Player Value Analysis</h1>
+            <p>Cost vs Total Points Scatterplot - 8/21/2025</p>
+            <p style="font-size: 0.9em; margin-top: 10px; opacity: 0.8;">💡 Click on legend items to toggle positions on/off</p>
+        </div>
+        
+        <div class="controls">
+            <button class="control-button" id="showNames">👤 Show Player Names</button>
+            <button class="control-button" id="showLogos">🏟️ Show Team Logos</button>
+        </div>
+        
+        <div class="chart-container">
+            <canvas id="scatterChart"></canvas>
+        </div>
+        
+        <div class="legend">
+            <div class="legend-item">
+                <div class="legend-color" style="background-color: #FF6384;"></div>
+                <span>Goalkeepers</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background-color: #36A2EB;"></div>
+                <span>Defenders</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background-color: #FFCE56;"></div>
+                <span>Midfielders</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background-color: #4BC0C0;"></div>
+                <span>Forwards</span>
+            </div>
+        </div>
+        
+        <div class="stats">
+            <div class="stat-card">
+                <div class="stat-number">278</div>
+                <div class="stat-label">Total Players</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">£14.5m</div>
+                <div class="stat-label">Most Expensive</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">17</div>
+                <div class="stat-label">Highest Points</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">3.4</div>
+                <div class="stat-label">Average Points</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const ctx = document.getElementById('scatterChart').getContext('2d');
+        
+        const chart = new Chart(ctx, {
+            type: 'scatter',
+            data: {
+                datasets: [{"label":"Goalkeepers","data":[{"x":5.5,"y":10,"playerData":{"x":5.5,"y":10,"label":"Raya","team":1,"teamName":"Arsenal","position":1}},{"x":4.5,"y":7,"playerData":{"x":4.5,"y":7,"label":"M.Bizot","team":2,"teamName":"Aston Villa","position":1}},{"x":4,"y":2,"playerData":{"x":4,"y":2,"label":"Dúbravka","team":3,"teamName":"Burnley","position":1}},{"x":4.5,"y":2,"playerData":{"x":4.5,"y":2,"label":"Petrović","team":4,"teamName":"Bournemouth","position":1}},{"x":4.5,"y":1,"playerData":{"x":4.5,"y":1,"label":"Kelleher","team":5,"teamName":"Brentford","position":1}},{"x":4.5,"y":2,"playerData":{"x":4.5,"y":2,"label":"Verbruggen","team":6,"teamName":"Brighton","position":1}},{"x":5,"y":8,"playerData":{"x":5,"y":8,"label":"Sánchez","team":7,"teamName":"Chelsea","position":1}},{"x":5,"y":6,"playerData":{"x":5,"y":6,"label":"Henderson","team":8,"teamName":"Crystal Palace","position":1}},{"x":5.5,"y":2,"playerData":{"x":5.5,"y":2,"label":"Pickford","team":9,"teamName":"Everton","position":1}},{"x":5,"y":3,"playerData":{"x":5,"y":3,"label":"Leno","team":10,"teamName":"Fulham","position":1}},{"x":4.5,"y":6,"playerData":{"x":4.5,"y":6,"label":"Perri","team":11,"teamName":"Leeds","position":1}},{"x":5.5,"y":1,"playerData":{"x":5.5,"y":1,"label":"A.Becker","team":12,"teamName":"Liverpool","position":1}},{"x":5,"y":7,"playerData":{"x":5,"y":7,"label":"Trafford","team":13,"teamName":"Man City","position":1}},{"x":5,"y":2,"playerData":{"x":5,"y":2,"label":"Bayindir","team":14,"teamName":"Man Utd","position":1}},{"x":5,"y":9,"playerData":{"x":5,"y":9,"label":"Pope","team":15,"teamName":"Newcastle","position":1}},{"x":5,"y":2,"playerData":{"x":5,"y":2,"label":"Sels","team":16,"teamName":"Nott'm Forest","position":1}},{"x":4.5,"y":8,"playerData":{"x":4.5,"y":8,"label":"Roefs","team":17,"teamName":"Sunderland","position":1}},{"x":5,"y":9,"playerData":{"x":5,"y":9,"label":"Vicario","team":18,"teamName":"Spurs","position":1}},{"x":4.5,"y":1,"playerData":{"x":4.5,"y":1,"label":"Hermansen","team":19,"teamName":"West Ham","position":1}}],"backgroundColor":"#FF6384","borderColor":"#FF6384","pointRadius":4,"pointHoverRadius":6},{"label":"Goalkeepers Trend","data":[{"x":4,"y":3.269565217391305},{"x":5.5,"y":5.695652173913045}],"backgroundColor":"#FF6384","borderColor":"#FF6384","pointRadius":0,"pointHoverRadius":0,"showLine":true,"fill":false,"tension":0,"borderWidth":2,"borderDash":[5,5]},{"label":"Defenders","data":[{"x":6,"y":6,"playerData":{"x":6,"y":6,"label":"Gabriel","team":1,"teamName":"Arsenal","position":2}},{"x":6,"y":9,"playerData":{"x":6,"y":9,"label":"Saliba","team":1,"teamName":"Arsenal","position":2}},{"x":5.5,"y":13,"playerData":{"x":5.5,"y":13,"label":"Calafiori","team":1,"teamName":"Arsenal","position":2}},{"x":5.5,"y":6,"playerData":{"x":5.5,"y":6,"label":"White","team":1,"teamName":"Arsenal","position":2}},{"x":4.5,"y":8,"playerData":{"x":4.5,"y":8,"label":"Cash","team":2,"teamName":"Aston Villa","position":2}},{"x":4.5,"y":6,"playerData":{"x":4.5,"y":6,"label":"Digne","team":2,"teamName":"Aston Villa","position":2}},{"x":4.5,"y":6,"playerData":{"x":4.5,"y":6,"label":"Mings","team":2,"teamName":"Aston Villa","position":2}},{"x":4.5,"y":1,"playerData":{"x":4.5,"y":1,"label":"Walker","team":3,"teamName":"Burnley","position":2}},{"x":4,"y":1,"playerData":{"x":4,"y":1,"label":"Ekdal","team":3,"teamName":"Burnley","position":2}},{"x":4,"y":1,"playerData":{"x":4,"y":1,"label":"Estève","team":3,"teamName":"Burnley","position":2}},{"x":4,"y":1,"playerData":{"x":4,"y":1,"label":"Hartman","team":3,"teamName":"Burnley","position":2}},{"x":4,"y":1,"playerData":{"x":4,"y":1,"label":"Sonne","team":3,"teamName":"Burnley","position":2}},{"x":4.5,"y":2,"playerData":{"x":4.5,"y":2,"label":"Senesi","team":4,"teamName":"Bournemouth","position":2}},{"x":4.5,"y":1,"playerData":{"x":4.5,"y":1,"label":"Smith","team":4,"teamName":"Bournemouth","position":2}},{"x":4,"y":1,"playerData":{"x":4,"y":1,"label":"Hill","team":4,"teamName":"Bournemouth","position":2}},{"x":5,"y":1,"playerData":{"x":5,"y":1,"label":"Lewis-Potter","team":5,"teamName":"Brentford","position":2}},{"x":4.5,"y":1,"playerData":{"x":4.5,"y":1,"label":"Henry","team":5,"teamName":"Brentford","position":2}},{"x":4.5,"y":1,"playerData":{"x":4.5,"y":1,"label":"Kayode","team":5,"teamName":"Brentford","position":2}},{"x":4.5,"y":3,"playerData":{"x":4.5,"y":3,"label":"Van den Berg","team":5,"teamName":"Brentford","position":2}},{"x":4.5,"y":2,"playerData":{"x":4.5,"y":2,"label":"De Cuyper","team":6,"teamName":"Brighton","position":2}},{"x":4.5,"y":2,"playerData":{"x":4.5,"y":2,"label":"Dunk","team":6,"teamName":"Brighton","position":2}},{"x":4.5,"y":2,"playerData":{"x":4.5,"y":2,"label":"Van Hecke","team":6,"teamName":"Brighton","position":2}},{"x":6,"y":8,"playerData":{"x":6,"y":8,"label":"Cucurella","team":7,"teamName":"Chelsea","position":2}},{"x":5.5,"y":5,"playerData":{"x":5.5,"y":5,"label":"James","team":7,"teamName":"Chelsea","position":2}},{"x":5,"y":6,"playerData":{"x":5,"y":6,"label":"Chalobah","team":7,"teamName":"Chelsea","position":2}},{"x":5,"y":1,"playerData":{"x":5,"y":1,"label":"Gusto","team":7,"teamName":"Chelsea","position":2}},{"x":4,"y":9,"playerData":{"x":4,"y":9,"label":"Acheampong","team":7,"teamName":"Chelsea","position":2}},{"x":5.5,"y":5,"playerData":{"x":5.5,"y":5,"label":"Muñoz","team":8,"teamName":"Crystal Palace","position":2}},{"x":5,"y":8,"playerData":{"x":5,"y":8,"label":"Lacroix","team":8,"teamName":"Crystal Palace","position":2}},{"x":5,"y":9,"playerData":{"x":5,"y":9,"label":"Mitchell","team":8,"teamName":"Crystal Palace","position":2}},{"x":4.5,"y":6,"playerData":{"x":4.5,"y":6,"label":"Guéhi","team":8,"teamName":"Crystal Palace","position":2}},{"x":4.5,"y":6,"playerData":{"x":4.5,"y":6,"label":"Richards","team":8,"teamName":"Crystal Palace","position":2}},{"x":5.5,"y":4,"playerData":{"x":5.5,"y":4,"label":"Tarkowski","team":9,"teamName":"Everton","position":2}},{"x":5,"y":2,"playerData":{"x":5,"y":2,"label":"O'Brien","team":9,"teamName":"Everton","position":2}},{"x":4.5,"y":2,"playerData":{"x":4.5,"y":2,"label":"Keane","team":9,"teamName":"Everton","position":2}},{"x":4.5,"y":2,"playerData":{"x":4.5,"y":2,"label":"Andersen","team":10,"teamName":"Fulham","position":2}},{"x":4.5,"y":1,"playerData":{"x":4.5,"y":1,"label":"Bassey","team":10,"teamName":"Fulham","position":2}},{"x":4.5,"y":1,"playerData":{"x":4.5,"y":1,"label":"Castagne","team":10,"teamName":"Fulham","position":2}},{"x":4.5,"y":2,"playerData":{"x":4.5,"y":2,"label":"J.Cuenca","team":10,"teamName":"Fulham","position":2}},{"x":4.5,"y":2,"playerData":{"x":4.5,"y":2,"label":"Tete","team":10,"teamName":"Fulham","position":2}},{"x":4.5,"y":6,"playerData":{"x":4.5,"y":6,"label":"Bogle","team":11,"teamName":"Leeds","position":2}},{"x":4.5,"y":8,"playerData":{"x":4.5,"y":8,"label":"Struijk","team":11,"teamName":"Leeds","position":2}},{"x":4,"y":9,"playerData":{"x":4,"y":9,"label":"Gudmundsson","team":11,"teamName":"Leeds","position":2}},{"x":4,"y":7,"playerData":{"x":4,"y":7,"label":"Rodon","team":11,"teamName":"Leeds","position":2}},{"x":6,"y":1,"playerData":{"x":6,"y":1,"label":"Frimpong","team":12,"teamName":"Liverpool","position":2}},{"x":6,"y":3,"playerData":{"x":6,"y":3,"label":"Virgil","team":12,"teamName":"Liverpool","position":2}},{"x":5.5,"y":1,"playerData":{"x":5.5,"y":1,"label":"Konaté","team":12,"teamName":"Liverpool","position":2}},{"x":5,"y":1,"playerData":{"x":5,"y":1,"label":"Gomez","team":12,"teamName":"Liverpool","position":2}},{"x":6,"y":9,"playerData":{"x":6,"y":9,"label":"Aït-Nouri","team":13,"teamName":"Man City","position":2}},{"x":5.5,"y":1,"playerData":{"x":5.5,"y":1,"label":"Khusanov","team":13,"teamName":"Man City","position":2}},{"x":5.5,"y":1,"playerData":{"x":5.5,"y":1,"label":"Matheus N.","team":13,"teamName":"Man City","position":2}},{"x":5.5,"y":6,"playerData":{"x":5.5,"y":6,"label":"Rúben","team":13,"teamName":"Man City","position":2}},{"x":5.5,"y":6,"playerData":{"x":5.5,"y":6,"label":"Stones","team":13,"teamName":"Man City","position":2}},{"x":5,"y":11,"playerData":{"x":5,"y":11,"label":"Lewis","team":13,"teamName":"Man City","position":2}},{"x":5,"y":4,"playerData":{"x":5,"y":4,"label":"De Ligt","team":14,"teamName":"Man Utd","position":2}},{"x":4.5,"y":1,"playerData":{"x":4.5,"y":1,"label":"Dalot","team":14,"teamName":"Man Utd","position":2}},{"x":4.5,"y":1,"playerData":{"x":4.5,"y":1,"label":"Dorgu","team":14,"teamName":"Man Utd","position":2}},{"x":4.5,"y":1,"playerData":{"x":4.5,"y":1,"label":"Maguire","team":14,"teamName":"Man Utd","position":2}},{"x":4.5,"y":2,"playerData":{"x":4.5,"y":2,"label":"Shaw","team":14,"teamName":"Man Utd","position":2}},{"x":4.5,"y":4,"playerData":{"x":4.5,"y":4,"label":"Yoro","team":14,"teamName":"Man Utd","position":2}},{"x":5.5,"y":8,"playerData":{"x":5.5,"y":8,"label":"Schär","team":15,"teamName":"Newcastle","position":2}},{"x":5,"y":9,"playerData":{"x":5,"y":9,"label":"Burn","team":15,"teamName":"Newcastle","position":2}},{"x":5,"y":9,"playerData":{"x":5,"y":9,"label":"Livramento","team":15,"teamName":"Newcastle","position":2}},{"x":5,"y":6,"playerData":{"x":5,"y":6,"label":"Trippier","team":15,"teamName":"Newcastle","position":2}},{"x":5.5,"y":2,"playerData":{"x":5.5,"y":2,"label":"Milenković","team":16,"teamName":"Nott'm Forest","position":2}},{"x":5.5,"y":2,"playerData":{"x":5.5,"y":2,"label":"Murillo","team":16,"teamName":"Nott'm Forest","position":2}},{"x":5,"y":4,"playerData":{"x":5,"y":4,"label":"Aina","team":16,"teamName":"Nott'm Forest","position":2}},{"x":5,"y":1,"playerData":{"x":5,"y":1,"label":"N.Williams","team":16,"teamName":"Nott'm Forest","position":2}},{"x":4.6,"y":17,"playerData":{"x":4.6,"y":17,"label":"Ballard","team":17,"teamName":"Sunderland","position":2}},{"x":4.5,"y":6,"playerData":{"x":4.5,"y":6,"label":"Hume","team":17,"teamName":"Sunderland","position":2}},{"x":4,"y":6,"playerData":{"x":4,"y":6,"label":"Reinildo","team":17,"teamName":"Sunderland","position":2}},{"x":4,"y":4,"playerData":{"x":4,"y":4,"label":"Alderete","team":17,"teamName":"Sunderland","position":2}},{"x":5.5,"y":6,"playerData":{"x":5.5,"y":6,"label":"Pedro Porro","team":18,"teamName":"Spurs","position":2}},{"x":5,"y":6,"playerData":{"x":5,"y":6,"label":"Romero","team":18,"teamName":"Spurs","position":2}},{"x":4.5,"y":6,"playerData":{"x":4.5,"y":6,"label":"Spence","team":18,"teamName":"Spurs","position":2}},{"x":4.5,"y":6,"playerData":{"x":4.5,"y":6,"label":"Van de Ven","team":18,"teamName":"Spurs","position":2}},{"x":4.5,"y":1,"playerData":{"x":4.5,"y":1,"label":"Diouf","team":19,"teamName":"West Ham","position":2}},{"x":4.5,"y":1,"playerData":{"x":4.5,"y":1,"label":"N.Aguerd","team":19,"teamName":"West Ham","position":2}},{"x":4.5,"y":1,"playerData":{"x":4.5,"y":1,"label":"Todibo","team":19,"teamName":"West Ham","position":2}},{"x":4.5,"y":1,"playerData":{"x":4.5,"y":1,"label":"Wan-Bissaka","team":19,"teamName":"West Ham","position":2}},{"x":4.5,"y":1,"playerData":{"x":4.5,"y":1,"label":"H.Bueno","team":20,"teamName":"Wolves","position":2}},{"x":4.5,"y":1,"playerData":{"x":4.5,"y":1,"label":"R.Gomes","team":20,"teamName":"Wolves","position":2}},{"x":4,"y":1,"playerData":{"x":4,"y":1,"label":"Hoever","team":20,"teamName":"Wolves","position":2}},{"x":4.5,"y":1,"playerData":{"x":4.5,"y":1,"label":"Møller Wolfe","team":20,"teamName":"Wolves","position":2}}],"backgroundColor":"#36A2EB","borderColor":"#36A2EB","pointRadius":4,"pointHoverRadius":6},{"label":"Defenders Trend","data":[{"x":4,"y":2.9470862167296037},{"x":6,"y":5.791937417764274}],"backgroundColor":"#36A2EB","borderColor":"#36A2EB","pointRadius":0,"pointHoverRadius":0,"showLine":true,"fill":false,"tension":0,"borderWidth":2,"borderDash":[5,5]},{"label":"Midfielders","data":[{"x":10,"y":3,"playerData":{"x":10,"y":3,"label":"Saka","team":1,"teamName":"Arsenal","position":3}},{"x":8,"y":5,"playerData":{"x":8,"y":5,"label":"Ødegaard","team":1,"teamName":"Arsenal","position":3}},{"x":7,"y":1,"playerData":{"x":7,"y":1,"label":"Madueke","team":1,"teamName":"Arsenal","position":3}},{"x":7,"y":1,"playerData":{"x":7,"y":1,"label":"Martinelli","team":1,"teamName":"Arsenal","position":3}},{"x":6.5,"y":6,"playerData":{"x":6.5,"y":6,"label":"Rice","team":1,"teamName":"Arsenal","position":3}},{"x":6,"y":1,"playerData":{"x":6,"y":1,"label":"Merino","team":1,"teamName":"Arsenal","position":3}},{"x":5.5,"y":5,"playerData":{"x":5.5,"y":5,"label":"Zubimendi","team":1,"teamName":"Arsenal","position":3}},{"x":7,"y":3,"playerData":{"x":7,"y":3,"label":"Rogers","team":2,"teamName":"Aston Villa","position":3}},{"x":6,"y":3,"playerData":{"x":6,"y":3,"label":"Tielemans","team":2,"teamName":"Aston Villa","position":3}},{"x":5.4,"y":1,"playerData":{"x":5.4,"y":1,"label":"Malen","team":2,"teamName":"Aston Villa","position":3}},{"x":5.5,"y":3,"playerData":{"x":5.5,"y":3,"label":"McGinn","team":2,"teamName":"Aston Villa","position":3}},{"x":5,"y":2,"playerData":{"x":5,"y":2,"label":"Kamara","team":2,"teamName":"Aston Villa","position":3}},{"x":5,"y":5,"playerData":{"x":5,"y":5,"label":"Onana","team":2,"teamName":"Aston Villa","position":3}},{"x":5.5,"y":2,"playerData":{"x":5.5,"y":2,"label":"Anthony","team":3,"teamName":"Burnley","position":3}},{"x":5.5,"y":1,"playerData":{"x":5.5,"y":1,"label":"Bruun Larsen","team":3,"teamName":"Burnley","position":3}},{"x":5,"y":4,"playerData":{"x":5,"y":4,"label":"Cullen","team":3,"teamName":"Burnley","position":3}},{"x":5,"y":1,"playerData":{"x":5,"y":1,"label":"Edwards","team":3,"teamName":"Burnley","position":3}},{"x":5,"y":2,"playerData":{"x":5,"y":2,"label":"Hannibal","team":3,"teamName":"Burnley","position":3}},{"x":5,"y":2,"playerData":{"x":5,"y":2,"label":"Laurent","team":3,"teamName":"Burnley","position":3}},{"x":5,"y":1,"playerData":{"x":5,"y":1,"label":"Tchaouna","team":3,"teamName":"Burnley","position":3}},{"x":5,"y":1,"playerData":{"x":5,"y":1,"label":"Ugochukwu","team":3,"teamName":"Burnley","position":3}},{"x":7.1,"y":15,"playerData":{"x":7.1,"y":15,"label":"Semenyo","team":4,"teamName":"Bournemouth","position":3}},{"x":5.5,"y":4,"playerData":{"x":5.5,"y":4,"label":"Tavernier","team":4,"teamName":"Bournemouth","position":3}},{"x":5,"y":4,"playerData":{"x":5,"y":4,"label":"Adams","team":4,"teamName":"Bournemouth","position":3}},{"x":5,"y":4,"playerData":{"x":5,"y":4,"label":"Brooks","team":4,"teamName":"Bournemouth","position":3}},{"x":5,"y":2,"playerData":{"x":5,"y":2,"label":"Scott","team":4,"teamName":"Bournemouth","position":3}},{"x":4.5,"y":4,"playerData":{"x":4.5,"y":4,"label":"H.Traorè","team":4,"teamName":"Bournemouth","position":3}},{"x":4.5,"y":1,"playerData":{"x":4.5,"y":1,"label":"Winterburn","team":4,"teamName":"Bournemouth","position":3}},{"x":7,"y":1,"playerData":{"x":7,"y":1,"label":"Schade","team":5,"teamName":"Brentford","position":3}},{"x":5.5,"y":1,"playerData":{"x":5.5,"y":1,"label":"Milambo","team":5,"teamName":"Brentford","position":3}},{"x":5,"y":2,"playerData":{"x":5,"y":2,"label":"Carvalho","team":5,"teamName":"Brentford","position":3}},{"x":5,"y":1,"playerData":{"x":5,"y":1,"label":"Henderson","team":5,"teamName":"Brentford","position":3}},{"x":5,"y":2,"playerData":{"x":5,"y":2,"label":"Jensen","team":5,"teamName":"Brentford","position":3}},{"x":5,"y":4,"playerData":{"x":5,"y":4,"label":"Onyeka","team":5,"teamName":"Brentford","position":3}},{"x":5,"y":2,"playerData":{"x":5,"y":2,"label":"Yarmoliuk","team":5,"teamName":"Brentford","position":3}},{"x":6.5,"y":2,"playerData":{"x":6.5,"y":2,"label":"Mitoma","team":6,"teamName":"Brighton","position":3}},{"x":6,"y":6,"playerData":{"x":6,"y":6,"label":"Georginio","team":6,"teamName":"Brighton","position":3}},{"x":6,"y":3,"playerData":{"x":6,"y":3,"label":"Minteh","team":6,"teamName":"Brighton","position":3}},{"x":5.5,"y":1,"playerData":{"x":5.5,"y":1,"label":"Gruda","team":6,"teamName":"Brighton","position":3}},{"x":5.5,"y":10,"playerData":{"x":5.5,"y":10,"label":"O'Riley","team":6,"teamName":"Brighton","position":3}},{"x":5,"y":3,"playerData":{"x":5,"y":3,"label":"Ayari","team":6,"teamName":"Brighton","position":3}},{"x":5,"y":3,"playerData":{"x":5,"y":3,"label":"Baleba","team":6,"teamName":"Brighton","position":3}},{"x":5,"y":1,"playerData":{"x":5,"y":1,"label":"Milner","team":6,"teamName":"Brighton","position":3}},{"x":5,"y":4,"playerData":{"x":5,"y":4,"label":"Wieffer","team":6,"teamName":"Brighton","position":3}},{"x":10.5,"y":3,"playerData":{"x":10.5,"y":3,"label":"Palmer","team":7,"teamName":"Chelsea","position":3}},{"x":7,"y":3,"playerData":{"x":7,"y":3,"label":"Neto","team":7,"teamName":"Chelsea","position":3}},{"x":6.5,"y":3,"playerData":{"x":6.5,"y":3,"label":"Enzo","team":7,"teamName":"Chelsea","position":3}},{"x":6.5,"y":1,"playerData":{"x":6.5,"y":1,"label":"Gittens","team":7,"teamName":"Chelsea","position":3}},{"x":5.5,"y":5,"playerData":{"x":5.5,"y":5,"label":"Caicedo","team":7,"teamName":"Chelsea","position":3}},{"x":4.5,"y":1,"playerData":{"x":4.5,"y":1,"label":"Andrey Santos","team":7,"teamName":"Chelsea","position":3}},{"x":7.5,"y":3,"playerData":{"x":7.5,"y":3,"label":"Eze","team":8,"teamName":"Crystal Palace","position":3}},{"x":6.5,"y":3,"playerData":{"x":6.5,"y":3,"label":"Sarr","team":8,"teamName":"Crystal Palace","position":3}},{"x":5,"y":2,"playerData":{"x":5,"y":2,"label":"Hughes","team":8,"teamName":"Crystal Palace","position":3}},{"x":5,"y":1,"playerData":{"x":5,"y":1,"label":"Lerma","team":8,"teamName":"Crystal Palace","position":3}},{"x":5,"y":3,"playerData":{"x":5,"y":3,"label":"Wharton","team":8,"teamName":"Crystal Palace","position":3}},{"x":4.5,"y":1,"playerData":{"x":4.5,"y":1,"label":"Devenny","team":8,"teamName":"Crystal Palace","position":3}},{"x":5,"y":2,"playerData":{"x":5,"y":2,"label":"Dewsbury-Hall","team":9,"teamName":"Everton","position":3}},{"x":6.5,"y":2,"playerData":{"x":6.5,"y":2,"label":"Ndiaye","team":9,"teamName":"Everton","position":3}},{"x":5.5,"y":1,"playerData":{"x":5.5,"y":1,"label":"Alcaraz","team":9,"teamName":"Everton","position":3}},{"x":5.5,"y":2,"playerData":{"x":5.5,"y":2,"label":"Gana","team":9,"teamName":"Everton","position":3}},{"x":5,"y":2,"playerData":{"x":5,"y":2,"label":"Garner","team":9,"teamName":"Everton","position":3}},{"x":5,"y":2,"playerData":{"x":5,"y":2,"label":"Iroegbunam","team":9,"teamName":"Everton","position":3}},{"x":6.5,"y":1,"playerData":{"x":6.5,"y":1,"label":"Grealish","team":9,"teamName":"Everton","position":3}},{"x":6.5,"y":2,"playerData":{"x":6.5,"y":2,"label":"Iwobi","team":10,"teamName":"Fulham","position":3}},{"x":6,"y":1,"playerData":{"x":6,"y":1,"label":"Smith Rowe","team":10,"teamName":"Fulham","position":3}},{"x":5.5,"y":1,"playerData":{"x":5.5,"y":1,"label":"Adama","team":10,"teamName":"Fulham","position":3}},{"x":5.5,"y":5,"playerData":{"x":5.5,"y":5,"label":"Wilson","team":10,"teamName":"Fulham","position":3}},{"x":5,"y":2,"playerData":{"x":5,"y":2,"label":"Berge","team":10,"teamName":"Fulham","position":3}},{"x":5,"y":2,"playerData":{"x":5,"y":2,"label":"Lukić","team":10,"teamName":"Fulham","position":3}},{"x":4.5,"y":2,"playerData":{"x":4.5,"y":2,"label":"King","team":10,"teamName":"Fulham","position":3}},{"x":5.5,"y":1,"playerData":{"x":5.5,"y":1,"label":"Aaronson","team":11,"teamName":"Leeds","position":3}},{"x":5.5,"y":3,"playerData":{"x":5.5,"y":3,"label":"Gnonto","team":11,"teamName":"Leeds","position":3}},{"x":5.5,"y":1,"playerData":{"x":5.5,"y":1,"label":"Harrison","team":11,"teamName":"Leeds","position":3}},{"x":5.5,"y":3,"playerData":{"x":5.5,"y":3,"label":"James","team":11,"teamName":"Leeds","position":3}},{"x":5,"y":3,"playerData":{"x":5,"y":3,"label":"Ampadu","team":11,"teamName":"Leeds","position":3}},{"x":5,"y":1,"playerData":{"x":5,"y":1,"label":"Gruev","team":11,"teamName":"Leeds","position":3}},{"x":5,"y":3,"playerData":{"x":5,"y":3,"label":"Tanaka","team":11,"teamName":"Leeds","position":3}},{"x":5,"y":1,"playerData":{"x":5,"y":1,"label":"Longstaff","team":11,"teamName":"Leeds","position":3}},{"x":5,"y":8,"playerData":{"x":5,"y":8,"label":"Stach","team":11,"teamName":"Leeds","position":3}},{"x":14.5,"y":8,"playerData":{"x":14.5,"y":8,"label":"M.Salah","team":12,"teamName":"Liverpool","position":3}},{"x":8.5,"y":2,"playerData":{"x":8.5,"y":2,"label":"Wirtz","team":12,"teamName":"Liverpool","position":3}},{"x":7.5,"y":7,"playerData":{"x":7.5,"y":7,"label":"Gakpo","team":12,"teamName":"Liverpool","position":3}},{"x":6.5,"y":6,"playerData":{"x":6.5,"y":6,"label":"Chiesa","team":12,"teamName":"Liverpool","position":3}},{"x":6.5,"y":5,"playerData":{"x":6.5,"y":5,"label":"Mac Allister","team":12,"teamName":"Liverpool","position":3}},{"x":6.5,"y":2,"playerData":{"x":6.5,"y":2,"label":"Szoboszlai","team":12,"teamName":"Liverpool","position":3}},{"x":5.5,"y":1,"playerData":{"x":5.5,"y":1,"label":"C.Jones","team":12,"teamName":"Liverpool","position":3}},{"x":5,"y":4,"playerData":{"x":5,"y":4,"label":"Endo","team":12,"teamName":"Liverpool","position":3}},{"x":8.4,"y":1,"playerData":{"x":8.4,"y":1,"label":"Marmoush","team":13,"teamName":"Man City","position":3}},{"x":6.5,"y":3,"playerData":{"x":6.5,"y":3,"label":"Bernardo","team":13,"teamName":"Man City","position":3}},{"x":6.5,"y":6,"playerData":{"x":6.5,"y":6,"label":"Cherki","team":13,"teamName":"Man City","position":3}},{"x":6.5,"y":3,"playerData":{"x":6.5,"y":3,"label":"Doku","team":13,"teamName":"Man City","position":3}},{"x":6,"y":3,"playerData":{"x":6,"y":3,"label":"N.Gonzalez","team":13,"teamName":"Man City","position":3}},{"x":5.5,"y":6,"playerData":{"x":5.5,"y":6,"label":"Bobb","team":13,"teamName":"Man City","position":3}},{"x":5.6,"y":10,"playerData":{"x":5.6,"y":10,"label":"Reijnders","team":13,"teamName":"Man City","position":3}},{"x":8,"y":2,"playerData":{"x":8,"y":2,"label":"Mbeumo","team":14,"teamName":"Man Utd","position":3}},{"x":9,"y":2,"playerData":{"x":9,"y":2,"label":"B.Fernandes","team":14,"teamName":"Man Utd","position":3}},{"x":8,"y":2,"playerData":{"x":8,"y":2,"label":"Cunha","team":14,"teamName":"Man Utd","position":3}},{"x":6.5,"y":1,"playerData":{"x":6.5,"y":1,"label":"Amad","team":14,"teamName":"Man Utd","position":3}},{"x":6,"y":2,"playerData":{"x":6,"y":2,"label":"Mount","team":14,"teamName":"Man Utd","position":3}},{"x":5.5,"y":2,"playerData":{"x":5.5,"y":2,"label":"Casemiro","team":14,"teamName":"Man Utd","position":3}},{"x":5,"y":1,"playerData":{"x":5,"y":1,"label":"Ugarte","team":14,"teamName":"Man Utd","position":3}},{"x":7.5,"y":3,"playerData":{"x":7.5,"y":3,"label":"Gordon","team":15,"teamName":"Newcastle","position":3}},{"x":7,"y":3,"playerData":{"x":7,"y":3,"label":"Elanga","team":15,"teamName":"Newcastle","position":3}},{"x":6.5,"y":3,"playerData":{"x":6.5,"y":3,"label":"Barnes","team":15,"teamName":"Newcastle","position":3}},{"x":6.5,"y":3,"playerData":{"x":6.5,"y":3,"label":"Bruno G.","team":15,"teamName":"Newcastle","position":3}},{"x":6.4,"y":1,"playerData":{"x":6.4,"y":1,"label":"J.Murphy","team":15,"teamName":"Newcastle","position":3}},{"x":6,"y":2,"playerData":{"x":6,"y":2,"label":"Joelinton","team":15,"teamName":"Newcastle","position":3}},{"x":5.5,"y":3,"playerData":{"x":5.5,"y":3,"label":"Tonali","team":15,"teamName":"Newcastle","position":3}},{"x":4.5,"y":1,"playerData":{"x":4.5,"y":1,"label":"L.Miley","team":15,"teamName":"Newcastle","position":3}},{"x":7.5,"y":5,"playerData":{"x":7.5,"y":5,"label":"Gibbs-White","team":16,"teamName":"Nott'm Forest","position":3}},{"x":6,"y":2,"playerData":{"x":6,"y":2,"label":"Hudson-Odoi","team":16,"teamName":"Nott'm Forest","position":3}},{"x":5.5,"y":6,"playerData":{"x":5.5,"y":6,"label":"Anderson","team":16,"teamName":"Nott'm Forest","position":3}},{"x":5.5,"y":1,"playerData":{"x":5.5,"y":1,"label":"Jota","team":16,"teamName":"Nott'm Forest","position":3}},{"x":5,"y":2,"playerData":{"x":5,"y":2,"label":"Sangaré","team":16,"teamName":"Nott'm Forest","position":3}},{"x":5,"y":1,"playerData":{"x":5,"y":1,"label":"Yates","team":16,"teamName":"Nott'm Forest","position":3}},{"x":6,"y":9,"playerData":{"x":6,"y":9,"label":"Ndoye","team":16,"teamName":"Nott'm Forest","position":3}},{"x":5.5,"y":6,"playerData":{"x":5.5,"y":6,"label":"Adingra","team":17,"teamName":"Sunderland","position":3}},{"x":5.5,"y":3,"playerData":{"x":5.5,"y":3,"label":"Diarra","team":17,"teamName":"Sunderland","position":3}},{"x":5,"y":1,"playerData":{"x":5,"y":1,"label":"E.Le Fée","team":17,"teamName":"Sunderland","position":3}},{"x":5,"y":1,"playerData":{"x":5,"y":1,"label":"Rigg","team":17,"teamName":"Sunderland","position":3}},{"x":5,"y":3,"playerData":{"x":5,"y":3,"label":"Sadiki","team":17,"teamName":"Sunderland","position":3}},{"x":5,"y":6,"playerData":{"x":5,"y":6,"label":"Talbi","team":17,"teamName":"Sunderland","position":3}},{"x":5,"y":3,"playerData":{"x":5,"y":3,"label":"Xhaka","team":17,"teamName":"Sunderland","position":3}},{"x":7,"y":8,"playerData":{"x":7,"y":8,"label":"Johnson","team":18,"teamName":"Spurs","position":3}},{"x":6.5,"y":10,"playerData":{"x":6.5,"y":10,"label":"Kudus","team":18,"teamName":"Spurs","position":3}},{"x":6.4,"y":1,"playerData":{"x":6.4,"y":1,"label":"Tel","team":18,"teamName":"Spurs","position":3}},{"x":5.5,"y":1,"playerData":{"x":5.5,"y":1,"label":"Bentancur","team":18,"teamName":"Spurs","position":3}},{"x":5.5,"y":3,"playerData":{"x":5.5,"y":3,"label":"Bergvall","team":18,"teamName":"Spurs","position":3}},{"x":5.5,"y":1,"playerData":{"x":5.5,"y":1,"label":"Odobert","team":18,"teamName":"Spurs","position":3}},{"x":5,"y":3,"playerData":{"x":5,"y":3,"label":"Gray","team":18,"teamName":"Spurs","position":3}},{"x":5,"y":6,"playerData":{"x":5,"y":6,"label":"P.M.Sarr","team":18,"teamName":"Spurs","position":3}},{"x":5.5,"y":1,"playerData":{"x":5.5,"y":1,"label":"J.Palhinha","team":18,"teamName":"Spurs","position":3}},{"x":5.9,"y":2,"playerData":{"x":5.9,"y":2,"label":"L.Paquetá","team":19,"teamName":"West Ham","position":3}},{"x":5.9,"y":1,"playerData":{"x":5.9,"y":1,"label":"Souček","team":19,"teamName":"West Ham","position":3}},{"x":6,"y":2,"playerData":{"x":6,"y":2,"label":"Ward-Prowse","team":19,"teamName":"West Ham","position":3}},{"x":5,"y":2,"playerData":{"x":5,"y":2,"label":"G.Rodriguez","team":19,"teamName":"West Ham","position":3}},{"x":4.5,"y":1,"playerData":{"x":4.5,"y":1,"label":"Irving","team":19,"teamName":"West Ham","position":3}},{"x":6,"y":1,"playerData":{"x":6,"y":1,"label":"Hee Chan","team":20,"teamName":"Wolves","position":3}},{"x":5.5,"y":4,"playerData":{"x":5.5,"y":4,"label":"André","team":20,"teamName":"Wolves","position":3}},{"x":5.5,"y":2,"playerData":{"x":5.5,"y":2,"label":"Bellegarde","team":20,"teamName":"Wolves","position":3}},{"x":5.5,"y":1,"playerData":{"x":5.5,"y":1,"label":"Fer López","team":20,"teamName":"Wolves","position":3}},{"x":5.5,"y":2,"playerData":{"x":5.5,"y":2,"label":"Gomes","team":20,"teamName":"Wolves","position":3}},{"x":5.5,"y":2,"playerData":{"x":5.5,"y":2,"label":"Munetsi","team":20,"teamName":"Wolves","position":3}},{"x":5.5,"y":1,"playerData":{"x":5.5,"y":1,"label":"J.Arias","team":20,"teamName":"Wolves","position":3}}],"backgroundColor":"#FFCE56","borderColor":"#FFCE56","pointRadius":4,"pointHoverRadius":6},{"label":"Midfielders Trend","data":[{"x":4.5,"y":2.3368786223103664},{"x":14.5,"y":6.329222385652548}],"backgroundColor":"#FFCE56","borderColor":"#FFCE56","pointRadius":0,"pointHoverRadius":0,"showLine":true,"fill":false,"tension":0,"borderWidth":2,"borderDash":[5,5]},{"label":"Forwards","data":[{"x":9,"y":1,"playerData":{"x":9,"y":1,"label":"Gyökeres","team":1,"teamName":"Arsenal","position":4}},{"x":9,"y":2,"playerData":{"x":9,"y":2,"label":"Watkins","team":2,"teamName":"Aston Villa","position":4}},{"x":5.5,"y":1,"playerData":{"x":5.5,"y":1,"label":"Flemming","team":3,"teamName":"Burnley","position":4}},{"x":5,"y":2,"playerData":{"x":5,"y":2,"label":"Foster","team":3,"teamName":"Burnley","position":4}},{"x":7,"y":1,"playerData":{"x":7,"y":1,"label":"Evanilson","team":4,"teamName":"Bournemouth","position":4}},{"x":4.5,"y":1,"playerData":{"x":4.5,"y":1,"label":"Kroupi.Jr","team":4,"teamName":"Bournemouth","position":4}},{"x":6,"y":6,"playerData":{"x":6,"y":6,"label":"Thiago","team":5,"teamName":"Brentford","position":4}},{"x":6.5,"y":1,"playerData":{"x":6.5,"y":1,"label":"Welbeck","team":6,"teamName":"Brighton","position":4}},{"x":7.5,"y":2,"playerData":{"x":7.5,"y":2,"label":"João Pedro","team":7,"teamName":"Chelsea","position":4}},{"x":6.5,"y":1,"playerData":{"x":6.5,"y":1,"label":"Delap","team":7,"teamName":"Chelsea","position":4}},{"x":7.5,"y":1,"playerData":{"x":7.5,"y":1,"label":"Mateta","team":8,"teamName":"Crystal Palace","position":4}},{"x":6,"y":1,"playerData":{"x":6,"y":1,"label":"Barry","team":9,"teamName":"Everton","position":4}},{"x":5.5,"y":2,"playerData":{"x":5.5,"y":2,"label":"Beto","team":9,"teamName":"Everton","position":4}},{"x":6.5,"y":2,"playerData":{"x":6.5,"y":2,"label":"Raúl","team":10,"teamName":"Fulham","position":4}},{"x":5.5,"y":7,"playerData":{"x":5.5,"y":7,"label":"Muniz","team":10,"teamName":"Fulham","position":4}},{"x":5.5,"y":2,"playerData":{"x":5.5,"y":2,"label":"Piroe","team":11,"teamName":"Leeds","position":4}},{"x":5,"y":5,"playerData":{"x":5,"y":5,"label":"Nmecha","team":11,"teamName":"Leeds","position":4}},{"x":8.6,"y":11,"playerData":{"x":8.6,"y":11,"label":"Ekitiké","team":12,"teamName":"Liverpool","position":4}},{"x":14,"y":13,"playerData":{"x":14,"y":13,"label":"Haaland","team":13,"teamName":"Man City","position":4}},{"x":7.5,"y":1,"playerData":{"x":7.5,"y":1,"label":"Šeško","team":14,"teamName":"Man Utd","position":4}},{"x":5.5,"y":1,"playerData":{"x":5.5,"y":1,"label":"Osula","team":15,"teamName":"Newcastle","position":4}},{"x":7.6,"y":13,"playerData":{"x":7.6,"y":13,"label":"Wood","team":16,"teamName":"Nott'm Forest","position":4}},{"x":6,"y":1,"playerData":{"x":6,"y":1,"label":"Igor Jesus","team":16,"teamName":"Nott'm Forest","position":4}},{"x":5.5,"y":5,"playerData":{"x":5.5,"y":5,"label":"Isidor","team":17,"teamName":"Sunderland","position":4}},{"x":5.5,"y":8,"playerData":{"x":5.5,"y":8,"label":"Mayenda","team":17,"teamName":"Sunderland","position":4}},{"x":7.4,"y":1,"playerData":{"x":7.4,"y":1,"label":"Solanke","team":18,"teamName":"Spurs","position":4}},{"x":6.5,"y":13,"playerData":{"x":6.5,"y":13,"label":"Richarlison","team":18,"teamName":"Spurs","position":4}},{"x":8,"y":2,"playerData":{"x":8,"y":2,"label":"Bowen","team":19,"teamName":"West Ham","position":4}},{"x":6,"y":2,"playerData":{"x":6,"y":2,"label":"Füllkrug","team":19,"teamName":"West Ham","position":4}},{"x":6,"y":1,"playerData":{"x":6,"y":1,"label":"Wilson","team":19,"teamName":"West Ham","position":4}},{"x":6.5,"y":2,"playerData":{"x":6.5,"y":2,"label":"Strand Larsen","team":20,"teamName":"Wolves","position":4}}],"backgroundColor":"#4BC0C0","borderColor":"#4BC0C0","pointRadius":4,"pointHoverRadius":6},{"label":"Forwards Trend","data":[{"x":4.5,"y":1.7248545415364727},{"x":14,"y":9.771603275509104}],"backgroundColor":"#4BC0C0","borderColor":"#4BC0C0","pointRadius":0,"pointHoverRadius":0,"showLine":true,"fill":false,"tension":0,"borderWidth":2,"borderDash":[5,5]}]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    title: {
+                        display: true,
+                        text: 'FPL Player Cost vs Total Points',
+                        font: {
+                            size: 18,
+                            weight: 'bold'
+                        }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                // Get the player data directly from the data point
+                                const dataPoint = context.dataset.data[context.dataIndex];
+                                const player = dataPoint.playerData;
+                                
+                                if (!player) {
+                                    return ['Player data not found'];
+                                }
+                                
+                                const positions = {"1":{"name":"Goalkeepers","color":"#FF6384"},"2":{"name":"Defenders","color":"#36A2EB"},"3":{"name":"Midfielders","color":"#FFCE56"},"4":{"name":"Forwards","color":"#4BC0C0"}};
+                                const positionName = positions[player.position]?.name || 'Unknown';
+                                
+                                return [
+                                    `${player.label}`,
+                                    `${player.teamName}`,
+                                    `£${player.x}m`,
+                                    `${player.y} points`,
+                                    `${positionName}`
+                                ];
+                            }
+                        }
+                    },
+                    legend: {
+                        display: false // Hide default legend since we have custom one
+                    }
+                },
+                scales: {
+                    x: {
+                        title: {
+                            display: true,
+                            text: 'Player Cost (£m)',
+                            font: {
+                                size: 14,
+                                weight: 'bold'
+                            }
+                        },
+                        ticks: {
+                            callback: function(value) {
+                                return '£' + value + 'm';
+                            }
+                        }
+                    },
+                    y: {
+                        title: {
+                            display: true,
+                            text: 'Total Points',
+                            font: {
+                                size: 14,
+                                weight: 'bold'
+                            }
+                        }
+                    }
+                }
+            }
+        });
+        
+        // Control button functionality
+        let showNames = false;
+        let showLogos = false;
+        
+        document.getElementById('showNames').addEventListener('click', function() {
+            showNames = !showNames;
+            this.classList.toggle('active');
+            updateChartLabels();
+        });
+        
+        document.getElementById('showLogos').addEventListener('click', function() {
+            showLogos = !showLogos;
+            this.classList.toggle('active');
+            updateChartLabels();
+        });
+        
+        function updateChartLabels() {
+            // Update scatter datasets to show/hide labels
+            chart.data.datasets.forEach((dataset, index) => {
+                if (index % 2 === 0) { // Only scatter datasets (not regression lines)
+                    const dataPoint = dataset.data[0];
+                    if (dataPoint && dataPoint.playerData) {
+                        dataset.pointRadius = showNames || showLogos ? 6 : 4;
+                        
+                        // Add or remove labels
+                        if (showNames) {
+                            dataset.pointBackgroundColor = dataset.backgroundColor;
+                            dataset.pointBorderColor = dataset.borderColor;
+                            dataset.pointBorderWidth = 2;
+                        } else {
+                            dataset.pointBackgroundColor = dataset.backgroundColor;
+                            dataset.pointBorderColor = dataset.borderColor;
+                            dataset.pointBorderWidth = 0;
+                        }
+                    }
+                }
+            });
+            
+            chart.update('none'); // Update without animation for better performance
+            
+            // Add text labels and/or logos if enabled
+            if (showNames || showLogos) {
+                addTextLabels();
+            } else {
+                removeTextLabels();
+            }
+        }
+        
+        function addTextLabels() {
+            // Remove existing labels first
+            removeTextLabels();
+            
+            // Get visible position indices (0=GK, 1=DEF, 2=MID, 3=FWD)
+            const visiblePositions = [];
+            for (let i = 0; i < 4; i++) {
+                const scatterIndex = i * 2;
+                const scatterDataset = chart.data.datasets[scatterIndex];
+                if (scatterDataset && !scatterDataset.hidden) {
+                    visiblePositions.push(i);
+                }
+            }
+            
+            chart.data.datasets.forEach((dataset, index) => {
+                // Only process scatter datasets (even indices) that are visible
+                if (index % 2 === 0 && !dataset.hidden) {
+                    dataset.data.forEach((point, pointIndex) => {
+                        const player = point.playerData;
+                        if (player) {
+                            // Add player name if enabled
+                            if (showNames) {
+                                const textElement = document.createElement('div');
+                                textElement.className = 'player-label';
+                                textElement.textContent = player.label;
+                                textElement.style.cssText = `
+                                    position: absolute;
+                                    font-size: 10px;
+                                    color: white;
+                                    background: rgba(0,0,0,0.7);
+                                    padding: 2px 4px;
+                                    border-radius: 3px;
+                                    pointer-events: none;
+                                    z-index: 1;
+                                    white-space: nowrap;
+                                `;
+                                
+                                // Position the label
+                                const canvasRect = ctx.canvas.getBoundingClientRect();
+                                const chartArea = chart.chartArea;
+                                const x = chartArea.left + (point.x - chart.scales.x.min) / (chart.scales.x.max - chart.scales.x.min) * chartArea.width;
+                                const y = chartArea.top + (chart.scales.y.max - point.y) / (chart.scales.y.max - chart.scales.y.min) * chartArea.height;
+                                
+                                textElement.style.left = (x + 8) + 'px';
+                                textElement.style.top = (y + 8) + 'px';
+                                
+                                document.querySelector('.chart-container').appendChild(textElement);
+                            }
+                            
+                            // Add team logo if enabled
+                            if (showLogos) {
+                                const logoElement = document.createElement('img');
+                                logoElement.className = 'team-logo';
+                                const logoId = {"1":3,"2":7,"3":91,"4":94,"5":36,"6":90,"7":8,"8":31,"9":11,"10":54,"11":13,"12":14,"13":43,"14":1,"15":4,"16":17,"17":20,"18":6,"19":21,"20":39}[player.team] || player.team;
+                                logoElement.src = `https://resources.premierleague.com/premierleague/badges/t${logoId}.png`;
+                                logoElement.style.cssText = `
+                                    position: absolute;
+                                    width: 16px;
+                                    height: 16px;
+                                    pointer-events: none;
+                                    z-index: 2;
+                                    border-radius: 2px;
+                                `;
+                                
+                                // Position the logo
+                                const canvasRect = ctx.canvas.getBoundingClientRect();
+                                const chartArea = chart.chartArea;
+                                const x = chartArea.left + (point.x - chart.scales.x.min) / (chart.scales.x.max - chart.scales.x.min) * chartArea.width;
+                                const y = chartArea.top + (chart.scales.y.max - point.y) / (chart.scales.y.max - chart.scales.y.min) * chartArea.height;
+                                
+                                logoElement.style.left = (x - 8) + 'px';
+                                logoElement.style.top = (y - 8) + 'px';
+                                
+                                // Handle logo load error with fallback
+                                logoElement.onerror = function() {
+                                    this.style.display = 'none';
+                                };
+                                
+                                document.querySelector('.chart-container').appendChild(logoElement);
+                            }
+                        }
+                    });
+                }
+            });
+        }
+        
+        function removeTextLabels() {
+            const labels = document.querySelectorAll('.player-label');
+            const logos = document.querySelectorAll('.team-logo');
+            labels.forEach(label => label.remove());
+            logos.forEach(logo => logo.remove());
+        }
+        
+        // Custom interactive legend
+        const legendItems = document.querySelectorAll('.legend-item');
+        const datasets = [{"label":"Goalkeepers","data":[{"x":5.5,"y":10,"playerData":{"x":5.5,"y":10,"label":"Raya","team":1,"teamName":"Arsenal","position":1}},{"x":4.5,"y":7,"playerData":{"x":4.5,"y":7,"label":"M.Bizot","team":2,"teamName":"Aston Villa","position":1}},{"x":4,"y":2,"playerData":{"x":4,"y":2,"label":"Dúbravka","team":3,"teamName":"Burnley","position":1}},{"x":4.5,"y":2,"playerData":{"x":4.5,"y":2,"label":"Petrović","team":4,"teamName":"Bournemouth","position":1}},{"x":4.5,"y":1,"playerData":{"x":4.5,"y":1,"label":"Kelleher","team":5,"teamName":"Brentford","position":1}},{"x":4.5,"y":2,"playerData":{"x":4.5,"y":2,"label":"Verbruggen","team":6,"teamName":"Brighton","position":1}},{"x":5,"y":8,"playerData":{"x":5,"y":8,"label":"Sánchez","team":7,"teamName":"Chelsea","position":1}},{"x":5,"y":6,"playerData":{"x":5,"y":6,"label":"Henderson","team":8,"teamName":"Crystal Palace","position":1}},{"x":5.5,"y":2,"playerData":{"x":5.5,"y":2,"label":"Pickford","team":9,"teamName":"Everton","position":1}},{"x":5,"y":3,"playerData":{"x":5,"y":3,"label":"Leno","team":10,"teamName":"Fulham","position":1}},{"x":4.5,"y":6,"playerData":{"x":4.5,"y":6,"label":"Perri","team":11,"teamName":"Leeds","position":1}},{"x":5.5,"y":1,"playerData":{"x":5.5,"y":1,"label":"A.Becker","team":12,"teamName":"Liverpool","position":1}},{"x":5,"y":7,"playerData":{"x":5,"y":7,"label":"Trafford","team":13,"teamName":"Man City","position":1}},{"x":5,"y":2,"playerData":{"x":5,"y":2,"label":"Bayindir","team":14,"teamName":"Man Utd","position":1}},{"x":5,"y":9,"playerData":{"x":5,"y":9,"label":"Pope","team":15,"teamName":"Newcastle","position":1}},{"x":5,"y":2,"playerData":{"x":5,"y":2,"label":"Sels","team":16,"teamName":"Nott'm Forest","position":1}},{"x":4.5,"y":8,"playerData":{"x":4.5,"y":8,"label":"Roefs","team":17,"teamName":"Sunderland","position":1}},{"x":5,"y":9,"playerData":{"x":5,"y":9,"label":"Vicario","team":18,"teamName":"Spurs","position":1}},{"x":4.5,"y":1,"playerData":{"x":4.5,"y":1,"label":"Hermansen","team":19,"teamName":"West Ham","position":1}}],"backgroundColor":"#FF6384","borderColor":"#FF6384","pointRadius":4,"pointHoverRadius":6},{"label":"Goalkeepers Trend","data":[{"x":4,"y":3.269565217391305},{"x":5.5,"y":5.695652173913045}],"backgroundColor":"#FF6384","borderColor":"#FF6384","pointRadius":0,"pointHoverRadius":0,"showLine":true,"fill":false,"tension":0,"borderWidth":2,"borderDash":[5,5]},{"label":"Defenders","data":[{"x":6,"y":6,"playerData":{"x":6,"y":6,"label":"Gabriel","team":1,"teamName":"Arsenal","position":2}},{"x":6,"y":9,"playerData":{"x":6,"y":9,"label":"Saliba","team":1,"teamName":"Arsenal","position":2}},{"x":5.5,"y":13,"playerData":{"x":5.5,"y":13,"label":"Calafiori","team":1,"teamName":"Arsenal","position":2}},{"x":5.5,"y":6,"playerData":{"x":5.5,"y":6,"label":"White","team":1,"teamName":"Arsenal","position":2}},{"x":4.5,"y":8,"playerData":{"x":4.5,"y":8,"label":"Cash","team":2,"teamName":"Aston Villa","position":2}},{"x":4.5,"y":6,"playerData":{"x":4.5,"y":6,"label":"Digne","team":2,"teamName":"Aston Villa","position":2}},{"x":4.5,"y":6,"playerData":{"x":4.5,"y":6,"label":"Mings","team":2,"teamName":"Aston Villa","position":2}},{"x":4.5,"y":1,"playerData":{"x":4.5,"y":1,"label":"Walker","team":3,"teamName":"Burnley","position":2}},{"x":4,"y":1,"playerData":{"x":4,"y":1,"label":"Ekdal","team":3,"teamName":"Burnley","position":2}},{"x":4,"y":1,"playerData":{"x":4,"y":1,"label":"Estève","team":3,"teamName":"Burnley","position":2}},{"x":4,"y":1,"playerData":{"x":4,"y":1,"label":"Hartman","team":3,"teamName":"Burnley","position":2}},{"x":4,"y":1,"playerData":{"x":4,"y":1,"label":"Sonne","team":3,"teamName":"Burnley","position":2}},{"x":4.5,"y":2,"playerData":{"x":4.5,"y":2,"label":"Senesi","team":4,"teamName":"Bournemouth","position":2}},{"x":4.5,"y":1,"playerData":{"x":4.5,"y":1,"label":"Smith","team":4,"teamName":"Bournemouth","position":2}},{"x":4,"y":1,"playerData":{"x":4,"y":1,"label":"Hill","team":4,"teamName":"Bournemouth","position":2}},{"x":5,"y":1,"playerData":{"x":5,"y":1,"label":"Lewis-Potter","team":5,"teamName":"Brentford","position":2}},{"x":4.5,"y":1,"playerData":{"x":4.5,"y":1,"label":"Henry","team":5,"teamName":"Brentford","position":2}},{"x":4.5,"y":1,"playerData":{"x":4.5,"y":1,"label":"Kayode","team":5,"teamName":"Brentford","position":2}},{"x":4.5,"y":3,"playerData":{"x":4.5,"y":3,"label":"Van den Berg","team":5,"teamName":"Brentford","position":2}},{"x":4.5,"y":2,"playerData":{"x":4.5,"y":2,"label":"De Cuyper","team":6,"teamName":"Brighton","position":2}},{"x":4.5,"y":2,"playerData":{"x":4.5,"y":2,"label":"Dunk","team":6,"teamName":"Brighton","position":2}},{"x":4.5,"y":2,"playerData":{"x":4.5,"y":2,"label":"Van Hecke","team":6,"teamName":"Brighton","position":2}},{"x":6,"y":8,"playerData":{"x":6,"y":8,"label":"Cucurella","team":7,"teamName":"Chelsea","position":2}},{"x":5.5,"y":5,"playerData":{"x":5.5,"y":5,"label":"James","team":7,"teamName":"Chelsea","position":2}},{"x":5,"y":6,"playerData":{"x":5,"y":6,"label":"Chalobah","team":7,"teamName":"Chelsea","position":2}},{"x":5,"y":1,"playerData":{"x":5,"y":1,"label":"Gusto","team":7,"teamName":"Chelsea","position":2}},{"x":4,"y":9,"playerData":{"x":4,"y":9,"label":"Acheampong","team":7,"teamName":"Chelsea","position":2}},{"x":5.5,"y":5,"playerData":{"x":5.5,"y":5,"label":"Muñoz","team":8,"teamName":"Crystal Palace","position":2}},{"x":5,"y":8,"playerData":{"x":5,"y":8,"label":"Lacroix","team":8,"teamName":"Crystal Palace","position":2}},{"x":5,"y":9,"playerData":{"x":5,"y":9,"label":"Mitchell","team":8,"teamName":"Crystal Palace","position":2}},{"x":4.5,"y":6,"playerData":{"x":4.5,"y":6,"label":"Guéhi","team":8,"teamName":"Crystal Palace","position":2}},{"x":4.5,"y":6,"playerData":{"x":4.5,"y":6,"label":"Richards","team":8,"teamName":"Crystal Palace","position":2}},{"x":5.5,"y":4,"playerData":{"x":5.5,"y":4,"label":"Tarkowski","team":9,"teamName":"Everton","position":2}},{"x":5,"y":2,"playerData":{"x":5,"y":2,"label":"O'Brien","team":9,"teamName":"Everton","position":2}},{"x":4.5,"y":2,"playerData":{"x":4.5,"y":2,"label":"Keane","team":9,"teamName":"Everton","position":2}},{"x":4.5,"y":2,"playerData":{"x":4.5,"y":2,"label":"Andersen","team":10,"teamName":"Fulham","position":2}},{"x":4.5,"y":1,"playerData":{"x":4.5,"y":1,"label":"Bassey","team":10,"teamName":"Fulham","position":2}},{"x":4.5,"y":1,"playerData":{"x":4.5,"y":1,"label":"Castagne","team":10,"teamName":"Fulham","position":2}},{"x":4.5,"y":2,"playerData":{"x":4.5,"y":2,"label":"J.Cuenca","team":10,"teamName":"Fulham","position":2}},{"x":4.5,"y":2,"playerData":{"x":4.5,"y":2,"label":"Tete","team":10,"teamName":"Fulham","position":2}},{"x":4.5,"y":6,"playerData":{"x":4.5,"y":6,"label":"Bogle","team":11,"teamName":"Leeds","position":2}},{"x":4.5,"y":8,"playerData":{"x":4.5,"y":8,"label":"Struijk","team":11,"teamName":"Leeds","position":2}},{"x":4,"y":9,"playerData":{"x":4,"y":9,"label":"Gudmundsson","team":11,"teamName":"Leeds","position":2}},{"x":4,"y":7,"playerData":{"x":4,"y":7,"label":"Rodon","team":11,"teamName":"Leeds","position":2}},{"x":6,"y":1,"playerData":{"x":6,"y":1,"label":"Frimpong","team":12,"teamName":"Liverpool","position":2}},{"x":6,"y":3,"playerData":{"x":6,"y":3,"label":"Virgil","team":12,"teamName":"Liverpool","position":2}},{"x":5.5,"y":1,"playerData":{"x":5.5,"y":1,"label":"Konaté","team":12,"teamName":"Liverpool","position":2}},{"x":5,"y":1,"playerData":{"x":5,"y":1,"label":"Gomez","team":12,"teamName":"Liverpool","position":2}},{"x":6,"y":9,"playerData":{"x":6,"y":9,"label":"Aït-Nouri","team":13,"teamName":"Man City","position":2}},{"x":5.5,"y":1,"playerData":{"x":5.5,"y":1,"label":"Khusanov","team":13,"teamName":"Man City","position":2}},{"x":5.5,"y":1,"playerData":{"x":5.5,"y":1,"label":"Matheus N.","team":13,"teamName":"Man City","position":2}},{"x":5.5,"y":6,"playerData":{"x":5.5,"y":6,"label":"Rúben","team":13,"teamName":"Man City","position":2}},{"x":5.5,"y":6,"playerData":{"x":5.5,"y":6,"label":"Stones","team":13,"teamName":"Man City","position":2}},{"x":5,"y":11,"playerData":{"x":5,"y":11,"label":"Lewis","team":13,"teamName":"Man City","position":2}},{"x":5,"y":4,"playerData":{"x":5,"y":4,"label":"De Ligt","team":14,"teamName":"Man Utd","position":2}},{"x":4.5,"y":1,"playerData":{"x":4.5,"y":1,"label":"Dalot","team":14,"teamName":"Man Utd","position":2}},{"x":4.5,"y":1,"playerData":{"x":4.5,"y":1,"label":"Dorgu","team":14,"teamName":"Man Utd","position":2}},{"x":4.5,"y":1,"playerData":{"x":4.5,"y":1,"label":"Maguire","team":14,"teamName":"Man Utd","position":2}},{"x":4.5,"y":2,"playerData":{"x":4.5,"y":2,"label":"Shaw","team":14,"teamName":"Man Utd","position":2}},{"x":4.5,"y":4,"playerData":{"x":4.5,"y":4,"label":"Yoro","team":14,"teamName":"Man Utd","position":2}},{"x":5.5,"y":8,"playerData":{"x":5.5,"y":8,"label":"Schär","team":15,"teamName":"Newcastle","position":2}},{"x":5,"y":9,"playerData":{"x":5,"y":9,"label":"Burn","team":15,"teamName":"Newcastle","position":2}},{"x":5,"y":9,"playerData":{"x":5,"y":9,"label":"Livramento","team":15,"teamName":"Newcastle","position":2}},{"x":5,"y":6,"playerData":{"x":5,"y":6,"label":"Trippier","team":15,"teamName":"Newcastle","position":2}},{"x":5.5,"y":2,"playerData":{"x":5.5,"y":2,"label":"Milenković","team":16,"teamName":"Nott'm Forest","position":2}},{"x":5.5,"y":2,"playerData":{"x":5.5,"y":2,"label":"Murillo","team":16,"teamName":"Nott'm Forest","position":2}},{"x":5,"y":4,"playerData":{"x":5,"y":4,"label":"Aina","team":16,"teamName":"Nott'm Forest","position":2}},{"x":5,"y":1,"playerData":{"x":5,"y":1,"label":"N.Williams","team":16,"teamName":"Nott'm Forest","position":2}},{"x":4.6,"y":17,"playerData":{"x":4.6,"y":17,"label":"Ballard","team":17,"teamName":"Sunderland","position":2}},{"x":4.5,"y":6,"playerData":{"x":4.5,"y":6,"label":"Hume","team":17,"teamName":"Sunderland","position":2}},{"x":4,"y":6,"playerData":{"x":4,"y":6,"label":"Reinildo","team":17,"teamName":"Sunderland","position":2}},{"x":4,"y":4,"playerData":{"x":4,"y":4,"label":"Alderete","team":17,"teamName":"Sunderland","position":2}},{"x":5.5,"y":6,"playerData":{"x":5.5,"y":6,"label":"Pedro Porro","team":18,"teamName":"Spurs","position":2}},{"x":5,"y":6,"playerData":{"x":5,"y":6,"label":"Romero","team":18,"teamName":"Spurs","position":2}},{"x":4.5,"y":6,"playerData":{"x":4.5,"y":6,"label":"Spence","team":18,"teamName":"Spurs","position":2}},{"x":4.5,"y":6,"playerData":{"x":4.5,"y":6,"label":"Van de Ven","team":18,"teamName":"Spurs","position":2}},{"x":4.5,"y":1,"playerData":{"x":4.5,"y":1,"label":"Diouf","team":19,"teamName":"West Ham","position":2}},{"x":4.5,"y":1,"playerData":{"x":4.5,"y":1,"label":"N.Aguerd","team":19,"teamName":"West Ham","position":2}},{"x":4.5,"y":1,"playerData":{"x":4.5,"y":1,"label":"Todibo","team":19,"teamName":"West Ham","position":2}},{"x":4.5,"y":1,"playerData":{"x":4.5,"y":1,"label":"Wan-Bissaka","team":19,"teamName":"West Ham","position":2}},{"x":4.5,"y":1,"playerData":{"x":4.5,"y":1,"label":"H.Bueno","team":20,"teamName":"Wolves","position":2}},{"x":4.5,"y":1,"playerData":{"x":4.5,"y":1,"label":"R.Gomes","team":20,"teamName":"Wolves","position":2}},{"x":4,"y":1,"playerData":{"x":4,"y":1,"label":"Hoever","team":20,"teamName":"Wolves","position":2}},{"x":4.5,"y":1,"playerData":{"x":4.5,"y":1,"label":"Møller Wolfe","team":20,"teamName":"Wolves","position":2}}],"backgroundColor":"#36A2EB","borderColor":"#36A2EB","pointRadius":4,"pointHoverRadius":6},{"label":"Defenders Trend","data":[{"x":4,"y":2.9470862167296037},{"x":6,"y":5.791937417764274}],"backgroundColor":"#36A2EB","borderColor":"#36A2EB","pointRadius":0,"pointHoverRadius":0,"showLine":true,"fill":false,"tension":0,"borderWidth":2,"borderDash":[5,5]},{"label":"Midfielders","data":[{"x":10,"y":3,"playerData":{"x":10,"y":3,"label":"Saka","team":1,"teamName":"Arsenal","position":3}},{"x":8,"y":5,"playerData":{"x":8,"y":5,"label":"Ødegaard","team":1,"teamName":"Arsenal","position":3}},{"x":7,"y":1,"playerData":{"x":7,"y":1,"label":"Madueke","team":1,"teamName":"Arsenal","position":3}},{"x":7,"y":1,"playerData":{"x":7,"y":1,"label":"Martinelli","team":1,"teamName":"Arsenal","position":3}},{"x":6.5,"y":6,"playerData":{"x":6.5,"y":6,"label":"Rice","team":1,"teamName":"Arsenal","position":3}},{"x":6,"y":1,"playerData":{"x":6,"y":1,"label":"Merino","team":1,"teamName":"Arsenal","position":3}},{"x":5.5,"y":5,"playerData":{"x":5.5,"y":5,"label":"Zubimendi","team":1,"teamName":"Arsenal","position":3}},{"x":7,"y":3,"playerData":{"x":7,"y":3,"label":"Rogers","team":2,"teamName":"Aston Villa","position":3}},{"x":6,"y":3,"playerData":{"x":6,"y":3,"label":"Tielemans","team":2,"teamName":"Aston Villa","position":3}},{"x":5.4,"y":1,"playerData":{"x":5.4,"y":1,"label":"Malen","team":2,"teamName":"Aston Villa","position":3}},{"x":5.5,"y":3,"playerData":{"x":5.5,"y":3,"label":"McGinn","team":2,"teamName":"Aston Villa","position":3}},{"x":5,"y":2,"playerData":{"x":5,"y":2,"label":"Kamara","team":2,"teamName":"Aston Villa","position":3}},{"x":5,"y":5,"playerData":{"x":5,"y":5,"label":"Onana","team":2,"teamName":"Aston Villa","position":3}},{"x":5.5,"y":2,"playerData":{"x":5.5,"y":2,"label":"Anthony","team":3,"teamName":"Burnley","position":3}},{"x":5.5,"y":1,"playerData":{"x":5.5,"y":1,"label":"Bruun Larsen","team":3,"teamName":"Burnley","position":3}},{"x":5,"y":4,"playerData":{"x":5,"y":4,"label":"Cullen","team":3,"teamName":"Burnley","position":3}},{"x":5,"y":1,"playerData":{"x":5,"y":1,"label":"Edwards","team":3,"teamName":"Burnley","position":3}},{"x":5,"y":2,"playerData":{"x":5,"y":2,"label":"Hannibal","team":3,"teamName":"Burnley","position":3}},{"x":5,"y":2,"playerData":{"x":5,"y":2,"label":"Laurent","team":3,"teamName":"Burnley","position":3}},{"x":5,"y":1,"playerData":{"x":5,"y":1,"label":"Tchaouna","team":3,"teamName":"Burnley","position":3}},{"x":5,"y":1,"playerData":{"x":5,"y":1,"label":"Ugochukwu","team":3,"teamName":"Burnley","position":3}},{"x":7.1,"y":15,"playerData":{"x":7.1,"y":15,"label":"Semenyo","team":4,"teamName":"Bournemouth","position":3}},{"x":5.5,"y":4,"playerData":{"x":5.5,"y":4,"label":"Tavernier","team":4,"teamName":"Bournemouth","position":3}},{"x":5,"y":4,"playerData":{"x":5,"y":4,"label":"Adams","team":4,"teamName":"Bournemouth","position":3}},{"x":5,"y":4,"playerData":{"x":5,"y":4,"label":"Brooks","team":4,"teamName":"Bournemouth","position":3}},{"x":5,"y":2,"playerData":{"x":5,"y":2,"label":"Scott","team":4,"teamName":"Bournemouth","position":3}},{"x":4.5,"y":4,"playerData":{"x":4.5,"y":4,"label":"H.Traorè","team":4,"teamName":"Bournemouth","position":3}},{"x":4.5,"y":1,"playerData":{"x":4.5,"y":1,"label":"Winterburn","team":4,"teamName":"Bournemouth","position":3}},{"x":7,"y":1,"playerData":{"x":7,"y":1,"label":"Schade","team":5,"teamName":"Brentford","position":3}},{"x":5.5,"y":1,"playerData":{"x":5.5,"y":1,"label":"Milambo","team":5,"teamName":"Brentford","position":3}},{"x":5,"y":2,"playerData":{"x":5,"y":2,"label":"Carvalho","team":5,"teamName":"Brentford","position":3}},{"x":5,"y":1,"playerData":{"x":5,"y":1,"label":"Henderson","team":5,"teamName":"Brentford","position":3}},{"x":5,"y":2,"playerData":{"x":5,"y":2,"label":"Jensen","team":5,"teamName":"Brentford","position":3}},{"x":5,"y":4,"playerData":{"x":5,"y":4,"label":"Onyeka","team":5,"teamName":"Brentford","position":3}},{"x":5,"y":2,"playerData":{"x":5,"y":2,"label":"Yarmoliuk","team":5,"teamName":"Brentford","position":3}},{"x":6.5,"y":2,"playerData":{"x":6.5,"y":2,"label":"Mitoma","team":6,"teamName":"Brighton","position":3}},{"x":6,"y":6,"playerData":{"x":6,"y":6,"label":"Georginio","team":6,"teamName":"Brighton","position":3}},{"x":6,"y":3,"playerData":{"x":6,"y":3,"label":"Minteh","team":6,"teamName":"Brighton","position":3}},{"x":5.5,"y":1,"playerData":{"x":5.5,"y":1,"label":"Gruda","team":6,"teamName":"Brighton","position":3}},{"x":5.5,"y":10,"playerData":{"x":5.5,"y":10,"label":"O'Riley","team":6,"teamName":"Brighton","position":3}},{"x":5,"y":3,"playerData":{"x":5,"y":3,"label":"Ayari","team":6,"teamName":"Brighton","position":3}},{"x":5,"y":3,"playerData":{"x":5,"y":3,"label":"Baleba","team":6,"teamName":"Brighton","position":3}},{"x":5,"y":1,"playerData":{"x":5,"y":1,"label":"Milner","team":6,"teamName":"Brighton","position":3}},{"x":5,"y":4,"playerData":{"x":5,"y":4,"label":"Wieffer","team":6,"teamName":"Brighton","position":3}},{"x":10.5,"y":3,"playerData":{"x":10.5,"y":3,"label":"Palmer","team":7,"teamName":"Chelsea","position":3}},{"x":7,"y":3,"playerData":{"x":7,"y":3,"label":"Neto","team":7,"teamName":"Chelsea","position":3}},{"x":6.5,"y":3,"playerData":{"x":6.5,"y":3,"label":"Enzo","team":7,"teamName":"Chelsea","position":3}},{"x":6.5,"y":1,"playerData":{"x":6.5,"y":1,"label":"Gittens","team":7,"teamName":"Chelsea","position":3}},{"x":5.5,"y":5,"playerData":{"x":5.5,"y":5,"label":"Caicedo","team":7,"teamName":"Chelsea","position":3}},{"x":4.5,"y":1,"playerData":{"x":4.5,"y":1,"label":"Andrey Santos","team":7,"teamName":"Chelsea","position":3}},{"x":7.5,"y":3,"playerData":{"x":7.5,"y":3,"label":"Eze","team":8,"teamName":"Crystal Palace","position":3}},{"x":6.5,"y":3,"playerData":{"x":6.5,"y":3,"label":"Sarr","team":8,"teamName":"Crystal Palace","position":3}},{"x":5,"y":2,"playerData":{"x":5,"y":2,"label":"Hughes","team":8,"teamName":"Crystal Palace","position":3}},{"x":5,"y":1,"playerData":{"x":5,"y":1,"label":"Lerma","team":8,"teamName":"Crystal Palace","position":3}},{"x":5,"y":3,"playerData":{"x":5,"y":3,"label":"Wharton","team":8,"teamName":"Crystal Palace","position":3}},{"x":4.5,"y":1,"playerData":{"x":4.5,"y":1,"label":"Devenny","team":8,"teamName":"Crystal Palace","position":3}},{"x":5,"y":2,"playerData":{"x":5,"y":2,"label":"Dewsbury-Hall","team":9,"teamName":"Everton","position":3}},{"x":6.5,"y":2,"playerData":{"x":6.5,"y":2,"label":"Ndiaye","team":9,"teamName":"Everton","position":3}},{"x":5.5,"y":1,"playerData":{"x":5.5,"y":1,"label":"Alcaraz","team":9,"teamName":"Everton","position":3}},{"x":5.5,"y":2,"playerData":{"x":5.5,"y":2,"label":"Gana","team":9,"teamName":"Everton","position":3}},{"x":5,"y":2,"playerData":{"x":5,"y":2,"label":"Garner","team":9,"teamName":"Everton","position":3}},{"x":5,"y":2,"playerData":{"x":5,"y":2,"label":"Iroegbunam","team":9,"teamName":"Everton","position":3}},{"x":6.5,"y":1,"playerData":{"x":6.5,"y":1,"label":"Grealish","team":9,"teamName":"Everton","position":3}},{"x":6.5,"y":2,"playerData":{"x":6.5,"y":2,"label":"Iwobi","team":10,"teamName":"Fulham","position":3}},{"x":6,"y":1,"playerData":{"x":6,"y":1,"label":"Smith Rowe","team":10,"teamName":"Fulham","position":3}},{"x":5.5,"y":1,"playerData":{"x":5.5,"y":1,"label":"Adama","team":10,"teamName":"Fulham","position":3}},{"x":5.5,"y":5,"playerData":{"x":5.5,"y":5,"label":"Wilson","team":10,"teamName":"Fulham","position":3}},{"x":5,"y":2,"playerData":{"x":5,"y":2,"label":"Berge","team":10,"teamName":"Fulham","position":3}},{"x":5,"y":2,"playerData":{"x":5,"y":2,"label":"Lukić","team":10,"teamName":"Fulham","position":3}},{"x":4.5,"y":2,"playerData":{"x":4.5,"y":2,"label":"King","team":10,"teamName":"Fulham","position":3}},{"x":5.5,"y":1,"playerData":{"x":5.5,"y":1,"label":"Aaronson","team":11,"teamName":"Leeds","position":3}},{"x":5.5,"y":3,"playerData":{"x":5.5,"y":3,"label":"Gnonto","team":11,"teamName":"Leeds","position":3}},{"x":5.5,"y":1,"playerData":{"x":5.5,"y":1,"label":"Harrison","team":11,"teamName":"Leeds","position":3}},{"x":5.5,"y":3,"playerData":{"x":5.5,"y":3,"label":"James","team":11,"teamName":"Leeds","position":3}},{"x":5,"y":3,"playerData":{"x":5,"y":3,"label":"Ampadu","team":11,"teamName":"Leeds","position":3}},{"x":5,"y":1,"playerData":{"x":5,"y":1,"label":"Gruev","team":11,"teamName":"Leeds","position":3}},{"x":5,"y":3,"playerData":{"x":5,"y":3,"label":"Tanaka","team":11,"teamName":"Leeds","position":3}},{"x":5,"y":1,"playerData":{"x":5,"y":1,"label":"Longstaff","team":11,"teamName":"Leeds","position":3}},{"x":5,"y":8,"playerData":{"x":5,"y":8,"label":"Stach","team":11,"teamName":"Leeds","position":3}},{"x":14.5,"y":8,"playerData":{"x":14.5,"y":8,"label":"M.Salah","team":12,"teamName":"Liverpool","position":3}},{"x":8.5,"y":2,"playerData":{"x":8.5,"y":2,"label":"Wirtz","team":12,"teamName":"Liverpool","position":3}},{"x":7.5,"y":7,"playerData":{"x":7.5,"y":7,"label":"Gakpo","team":12,"teamName":"Liverpool","position":3}},{"x":6.5,"y":6,"playerData":{"x":6.5,"y":6,"label":"Chiesa","team":12,"teamName":"Liverpool","position":3}},{"x":6.5,"y":5,"playerData":{"x":6.5,"y":5,"label":"Mac Allister","team":12,"teamName":"Liverpool","position":3}},{"x":6.5,"y":2,"playerData":{"x":6.5,"y":2,"label":"Szoboszlai","team":12,"teamName":"Liverpool","position":3}},{"x":5.5,"y":1,"playerData":{"x":5.5,"y":1,"label":"C.Jones","team":12,"teamName":"Liverpool","position":3}},{"x":5,"y":4,"playerData":{"x":5,"y":4,"label":"Endo","team":12,"teamName":"Liverpool","position":3}},{"x":8.4,"y":1,"playerData":{"x":8.4,"y":1,"label":"Marmoush","team":13,"teamName":"Man City","position":3}},{"x":6.5,"y":3,"playerData":{"x":6.5,"y":3,"label":"Bernardo","team":13,"teamName":"Man City","position":3}},{"x":6.5,"y":6,"playerData":{"x":6.5,"y":6,"label":"Cherki","team":13,"teamName":"Man City","position":3}},{"x":6.5,"y":3,"playerData":{"x":6.5,"y":3,"label":"Doku","team":13,"teamName":"Man City","position":3}},{"x":6,"y":3,"playerData":{"x":6,"y":3,"label":"N.Gonzalez","team":13,"teamName":"Man City","position":3}},{"x":5.5,"y":6,"playerData":{"x":5.5,"y":6,"label":"Bobb","team":13,"teamName":"Man City","position":3}},{"x":5.6,"y":10,"playerData":{"x":5.6,"y":10,"label":"Reijnders","team":13,"teamName":"Man City","position":3}},{"x":8,"y":2,"playerData":{"x":8,"y":2,"label":"Mbeumo","team":14,"teamName":"Man Utd","position":3}},{"x":9,"y":2,"playerData":{"x":9,"y":2,"label":"B.Fernandes","team":14,"teamName":"Man Utd","position":3}},{"x":8,"y":2,"playerData":{"x":8,"y":2,"label":"Cunha","team":14,"teamName":"Man Utd","position":3}},{"x":6.5,"y":1,"playerData":{"x":6.5,"y":1,"label":"Amad","team":14,"teamName":"Man Utd","position":3}},{"x":6,"y":2,"playerData":{"x":6,"y":2,"label":"Mount","team":14,"teamName":"Man Utd","position":3}},{"x":5.5,"y":2,"playerData":{"x":5.5,"y":2,"label":"Casemiro","team":14,"teamName":"Man Utd","position":3}},{"x":5,"y":1,"playerData":{"x":5,"y":1,"label":"Ugarte","team":14,"teamName":"Man Utd","position":3}},{"x":7.5,"y":3,"playerData":{"x":7.5,"y":3,"label":"Gordon","team":15,"teamName":"Newcastle","position":3}},{"x":7,"y":3,"playerData":{"x":7,"y":3,"label":"Elanga","team":15,"teamName":"Newcastle","position":3}},{"x":6.5,"y":3,"playerData":{"x":6.5,"y":3,"label":"Barnes","team":15,"teamName":"Newcastle","position":3}},{"x":6.5,"y":3,"playerData":{"x":6.5,"y":3,"label":"Bruno G.","team":15,"teamName":"Newcastle","position":3}},{"x":6.4,"y":1,"playerData":{"x":6.4,"y":1,"label":"J.Murphy","team":15,"teamName":"Newcastle","position":3}},{"x":6,"y":2,"playerData":{"x":6,"y":2,"label":"Joelinton","team":15,"teamName":"Newcastle","position":3}},{"x":5.5,"y":3,"playerData":{"x":5.5,"y":3,"label":"Tonali","team":15,"teamName":"Newcastle","position":3}},{"x":4.5,"y":1,"playerData":{"x":4.5,"y":1,"label":"L.Miley","team":15,"teamName":"Newcastle","position":3}},{"x":7.5,"y":5,"playerData":{"x":7.5,"y":5,"label":"Gibbs-White","team":16,"teamName":"Nott'm Forest","position":3}},{"x":6,"y":2,"playerData":{"x":6,"y":2,"label":"Hudson-Odoi","team":16,"teamName":"Nott'm Forest","position":3}},{"x":5.5,"y":6,"playerData":{"x":5.5,"y":6,"label":"Anderson","team":16,"teamName":"Nott'm Forest","position":3}},{"x":5.5,"y":1,"playerData":{"x":5.5,"y":1,"label":"Jota","team":16,"teamName":"Nott'm Forest","position":3}},{"x":5,"y":2,"playerData":{"x":5,"y":2,"label":"Sangaré","team":16,"teamName":"Nott'm Forest","position":3}},{"x":5,"y":1,"playerData":{"x":5,"y":1,"label":"Yates","team":16,"teamName":"Nott'm Forest","position":3}},{"x":6,"y":9,"playerData":{"x":6,"y":9,"label":"Ndoye","team":16,"teamName":"Nott'm Forest","position":3}},{"x":5.5,"y":6,"playerData":{"x":5.5,"y":6,"label":"Adingra","team":17,"teamName":"Sunderland","position":3}},{"x":5.5,"y":3,"playerData":{"x":5.5,"y":3,"label":"Diarra","team":17,"teamName":"Sunderland","position":3}},{"x":5,"y":1,"playerData":{"x":5,"y":1,"label":"E.Le Fée","team":17,"teamName":"Sunderland","position":3}},{"x":5,"y":1,"playerData":{"x":5,"y":1,"label":"Rigg","team":17,"teamName":"Sunderland","position":3}},{"x":5,"y":3,"playerData":{"x":5,"y":3,"label":"Sadiki","team":17,"teamName":"Sunderland","position":3}},{"x":5,"y":6,"playerData":{"x":5,"y":6,"label":"Talbi","team":17,"teamName":"Sunderland","position":3}},{"x":5,"y":3,"playerData":{"x":5,"y":3,"label":"Xhaka","team":17,"teamName":"Sunderland","position":3}},{"x":7,"y":8,"playerData":{"x":7,"y":8,"label":"Johnson","team":18,"teamName":"Spurs","position":3}},{"x":6.5,"y":10,"playerData":{"x":6.5,"y":10,"label":"Kudus","team":18,"teamName":"Spurs","position":3}},{"x":6.4,"y":1,"playerData":{"x":6.4,"y":1,"label":"Tel","team":18,"teamName":"Spurs","position":3}},{"x":5.5,"y":1,"playerData":{"x":5.5,"y":1,"label":"Bentancur","team":18,"teamName":"Spurs","position":3}},{"x":5.5,"y":3,"playerData":{"x":5.5,"y":3,"label":"Bergvall","team":18,"teamName":"Spurs","position":3}},{"x":5.5,"y":1,"playerData":{"x":5.5,"y":1,"label":"Odobert","team":18,"teamName":"Spurs","position":3}},{"x":5,"y":3,"playerData":{"x":5,"y":3,"label":"Gray","team":18,"teamName":"Spurs","position":3}},{"x":5,"y":6,"playerData":{"x":5,"y":6,"label":"P.M.Sarr","team":18,"teamName":"Spurs","position":3}},{"x":5.5,"y":1,"playerData":{"x":5.5,"y":1,"label":"J.Palhinha","team":18,"teamName":"Spurs","position":3}},{"x":5.9,"y":2,"playerData":{"x":5.9,"y":2,"label":"L.Paquetá","team":19,"teamName":"West Ham","position":3}},{"x":5.9,"y":1,"playerData":{"x":5.9,"y":1,"label":"Souček","team":19,"teamName":"West Ham","position":3}},{"x":6,"y":2,"playerData":{"x":6,"y":2,"label":"Ward-Prowse","team":19,"teamName":"West Ham","position":3}},{"x":5,"y":2,"playerData":{"x":5,"y":2,"label":"G.Rodriguez","team":19,"teamName":"West Ham","position":3}},{"x":4.5,"y":1,"playerData":{"x":4.5,"y":1,"label":"Irving","team":19,"teamName":"West Ham","position":3}},{"x":6,"y":1,"playerData":{"x":6,"y":1,"label":"Hee Chan","team":20,"teamName":"Wolves","position":3}},{"x":5.5,"y":4,"playerData":{"x":5.5,"y":4,"label":"André","team":20,"teamName":"Wolves","position":3}},{"x":5.5,"y":2,"playerData":{"x":5.5,"y":2,"label":"Bellegarde","team":20,"teamName":"Wolves","position":3}},{"x":5.5,"y":1,"playerData":{"x":5.5,"y":1,"label":"Fer López","team":20,"teamName":"Wolves","position":3}},{"x":5.5,"y":2,"playerData":{"x":5.5,"y":2,"label":"Gomes","team":20,"teamName":"Wolves","position":3}},{"x":5.5,"y":2,"playerData":{"x":5.5,"y":2,"label":"Munetsi","team":20,"teamName":"Wolves","position":3}},{"x":5.5,"y":1,"playerData":{"x":5.5,"y":1,"label":"J.Arias","team":20,"teamName":"Wolves","position":3}}],"backgroundColor":"#FFCE56","borderColor":"#FFCE56","pointRadius":4,"pointHoverRadius":6},{"label":"Midfielders Trend","data":[{"x":4.5,"y":2.3368786223103664},{"x":14.5,"y":6.329222385652548}],"backgroundColor":"#FFCE56","borderColor":"#FFCE56","pointRadius":0,"pointHoverRadius":0,"showLine":true,"fill":false,"tension":0,"borderWidth":2,"borderDash":[5,5]},{"label":"Forwards","data":[{"x":9,"y":1,"playerData":{"x":9,"y":1,"label":"Gyökeres","team":1,"teamName":"Arsenal","position":4}},{"x":9,"y":2,"playerData":{"x":9,"y":2,"label":"Watkins","team":2,"teamName":"Aston Villa","position":4}},{"x":5.5,"y":1,"playerData":{"x":5.5,"y":1,"label":"Flemming","team":3,"teamName":"Burnley","position":4}},{"x":5,"y":2,"playerData":{"x":5,"y":2,"label":"Foster","team":3,"teamName":"Burnley","position":4}},{"x":7,"y":1,"playerData":{"x":7,"y":1,"label":"Evanilson","team":4,"teamName":"Bournemouth","position":4}},{"x":4.5,"y":1,"playerData":{"x":4.5,"y":1,"label":"Kroupi.Jr","team":4,"teamName":"Bournemouth","position":4}},{"x":6,"y":6,"playerData":{"x":6,"y":6,"label":"Thiago","team":5,"teamName":"Brentford","position":4}},{"x":6.5,"y":1,"playerData":{"x":6.5,"y":1,"label":"Welbeck","team":6,"teamName":"Brighton","position":4}},{"x":7.5,"y":2,"playerData":{"x":7.5,"y":2,"label":"João Pedro","team":7,"teamName":"Chelsea","position":4}},{"x":6.5,"y":1,"playerData":{"x":6.5,"y":1,"label":"Delap","team":7,"teamName":"Chelsea","position":4}},{"x":7.5,"y":1,"playerData":{"x":7.5,"y":1,"label":"Mateta","team":8,"teamName":"Crystal Palace","position":4}},{"x":6,"y":1,"playerData":{"x":6,"y":1,"label":"Barry","team":9,"teamName":"Everton","position":4}},{"x":5.5,"y":2,"playerData":{"x":5.5,"y":2,"label":"Beto","team":9,"teamName":"Everton","position":4}},{"x":6.5,"y":2,"playerData":{"x":6.5,"y":2,"label":"Raúl","team":10,"teamName":"Fulham","position":4}},{"x":5.5,"y":7,"playerData":{"x":5.5,"y":7,"label":"Muniz","team":10,"teamName":"Fulham","position":4}},{"x":5.5,"y":2,"playerData":{"x":5.5,"y":2,"label":"Piroe","team":11,"teamName":"Leeds","position":4}},{"x":5,"y":5,"playerData":{"x":5,"y":5,"label":"Nmecha","team":11,"teamName":"Leeds","position":4}},{"x":8.6,"y":11,"playerData":{"x":8.6,"y":11,"label":"Ekitiké","team":12,"teamName":"Liverpool","position":4}},{"x":14,"y":13,"playerData":{"x":14,"y":13,"label":"Haaland","team":13,"teamName":"Man City","position":4}},{"x":7.5,"y":1,"playerData":{"x":7.5,"y":1,"label":"Šeško","team":14,"teamName":"Man Utd","position":4}},{"x":5.5,"y":1,"playerData":{"x":5.5,"y":1,"label":"Osula","team":15,"teamName":"Newcastle","position":4}},{"x":7.6,"y":13,"playerData":{"x":7.6,"y":13,"label":"Wood","team":16,"teamName":"Nott'm Forest","position":4}},{"x":6,"y":1,"playerData":{"x":6,"y":1,"label":"Igor Jesus","team":16,"teamName":"Nott'm Forest","position":4}},{"x":5.5,"y":5,"playerData":{"x":5.5,"y":5,"label":"Isidor","team":17,"teamName":"Sunderland","position":4}},{"x":5.5,"y":8,"playerData":{"x":5.5,"y":8,"label":"Mayenda","team":17,"teamName":"Sunderland","position":4}},{"x":7.4,"y":1,"playerData":{"x":7.4,"y":1,"label":"Solanke","team":18,"teamName":"Spurs","position":4}},{"x":6.5,"y":13,"playerData":{"x":6.5,"y":13,"label":"Richarlison","team":18,"teamName":"Spurs","position":4}},{"x":8,"y":2,"playerData":{"x":8,"y":2,"label":"Bowen","team":19,"teamName":"West Ham","position":4}},{"x":6,"y":2,"playerData":{"x":6,"y":2,"label":"Füllkrug","team":19,"teamName":"West Ham","position":4}},{"x":6,"y":1,"playerData":{"x":6,"y":1,"label":"Wilson","team":19,"teamName":"West Ham","position":4}},{"x":6.5,"y":2,"playerData":{"x":6.5,"y":2,"label":"Strand Larsen","team":20,"teamName":"Wolves","position":4}}],"backgroundColor":"#4BC0C0","borderColor":"#4BC0C0","pointRadius":4,"pointHoverRadius":6},{"label":"Forwards Trend","data":[{"x":4.5,"y":1.7248545415364727},{"x":14,"y":9.771603275509104}],"backgroundColor":"#4BC0C0","borderColor":"#4BC0C0","pointRadius":0,"pointHoverRadius":0,"showLine":true,"fill":false,"tension":0,"borderWidth":2,"borderDash":[5,5]}];
+        
+        legendItems.forEach((item, index) => {
+            item.style.cursor = 'pointer';
+            item.addEventListener('click', function() {
+                // Each position has 2 datasets: scatter plot (even index) and regression line (odd index)
+                const scatterIndex = index * 2;
+                const regressionIndex = index * 2 + 1;
+                
+                const scatterDataset = chart.data.datasets[scatterIndex];
+                const regressionDataset = chart.data.datasets[regressionIndex];
+                
+                // Toggle visibility for both scatter and regression
+                if (scatterDataset.hidden) {
+                    scatterDataset.hidden = false;
+                    regressionDataset.hidden = false;
+                    item.style.opacity = '1';
+                } else {
+                    scatterDataset.hidden = true;
+                    regressionDataset.hidden = true;
+                    item.style.opacity = '0.3';
+                }
+                
+                chart.update();
+                
+                // Update stats based on visible datasets
+                updateStats();
+                
+                // Auto-disable names and logos when toggling positions to avoid confusion
+                if (showNames || showLogos) {
+                    showNames = false;
+                    showLogos = false;
+                    document.getElementById('showNames').classList.remove('active');
+                    document.getElementById('showLogos').classList.remove('active');
+                    removeTextLabels();
+                }
+            });
+        });
+        
+        function updateStats() {
+            const visibleData = [];
+            chart.data.datasets.forEach((dataset, index) => {
+                // Only count scatter datasets (even indices), skip regression lines (odd indices)
+                if (!dataset.hidden && index % 2 === 0) {
+                    visibleData.push(...dataset.data);
+                }
+            });
+            
+            if (visibleData.length > 0) {
+                const maxCost = Math.max(...visibleData.map(d => d.x));
+                const maxPoints = Math.max(...visibleData.map(d => d.y));
+                const avgPoints = (visibleData.reduce((sum, d) => sum + d.y, 0) / visibleData.length).toFixed(1);
+                
+                document.querySelector('.stat-number:nth-child(1)').textContent = visibleData.length;
+                document.querySelector('.stat-number:nth-child(2)').textContent = '£' + maxCost.toFixed(1) + 'm';
+                document.querySelector('.stat-number:nth-child(3)').textContent = maxPoints;
+                document.querySelector('.stat-number:nth-child(4)').textContent = avgPoints;
+            }
+        }
+        
+        // Add hover effects to legend
+        legendItems.forEach(item => {
+            item.addEventListener('mouseenter', function() {
+                this.style.transform = 'scale(1.05)';
+                this.style.transition = 'transform 0.2s ease';
+            });
+            
+            item.addEventListener('mouseleave', function() {
+                this.style.transform = 'scale(1)';
+            });
+        });
+    </script>
+</body>
+</html>
