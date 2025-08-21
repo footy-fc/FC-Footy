@@ -104,14 +104,27 @@ const FPLScatterplot: React.FC = () => {
 
   const fetchFPLData = async (): Promise<FPLBootstrapData> => {
     try {
+      console.log('🔍 Fetching FPL data...');
       const response = await fetch('/api/fpl-bootstrap');
+      console.log('📡 Response status:', response.status);
+      
       if (!response.ok) {
-        throw new Error('Failed to fetch FPL data');
+        throw new Error(`Failed to fetch FPL data: ${response.status}`);
       }
+      
       const data = await response.json();
+      console.log('📊 FPL data received:', {
+        elementsCount: data.elements?.length || 0,
+        teamsCount: data.teams?.length || 0,
+        hasElements: !!data.elements,
+        hasTeams: !!data.teams,
+        sampleElement: data.elements?.[0],
+        sampleTeam: data.teams?.[0]
+      });
+      
       return data;
     } catch (err) {
-      console.error('Error fetching FPL data:', err);
+      console.error('❌ Error fetching FPL data:', err);
       throw err;
     }
   };
@@ -221,6 +234,9 @@ const FPLScatterplot: React.FC = () => {
         const bootstrapData = await fetchFPLData();
         
         // Process players data
+        console.log('🔍 Processing players data...');
+        console.log('📊 Raw elements count:', bootstrapData.elements?.length || 0);
+        
         const validPlayers = bootstrapData.elements
           .filter((player: FPLPlayer) => player.status === 'a' && player.total_points > 0)
           .map((player: FPLPlayer) => ({
@@ -235,6 +251,9 @@ const FPLScatterplot: React.FC = () => {
               position: player.element_type
             }
           }));
+        
+        console.log('✅ Valid players count:', validPlayers.length);
+        console.log('📊 Sample valid player:', validPlayers[0]);
 
         // Group by position
         const playersByPosition: Record<number, ChartPoint[]> = {};
@@ -247,8 +266,10 @@ const FPLScatterplot: React.FC = () => {
         });
 
         // Create datasets
+        console.log('📊 Players by position:', Object.keys(playersByPosition).map(pos => `${pos}: ${playersByPosition[parseInt(pos)].length}`));
+        
         const datasets: ChartData<'scatter'>['datasets'] = [];
-                Object.entries(playersByPosition).forEach(([position, players]) => {
+        Object.entries(playersByPosition).forEach(([position, players]) => {
           const posNum = parseInt(position);
           const positionInfo = positions[posNum as keyof typeof positions];
           
@@ -281,6 +302,8 @@ const FPLScatterplot: React.FC = () => {
           }
         });
 
+        console.log('🎨 Creating chart with datasets:', datasets.length);
+        
         if (chartRef.current) {
           const ctx = chartRef.current.getContext('2d');
           if (ctx) {
@@ -288,6 +311,12 @@ const FPLScatterplot: React.FC = () => {
             if (chartInstance.current) {
               chartInstance.current.destroy();
             }
+
+            console.log('📊 Chart data structure:', {
+              datasetsCount: datasets.length,
+              firstDataset: datasets[0],
+              sampleDataPoint: datasets[0]?.data?.[0]
+            });
 
             chartInstance.current = new Chart(ctx, {
               type: 'scatter',
@@ -356,8 +385,8 @@ const FPLScatterplot: React.FC = () => {
                 }
               }
             });
-
-
+            
+            console.log('✅ Chart created successfully');
           }
         }
         
