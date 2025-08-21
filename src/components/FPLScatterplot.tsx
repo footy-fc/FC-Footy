@@ -263,6 +263,7 @@ const FPLScatterplot: React.FC = () => {
     const initChart = async () => {
       try {
         setLoading(true);
+        setError(null); // Clear any previous errors
         const bootstrapData = await fetchFPLData();
         
         // Process players data
@@ -379,7 +380,10 @@ const FPLScatterplot: React.FC = () => {
               sampleDataPoint: datasets[0]?.data?.[0]
             });
 
-            chartInstance.current = new Chart(ctx, {
+            // Use a more defensive approach for chart creation
+            let chartCreated = false;
+            try {
+              chartInstance.current = new Chart(ctx, {
               type: 'scatter',
               data: {
                 datasets
@@ -448,17 +452,17 @@ const FPLScatterplot: React.FC = () => {
             });
             
             console.log('✅ Chart created successfully');
+            chartCreated = true;
             
-            // Test if chart is actually working
-            setTimeout(() => {
-              if (chartInstance.current) {
-                console.log('🎯 Chart status check:', {
-                  data: chartInstance.current.data,
-                  datasets: chartInstance.current.data.datasets.length,
-                  canvas: chartInstance.current.canvas
-                });
-              }
-            }, 1000);
+          } catch (chartError) {
+            console.error('❌ Chart creation failed:', chartError);
+            chartInstance.current = null;
+            setError(`Chart creation failed: ${chartError instanceof Error ? chartError.message : 'Unknown error'}`);
+          }
+          
+          if (!chartCreated) {
+            console.warn('⚠️ Chart creation was unsuccessful');
+          }
           }
         }
         
