@@ -20,7 +20,7 @@ export const chainSortOrder = new Map<JBChainId, number>([
   [arbitrumSepolia.id, 3],
 ]);
 
-export const chainIdToLogo = {
+/* export const chainIdToLogo = {
   [sepolia.id]: "/assets/img/logo/mainnet.svg",
   [optimismSepolia.id]: "/assets/img/logo/optimism.svg",
   [baseSepolia.id]: "/assets/img/logo/base.svg",
@@ -29,7 +29,7 @@ export const chainIdToLogo = {
   [optimism.id]: "/assets/img/logo/optimism.svg",
   [base.id]: "/assets/img/logo/base.svg",
   [arbitrum.id]: "/assets/img/logo/arbitrum.svg",
-};
+}; */
 
 export const BACKED_BY_TOKENS = ["ETH", "USDC"] as const;
 

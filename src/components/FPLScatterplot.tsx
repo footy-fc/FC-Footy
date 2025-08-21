@@ -217,45 +217,45 @@ const FPLScatterplot: React.FC = () => {
             
             // Add team logo if enabled
             if (showLogos) {
-              // Temporarily disable logos to test if they're causing the SVG error
-              console.log('🏷️ Logo creation disabled for testing');
+              // LOGOS DISABLED - Uncomment below to re-enable
+              console.log('🏷️ Logos disabled for debugging');
               /*
-              const logoElement = document.createElement('img');
-              logoElement.className = 'team-logo';
-              const teamName = player.teamName;
-              const logoUrl = teamLogoMapping[teamName];
-              
-              console.log('🏷️ Creating logo for:', teamName, 'URL:', logoUrl);
-              
-              if (logoUrl) {
-                logoElement.src = logoUrl;
-              } else {
-                console.warn('⚠️ No logo URL found for team:', teamName);
-                logoElement.style.display = 'none';
+              try {
+                const logoElement = document.createElement('img');
+                logoElement.className = 'team-logo';
+                const teamName = player.teamName;
+                const logoUrl = teamLogoMapping[teamName];
+                
+                if (logoUrl) {
+                  logoElement.src = logoUrl;
+                } else {
+                  logoElement.style.display = 'none';
+                }
+                
+                logoElement.style.cssText = `
+                  position: absolute;
+                  width: 16px;
+                  height: 16px;
+                  pointer-events: none;
+                  z-index: 0;
+                  border-radius: 2px;
+                `;
+                
+                const chartArea = chart.chartArea;
+                const x = chartArea.left + (chartPoint.x - chart.scales.x.min) / (chart.scales.x.max - chart.scales.x.min) * chartArea.width;
+                const y = chartArea.top + (chart.scales.y.max - chartPoint.y) / (chart.scales.y.max - chart.scales.y.min) * chartArea.height;
+                
+                logoElement.style.left = (x - 8) + 'px';
+                logoElement.style.top = (y - 8) + 'px';
+                
+                logoElement.onerror = function() {
+                  this.style.display = 'none';
+                };
+                
+                chartContainer.appendChild(logoElement);
+              } catch (logoError) {
+                console.error('❌ Error creating logo:', logoError);
               }
-              
-              logoElement.style.cssText = `
-                position: absolute;
-                width: 16px;
-                height: 16px;
-                pointer-events: none;
-                z-index: 0;
-                border-radius: 2px;
-              `;
-              
-              //const canvasRect = chart.canvas.getBoundingClientRect();
-              const chartArea = chart.chartArea;
-              const x = chartArea.left + (chartPoint.x - chart.scales.x.min) / (chart.scales.x.max - chart.scales.x.min) * chartArea.width;
-              const y = chartArea.top + (chart.scales.y.max - chartPoint.y) / (chart.scales.y.max - chart.scales.y.min) * chartArea.height;
-              
-              logoElement.style.left = (x - 8) + 'px';
-              logoElement.style.top = (y - 8) + 'px';
-              
-              logoElement.onerror = function() {
-                this.style.display = 'none';
-              };
-              
-              chartContainer.appendChild(logoElement);
               */
             }
           }
