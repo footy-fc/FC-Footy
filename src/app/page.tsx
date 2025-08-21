@@ -27,7 +27,7 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
     }
   }
 
-  console.log('kmm', url, imgUrl);
+      // Removed debug console.log
   const frame = {
     version: "next",
     imageUrl: imgUrl,

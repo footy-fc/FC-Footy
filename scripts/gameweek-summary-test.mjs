@@ -117,6 +117,164 @@ async function getManagersWithFIDs(standings) {
 }
 
 /**
+ * Test infographic generation
+ */
+async function testInfographicGeneration(fplData) {
+  console.log('🎨 Testing enhanced infographic generation...');
+  
+  // Prepare data for infographic
+  const sortedByTotal = [...fplData].sort((a, b) => b.total - a.total);
+  const sortedByEventTotal = [...fplData].sort((a, b) => b.event_total - a.event_total);
+  
+  const top3 = sortedByTotal.slice(0, 3);
+  const bottom3 = sortedByTotal.slice(-3).reverse();
+  const weekWinners = sortedByEventTotal.slice(0, 3);
+  
+  console.log('🎨 [test] Data prepared:', { 
+    top3Count: top3.length, 
+    bottom3Count: bottom3.length, 
+    weekWinnersCount: weekWinners.length,
+    gameWeek: 1 
+  });
+
+  // Debug: show entry details
+  console.log('🔍 [test] Top 3 entry details:');
+  top3.forEach((manager, index) => {
+    console.log(`  ${index + 1}. ${manager.username} - entry_id: ${manager.entry_id}, entry: ${manager.entry}, total: ${manager.total}`);
+  });
+  
+  console.log('🔍 [test] Bottom 3 entry details:');
+  bottom3.forEach((manager, index) => {
+    console.log(`  ${index + 1}. ${manager.username} - entry_id: ${manager.entry_id}, entry: ${manager.entry}, total: ${manager.total}`);
+  });
+  
+  console.log('🔍 [test] Week winners entry details:');
+  weekWinners.forEach((manager, index) => {
+    console.log(`  ${index + 1}. ${manager.username} - entry_id: ${manager.entry_id}, entry: ${manager.entry}, event_total: ${manager.event_total}`);
+  });
+
+  // Use the same base URL logic as fetchFPLLeagueData
+  const baseCandidates = [
+    process.env.NEXT_PUBLIC_URL || 'https://fc-footy.vercel.app',
+    'http://localhost:3000',
+  ];
+
+  let infographicUrl = null;
+  for (const base of baseCandidates) {
+    const baseUrl = String(base).replace(/\/$/, '');
+    const url = `${baseUrl}/api/gameweek-infographic`;
+    
+    try {
+      console.log(`🎨 [test] Trying ${url}`);
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'accept': 'text/html'
+        },
+        body: JSON.stringify({
+          top3,
+          weekWinners,
+          bottom3,
+          gameWeek: 1
+        })
+      });
+
+      if (!response.ok) {
+        console.log(`🎨 [test] Non-OK status: ${response.status}`);
+        continue;
+      }
+
+      const htmlContent = await response.text();
+      console.log(`💾 [test] HTML received, length: ${htmlContent.length}`);
+      
+      // Convert HTML to PNG using canvas
+      try {
+        const { createCanvas } = await import('canvas');
+        const canvas = createCanvas(1000, 600);
+        const ctx = canvas.getContext('2d');
+        
+        // Draw a simple infographic
+        ctx.fillStyle = '#1a1a1a';
+        ctx.fillRect(0, 0, 1000, 600);
+        
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 48px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('Game Week 1 Summary', 500, 80);
+        
+        ctx.font = 'bold 24px Arial';
+        ctx.fillText('🏆 WINNERS', 250, 150);
+        ctx.fillText('😅 LOSERS', 750, 150);
+        
+        // Draw top 3
+        ctx.font = '20px Arial';
+        ctx.textAlign = 'left';
+        top3.forEach((manager, index) => {
+          const y = 200 + (index * 40);
+          ctx.fillText(`${index + 1}. @${manager.username} - ${manager.total}pts`, 50, y);
+        });
+        
+        // Draw bottom 3
+        bottom3.forEach((manager, index) => {
+          const y = 200 + (index * 40);
+          ctx.fillText(`${index + 1}. @${manager.username} - ${manager.total}pts`, 550, y);
+        });
+        
+        const pngBuffer = canvas.toBuffer('image/png');
+        console.log(`📸 [test] PNG generated, size: ${pngBuffer.length} bytes`);
+        
+        // Upload PNG to IPFS
+        console.log('📤 [test] Uploading PNG to IPFS...');
+        const uploadResponse = await fetch(`${baseUrl}/api/upload`, {
+          method: 'POST',
+          body: pngBuffer,
+          headers: {
+            'Content-Type': 'image/png'
+          }
+        });
+        
+        if (!uploadResponse.ok) {
+          const errorText = await uploadResponse.text();
+          console.log(`📤 [test] Upload failed: ${uploadResponse.status} - ${errorText}`);
+          continue;
+        }
+        
+        const uploadResult = await uploadResponse.json();
+        console.log(`📤 [test] Upload result:`, uploadResult);
+        const ipfsHash = uploadResult.ipfsHash;
+        
+        if (ipfsHash) {
+          const pinataGateway = process.env.NEXT_PUBLIC_PINATAGATEWAY || process.env.PINATA_GATEWAY || 'https://gateway.pinata.cloud';
+          infographicUrl = `${pinataGateway}/ipfs/${ipfsHash}`;
+          console.log(`✅ [test] Uploaded to IPFS: ${infographicUrl}`);
+          break;
+        } else {
+          console.log(`📤 [test] No IPFS hash in response:`, uploadResult);
+        }
+        
+      } catch (canvasError) {
+        console.log(`📸 [test] Canvas error: ${canvasError.message}`);
+        // Fallback: save HTML locally
+        const fs = await import('fs');
+        const path = await import('path');
+        const htmlPath = path.join(process.cwd(), `test-gameweek-1-summary.html`);
+        fs.writeFileSync(htmlPath, htmlContent);
+        console.log(`💾 [test] HTML saved to: ${htmlPath}`);
+        console.log('📝 [test] Open this HTML file in a browser to see the infographic');
+        infographicUrl = `file://${htmlPath}`;
+        break;
+      }
+      
+    } catch (e) {
+      console.log(`🎨 [test] Error: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  }
+
+  return infographicUrl;
+}
+
+/**
  * Generate banter text for top performers
  */
 function generateTopPerformersBanter(top3) {
@@ -167,25 +325,32 @@ function generateBottomPerformersBanter(bottom3) {
 /**
  * Generate the complete cast text
  */
-function generateCastText(top3, bottom3) {
-  const topBanter = generateTopPerformersBanter(top3);
-  const bottomBanter = generateBottomPerformersBanter(bottom3);
+function generateCastText(top5, bottom5, infographicUrl = null) {
+  const topBanter = generateTopPerformersBanter(top5);
+  const bottomBanter = generateBottomPerformersBanter(bottom5);
   
-  return `🎮 Game Week Summary - Farcaster Fantasy League! 🏆
+  let castText = `🎮 Game Week Summary - Farcaster Fantasy League! 🏆
 
 ${topBanter}
 
 ${bottomBanter}
 
 ⚽ Keep the banter friendly and the competition fierce! 🔥`;
+
+  // Add infographic URL if available
+  if (infographicUrl) {
+    castText += `\n\n📊 Check out the full infographic: ${infographicUrl}`;
+  }
+
+  return castText;
 }
 
 /**
- * Main function
+ * Main test function
  */
 async function main() {
   try {
-    console.log('🚀 Starting Game Week Summary Test Script...\n');
+    console.log('🧪 Starting Game Week Summary Test...\n');
     
     // Fetch FPL data from cached API
     const standings = await fetchFPLLeagueData();
@@ -203,37 +368,33 @@ async function main() {
     // Sort by total points (overall standings)
     const sortedByTotal = managersWithFIDs.sort((a, b) => b.total - a.total);
     
-    // Get top 3 and bottom 3 based on overall standings
-    const top3 = sortedByTotal.slice(0, 3);
-    const bottom3 = sortedByTotal.slice(-3);
+    // Get top 5 and bottom 5 based on overall standings
+    const top5 = sortedByTotal.slice(0, 5);
+    const bottom5 = sortedByTotal.slice(-5);
     
-    console.log('🏆 Top 3 Overall Performers:');
-    top3.forEach((manager, index) => {
+    console.log('🏆 Top 5 Overall Performers:');
+    top5.forEach((manager, index) => {
       console.log(`${index + 1}. @${manager.username} - Total Points: ${manager.total}, Rank: ${manager.rank}`);
     });
     
-    console.log('\n😅 Bottom 3 Overall Performers:');
-    bottom3.forEach((manager, index) => {
-      console.log(`${bottom3.length - index}. @${manager.username} - Total Points: ${manager.total}, Rank: ${manager.rank}`);
+    console.log('\n😅 Bottom 5 Overall Performers:');
+    bottom5.forEach((manager, index) => {
+      console.log(`${bottom5.length - index}. @${manager.username} - Total Points: ${manager.total}, Rank: ${manager.rank}`);
     });
     
-    // Debug: Show bottom 10 managers with FIDs to verify
-    console.log('\n🔍 Debug - Bottom 10 managers with FIDs:');
-    const bottom10 = sortedByTotal.slice(-10);
-    bottom10.forEach((manager, index) => {
-      console.log(`${bottom10.length - index}. @${manager.username} - Total Points: ${manager.total}, Rank: ${manager.rank}`);
-    });
+    // Test infographic generation
+    const infographicUrl = await testInfographicGeneration(managersWithFIDs);
     
     // Generate cast text
-    const castText = generateCastText(top3, bottom3);
+    const castText = generateCastText(top5, bottom5, infographicUrl);
     
-    console.log('\n📝 Generated Cast Text (TEST MODE - NOT POSTED):');
+    console.log('\n📝 Generated Cast Text:');
     console.log('─'.repeat(50));
     console.log(castText);
     console.log('─'.repeat(50));
     
     console.log('\n✅ Test completed successfully!');
-    console.log('💡 To actually post this cast, run: yarn gameweek:summary');
+    console.log('💡 To post the actual cast, run: yarn gameweek:summary');
     
   } catch (error) {
     console.error('❌ Test failed:', error.message);
@@ -241,5 +402,5 @@ async function main() {
   }
 }
 
-// Run the script
+// Run the test
 main();

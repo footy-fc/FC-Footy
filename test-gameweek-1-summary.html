@@ -1,0 +1,260 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Game Week 1 Summary</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+            background: #f0f0f0;
+        }
+        #canvas-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+        canvas {
+            border: 1px solid #ccc;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+    </style>
+</head>
+<body>
+    <div id="canvas-container">
+        <canvas id="infographic" width="1000" height="700"></canvas>
+    </div>
+    
+    <script>
+        async function generateInfographic() {
+            try {
+                console.log('🔍 Canvas: Starting infographic generation...');
+                const canvas = document.getElementById('infographic');
+                const ctx = canvas.getContext('2d');
+                
+                // Background gradients (similar to match score cards)
+                const winnersGradient = ctx.createLinearGradient(0, 0, 500, 0);
+                winnersGradient.addColorStop(0, '#1e3a8a');
+                winnersGradient.addColorStop(1, '#3b82f6');
+                
+                const losersGradient = ctx.createLinearGradient(500, 0, 1000, 0);
+                losersGradient.addColorStop(0, '#dc2626');
+                losersGradient.addColorStop(1, '#ef4444');
+                
+                // Fill background
+                ctx.fillStyle = winnersGradient;
+                ctx.fillRect(0, 0, 500, 700);
+                ctx.fillStyle = losersGradient;
+                ctx.fillRect(500, 0, 500, 700);
+                
+                // Helper function to load images
+                function loadImage(src) {
+                    return new Promise((resolve) => {
+                        const img = new Image();
+                        img.crossOrigin = 'anonymous';
+                        img.onload = () => resolve(img);
+                        img.onerror = () => {
+                            console.warn('Failed to load image:', src);
+                            resolve(null);
+                        };
+                        img.src = src;
+                    });
+                }
+                
+                // Helper function to draw circular image
+                function drawCircularImage(ctx, img, x, y, radius) {
+                    if (!img) return;
+                    ctx.save();
+                    ctx.beginPath();
+                    ctx.arc(x, y, radius, 0, 2 * Math.PI);
+                    ctx.clip();
+                    ctx.drawImage(img, x - radius, y - radius, radius * 2, radius * 2);
+                    ctx.restore();
+                }
+                
+                // Title
+                ctx.fillStyle = '#ffffff';
+                ctx.font = 'bold 36px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('Game Week ' + 1 + ' Summary', 500, 50);
+                
+                // Winners Column (Left)
+                ctx.fillStyle = '#ffffff';
+                ctx.font = 'bold 24px Arial';
+                ctx.textAlign = 'left';
+                ctx.fillText('🏆 WINNERS', 50, 100);
+                
+                // Top 3
+                ctx.font = 'bold 20px Arial';
+                ctx.fillText('Top 3:', 50, 140);
+                
+                
+                    // Load and draw PFP for je11yf15h
+                    (async () => {
+                        const pfpImg = await loadImage('https://imagedelivery.net/BXluQx4ige9GuW0Ia56BHw/462ae999-faa6-48c1-2298-8e265cd5c100/original');
+                        drawCircularImage(ctx, pfpImg, 90, 200, 20);
+                    })();
+                    
+                    ctx.fillStyle = '#ffffff';
+                    ctx.font = 'bold 16px Arial';
+                    ctx.fillText('🥇 @je11yf15h', 120, 185);
+                    ctx.font = '14px Arial';
+                    ctx.fillText('JE11YF15H', 120, 205);
+                    ctx.fillText('Points: 91', 120, 220);
+                    
+
+                    // Load and draw PFP for femmie
+                    (async () => {
+                        const pfpImg = await loadImage('https://imagedelivery.net/BXluQx4ige9GuW0Ia56BHw/5b1bcf33-5290-4d19-7cca-122f5da6b600/original');
+                        drawCircularImage(ctx, pfpImg, 90, 260, 20);
+                    })();
+                    
+                    ctx.fillStyle = '#ffffff';
+                    ctx.font = 'bold 16px Arial';
+                    ctx.fillText('🥈 @femmie', 120, 245);
+                    ctx.font = '14px Arial';
+                    ctx.fillText('FeMMie CITY GLAZERS', 120, 265);
+                    ctx.fillText('Points: 91', 120, 280);
+                    
+
+                    // Load and draw PFP for mutianz28
+                    (async () => {
+                        const pfpImg = await loadImage('https://imagedelivery.net/BXluQx4ige9GuW0Ia56BHw/a3eae8cd-086d-49e8-71af-31fea5b43400/rectcrop3');
+                        drawCircularImage(ctx, pfpImg, 90, 320, 20);
+                    })();
+                    
+                    ctx.fillStyle = '#ffffff';
+                    ctx.font = 'bold 16px Arial';
+                    ctx.fillText('🥉 @mutianz28', 120, 305);
+                    ctx.font = '14px Arial';
+                    ctx.fillText('Mordor', 120, 325);
+                    ctx.fillText('Points: 91', 120, 340);
+                    
+                
+                // Week Winners
+                ctx.font = 'bold 20px Arial';
+                ctx.fillText('Week Winners:', 50, 380);
+                
+                
+                    // Load and draw PFP for je11yf15h
+                    (async () => {
+                        const pfpImg = await loadImage('https://imagedelivery.net/BXluQx4ige9GuW0Ia56BHw/462ae999-faa6-48c1-2298-8e265cd5c100/original');
+                        drawCircularImage(ctx, pfpImg, 90, 440, 20);
+                    })();
+                    
+                    ctx.fillStyle = '#ffffff';
+                    ctx.font = 'bold 16px Arial';
+                    ctx.fillText('🎯 @je11yf15h', 120, 425);
+                    ctx.font = '14px Arial';
+                    ctx.fillText('JE11YF15H', 120, 445);
+                    ctx.fillText('Points: 91', 120, 460);
+                    
+
+                    // Load and draw PFP for femmie
+                    (async () => {
+                        const pfpImg = await loadImage('https://imagedelivery.net/BXluQx4ige9GuW0Ia56BHw/5b1bcf33-5290-4d19-7cca-122f5da6b600/original');
+                        drawCircularImage(ctx, pfpImg, 90, 500, 20);
+                    })();
+                    
+                    ctx.fillStyle = '#ffffff';
+                    ctx.font = 'bold 16px Arial';
+                    ctx.fillText('🎯 @femmie', 120, 485);
+                    ctx.font = '14px Arial';
+                    ctx.fillText('FeMMie CITY GLAZERS', 120, 505);
+                    ctx.fillText('Points: 91', 120, 520);
+                    
+
+                    // Load and draw PFP for mutianz28
+                    (async () => {
+                        const pfpImg = await loadImage('https://imagedelivery.net/BXluQx4ige9GuW0Ia56BHw/a3eae8cd-086d-49e8-71af-31fea5b43400/rectcrop3');
+                        drawCircularImage(ctx, pfpImg, 90, 560, 20);
+                    })();
+                    
+                    ctx.fillStyle = '#ffffff';
+                    ctx.font = 'bold 16px Arial';
+                    ctx.fillText('🎯 @mutianz28', 120, 545);
+                    ctx.font = '14px Arial';
+                    ctx.fillText('Mordor', 120, 565);
+                    ctx.fillText('Points: 91', 120, 580);
+                    
+                
+                // Losers Column (Right)
+                ctx.fillStyle = '#ffffff';
+                ctx.font = 'bold 24px Arial';
+                ctx.textAlign = 'left';
+                ctx.fillText('💀 LOSERS', 550, 100);
+                
+                // Bottom 3
+                ctx.font = 'bold 20px Arial';
+                ctx.fillText('Bottom 3:', 550, 140);
+                
+                
+                    // Load and draw PFP for defiwaynex
+                    (async () => {
+                        const pfpImg = await loadImage('https://imagedelivery.net/BXluQx4ige9GuW0Ia56BHw/f289cd1e-b6da-4ba8-9650-c121bc740900/original');
+                        drawCircularImage(ctx, pfpImg, 590, 200, 20);
+                    })();
+                    
+                    ctx.fillStyle = '#ffffff';
+                    ctx.font = 'bold 16px Arial';
+                    ctx.fillText('🥉 @defiwaynex', 620, 185);
+                    ctx.font = '14px Arial';
+                    ctx.fillText('Jakobh', 620, 205);
+                    ctx.fillText('Points: 26', 620, 220);
+                    
+
+                    // Load and draw PFP for dikhads.base.eth
+                    (async () => {
+                        const pfpImg = await loadImage('https://tba-mobile.mypinata.cloud/ipfs/QmSZEkdGCKN6X8GULXBcFQisdkn1ewdaV1Zt5r88QRESP2?pinataGatewayToken=3nq0UVhtd3rYmgYDdb1I9qv7rHsw-_DzwdWkZPRQ-QW1avFI9dCS8knaSfq_R5_q');
+                        drawCircularImage(ctx, pfpImg, 590, 260, 20);
+                    })();
+                    
+                    ctx.fillStyle = '#ffffff';
+                    ctx.font = 'bold 16px Arial';
+                    ctx.fillText('🥈 @dikhads.base.eth', 620, 245);
+                    ctx.font = '14px Arial';
+                    ctx.fillText('Sedulur', 620, 265);
+                    ctx.fillText('Points: 29', 620, 280);
+                    
+
+                    // Load and draw PFP for aldenn.base.eth
+                    (async () => {
+                        const pfpImg = await loadImage('https://tba-mobile.mypinata.cloud/ipfs/QmZu97bhTk3FFVKBcXcMhhgVJvhHfVYjz6FjrVWf5ggWex?pinataGatewayToken=3nq0UVhtd3rYmgYDdb1I9qv7rHsw-_DzwdWkZPRQ-QW1avFI9dCS8knaSfq_R5_q');
+                        drawCircularImage(ctx, pfpImg, 590, 320, 20);
+                    })();
+                    
+                    ctx.fillStyle = '#ffffff';
+                    ctx.font = 'bold 16px Arial';
+                    ctx.fillText('🥇 @aldenn.base.eth', 620, 305);
+                    ctx.font = '14px Arial';
+                    ctx.fillText('nathank', 620, 325);
+                    ctx.fillText('Points: 31', 620, 340);
+                    
+                
+                // Stats Section
+                ctx.font = 'bold 20px Arial';
+                ctx.fillText('Stats:', 550, 380);
+                ctx.font = '16px Arial';
+                ctx.fillText('Total Managers: 9', 550, 410);
+                ctx.fillText('Average Points: 70', 550, 430);
+                
+                console.log('🔍 Canvas: Infographic generated successfully');
+                
+                // Convert to data URL and send to parent
+                setTimeout(() => {
+                    const dataUrl = canvas.toDataURL('image/png');
+                    window.parent.postMessage({ type: 'infographic-ready', dataUrl }, '*');
+                }, 1000); // Give time for images to load
+            } catch (error) {
+                console.error('❌ Canvas: Error generating infographic:', error);
+            }
+        }
+        
+        // Start generation when page loads
+        window.addEventListener('load', generateInfographic);
+    </script>
+</body>
+</html>

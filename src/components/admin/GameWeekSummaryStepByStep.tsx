@@ -37,16 +37,12 @@ type CastType = "topBottom" | "biggestMovers";
 export default function GameWeekSummaryStepByStep() {
   const [currentStep, setCurrentStep] = useState(1);
   const [steps, setSteps] = useState<Step[]>([
-    { id: 1, title: "Load FPL Data & Process FIDs", description: "Fetch standings and match with Farcaster usernames", status: "pending" },
+    { id: 1, title: "Load FPL Data & Process FIDs (Optional)", description: "Fetch standings and match with Farcaster usernames", status: "pending" },
     { id: 2, title: "Select Cast Type", description: "Choose the type of cast to generate", status: "pending" },
-    { id: 3, title: "Generate Infographic", description: "Create and upload visual summary to IPFS", status: "pending" },
-    { id: 4, title: "Review Cast", description: "Preview the generated cast text", status: "pending" },
-    { id: 5, title: "Post to Farcaster", description: "Compose and publish the cast", status: "pending" }
+    { id: 3, title: "Post to Farcaster", description: "Compose and publish the cast with infographic", status: "pending" }
   ]);
   
   const [managersWithFIDs, setManagersWithFIDs] = useState<FPLManager[]>([]);
-  const [castText, setCastText] = useState("");
-  const [infographicUrl, setInfographicUrl] = useState("");
   const [gameWeek, setGameWeek] = useState(1);
   const [responseMessage, setResponseMessage] = useState("");
   const [selectedCastType, setSelectedCastType] = useState<CastType>("topBottom");
@@ -229,115 +225,142 @@ export default function GameWeekSummaryStepByStep() {
     }
   };
 
-  // Step 3: Generate Infographic
-  const generateInfographic = async () => {
+
+
+  // Step 3: Post to Farcaster (with infographic generation and cast text)
+  const postToFarcaster = async () => {
     updateStep(3, "loading");
     try {
-      console.log('🔍 Debug: Sending to infographic API:', {
-        fplDataCount: managersWithFIDs.length,
-        sampleData: managersWithFIDs.slice(0, 2)
-      });
+      console.log('🔍 Admin: Starting combined infographic generation and cast posting...');
       
-      const response = await fetch('/api/gameweek-infographic', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          fplData: managersWithFIDs,
-          gameWeek,
-          leagueName: "Farcaster Fantasy League"
-        }),
-      });
-
-      const result = await response.json();
-      
-      if (response.ok && result.success) {
-        setInfographicUrl(result.ipfsUrl);
-        updateStep(3, "completed", { url: result.ipfsUrl });
-        setCurrentStep(4);
-      } else {
-        throw new Error(result.error || 'Failed to generate infographic');
+      // Use demo data if no FPL data has been loaded (Step 1 skipped)
+      let dataToUse = managersWithFIDs;
+      if (dataToUse.length === 0) {
+        console.log('🔍 Admin: No FPL data loaded, using demo data...');
+        dataToUse = [
+          { username: "je11yf15h", entry: 192153, total: 91, entry_name: "JE11YF15H 🍖🔵-", player_name: "je11yf15h", event_total: 91, rank: 1, fid: 249647 },
+          { username: "femmie", entry: 215181, total: 89, entry_name: "FeMMie", player_name: "femmie", event_total: 89, rank: 2, fid: 267104 },
+          { username: "ghost", entry: 200716, total: 87, entry_name: "Ghost 🎩", player_name: "ghost", event_total: 87, rank: 3, fid: 528707 },
+          { username: "kimken", entry: 204596, total: 85, entry_name: "kimken", player_name: "kimken", event_total: 85, rank: 4, fid: 844615 },
+          { username: "henry", entry: 179856, total: 83, entry_name: "Henry Adewole 👾", player_name: "henry", event_total: 83, rank: 5, fid: 718134 },
+          { username: "milo", entry: 23272, total: 26, entry_name: "Milo Bowman  🇬🇧", player_name: "milo", event_total: 26, rank: 96, fid: 231807 },
+          { username: "vyenepaul", entry: 47421, total: 29, entry_name: "Vyenepaul11", player_name: "vyenepaul", event_total: 29, rank: 95, fid: 1136655 },
+          { username: "zipar", entry: 55728, total: 31, entry_name: "Zipar 🔵🟦", player_name: "zipar", event_total: 31, rank: 94, fid: 317946 },
+          { username: "kazani", entry: 56917, total: 33, entry_name: "kazani.base.eth 🦂", player_name: "kazani", event_total: 33, rank: 93, fid: 4926 },
+          { username: "supertaster", entry: 100599, total: 35, entry_name: "Supertaster.eth", player_name: "supertaster", event_total: 35, rank: 92, fid: 297066 }
+        ];
       }
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      console.error('Error generating infographic:', errorMessage);
-      updateStep(3, "error", { error: errorMessage });
-    }
-  };
-
-  // Step 4: Generate Cast Text
-  const generateCastText = () => {
-    updateStep(4, "loading");
-    try {
-      let text = "";
       
+      // Process the data to get top/bottom performers
+      const sortedByTotal = [...dataToUse].sort((a, b) => b.total - a.total);
+      
+      // Get top 5 and bottom 5
+      const top5 = sortedByTotal.slice(0, 5);
+      const bottom5 = sortedByTotal.slice(-5);
+      
+      console.log('🔍 Admin: Data:', {
+        top5Count: top5.length,
+        bottom5Count: bottom5.length,
+        gameWeek,
+        sampleTop5: top5[0],
+        sampleBottom5: bottom5[0]
+      });
+
+      // Generate cast text
+      let castText = "";
       if (selectedCastType === "topBottom") {
-        const sortedByTotal = [...managersWithFIDs].sort((a, b) => b.total - a.total);
-        const top3 = sortedByTotal.slice(0, 3);
-        const bottom3 = sortedByTotal.slice(-3);
+        const topBanter = generateTopPerformersBanter(top5);
+        const bottomBanter = generateBottomPerformersBanter(bottom5);
+        
+        castText = `🎮 Game Week ${gameWeek} Summary - Farcaster Fantasy League! 🏆
 
-        text = `🎮 Game Week ${gameWeek} Summary - Farcaster Fantasy League! 🏆
+${topBanter}
 
-🥇 @${top3[0].username} - The king stays king! 👑⚽️ (${top3[0].total}pts)
-🥈 @${top3[1].username} - So close, yet so far! 😅⚽️ (${top3[1].total}pts)
-🥉 @${top3[2].username} - Bronze medal energy! 🎯⚽️ (${top3[2].total}pts)
-
-😅 @${bottom3[2].username} - At least you're not last... oh wait! 😂⚽️ (${bottom3[2].total}pts)
-🤔 @${bottom3[1].username} - Maybe next week? 🤞⚽️ (${bottom3[1].total}pts)
-💪 @${bottom3[0].username} - Keep fighting! 💪⚽️ (${bottom3[0].total}pts)
+${bottomBanter}
 
 ⚽ Keep the banter friendly and the competition fierce! 🔥`;
       } else if (selectedCastType === "biggestMovers") {
-        // Placeholder for biggest movers cast
-        text = `📈 Game Week ${gameWeek} - Biggest Movers! 🚀
+        castText = `📈 Game Week ${gameWeek} - Biggest Movers! 🚀
 
 🎯 Coming soon: Highlighting managers with the biggest rank changes this week!
 
 ⚽ Stay tuned for more exciting content! 🔥`;
       }
 
-      setCastText(text);
-      updateStep(4, "completed", { preview: text.substring(0, 100) + "..." });
-      setCurrentStep(5);
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      console.error('Error generating cast text:', errorMessage);
-      updateStep(4, "error", { error: errorMessage });
-    }
-  };
+      // Create template URL with data
+      const templateUrl = `/templates/gameweek-table-toppers?` + 
+        `top5=${encodeURIComponent(JSON.stringify(top5))}&` +
+        `bottom5=${encodeURIComponent(JSON.stringify(bottom5))}&` +
+        `gameWeek=${gameWeek}`;
 
-  // Step 5: Post to Farcaster
-  const postToFarcaster = async () => {
-    updateStep(5, "loading");
-    try {
-      await sdk.actions.ready();
-      
+      console.log('🔍 Admin: Template URL created:', templateUrl);
+      console.log('🔍 Admin: Cast text generated:', castText.substring(0, 100) + '...');
+
+      // Prepare embeds
       const baseEmbeds = ['https://fc-footy.vercel.app'];
-      const finalEmbeds = infographicUrl ? [...baseEmbeds, infographicUrl] : baseEmbeds;
+      const finalEmbeds = [...baseEmbeds, templateUrl];
+      
+      console.log('🔍 Admin: Final embeds being sent to Farcaster:', finalEmbeds);
 
+      // Post to Farcaster
+      await sdk.actions.ready();
       await sdk.actions.composeCast({
         text: castText,
         embeds: finalEmbeds as [string, string] | [string] | [],
         channelKey: 'football'
       });
 
-      updateStep(5, "completed", { url: "Cast posted successfully" });
-      setResponseMessage('Cast posted successfully! 🎉');
+      updateStep(3, "completed", { url: "Cast posted successfully with infographic" });
+      setResponseMessage('Cast posted successfully with infographic! 🎉');
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      console.error('Error posting cast:', errorMessage);
-      updateStep(5, "error", { error: errorMessage });
+      console.error('❌ Admin: Error in combined post process:', errorMessage);
+      updateStep(3, "error", { error: errorMessage });
       setResponseMessage('Failed to post cast. Please try again.');
     }
+  };
+
+  // Helper functions for cast text generation
+  const generateTopPerformersBanter = (top5: FPLManager[]) => {
+    const banterLines: string[] = [];
+    const medals = ['🥇', '🥈', '🥉', '🏅', '🎖️'];
+    
+    top5.forEach((manager, index) => {
+      const medal = medals[index] || '🏆';
+      const banter = `${medal} @${manager.username} - ${manager.total}pts`;
+      banterLines.push(banter);
+    });
+    
+    return banterLines.join('\n');
+  };
+
+  const generateBottomPerformersBanter = (bottom5: FPLManager[]) => {
+    const banterLines: string[] = [];
+    const reactions = ['😅', '🤔', '😬', '😱', '💀'];
+    
+    bottom5.reverse().forEach((manager, index) => {
+      const reaction = reactions[index] || '😅';
+      const banter = `${reaction} @${manager.username} - ${manager.total}pts`;
+      banterLines.push(banter);
+    });
+    
+    return banterLines.join('\n');
   };
 
   const executeStep = async (stepId: number) => {
     switch (stepId) {
       case 1: await loadFPLDataAndProcessFIDs(); break;
       case 2: selectCastType(); break;
-      case 3: await generateInfographic(); break;
-      case 4: generateCastText(); break;
-      case 5: await postToFarcaster(); break;
+      case 3: await postToFarcaster(); break;
     }
+  };
+
+  // Check if we can proceed to a step (Step 1 is optional)
+  const canProceedToStep = (stepId: number) => {
+    if (stepId === 1) return true; // Step 1 can always be executed
+    if (stepId === 2) return true; // Step 2 can be executed even without Step 1
+    if (stepId === 3) return steps[1].status === "completed"; // Step 3 needs Step 2 completed
+    return false;
   };
 
   const resetAll = () => {
@@ -345,8 +368,6 @@ export default function GameWeekSummaryStepByStep() {
     setCurrentStep(1);
     // No need to reset fplData since we don't store it separately
     setManagersWithFIDs([]);
-    setCastText("");
-    setInfographicUrl("");
     setResponseMessage("");
   };
 
@@ -430,7 +451,7 @@ export default function GameWeekSummaryStepByStep() {
               </div>
               
               <div className="flex space-x-2">
-                {step.status === "pending" && currentStep === step.id && (
+                {step.status === "pending" && currentStep === step.id && canProceedToStep(step.id) && (
                   <button
                     onClick={() => executeStep(step.id)}
                     className="px-4 py-2 bg-deepPink text-white rounded-lg hover:bg-fontRed"
@@ -446,7 +467,7 @@ export default function GameWeekSummaryStepByStep() {
                     Retry
                   </button>
                 )}
-                {step.status === "completed" && step.id < 5 && (
+                {step.status === "completed" && step.id < 3 && canProceedToStep(step.id + 1) && (
                   <button
                     onClick={() => executeStep(step.id + 1)}
                     className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
@@ -497,15 +518,7 @@ export default function GameWeekSummaryStepByStep() {
         ))}
       </div>
 
-      {/* Cast Preview */}
-      {castText && (
-        <div className="p-4 bg-darkPurple rounded-lg border border-limeGreenOpacity">
-          <h4 className="text-notWhite font-semibold mb-2">Cast Preview</h4>
-          <div className="whitespace-pre-wrap text-lightPurple font-mono text-sm bg-gray-900 p-3 rounded">
-            {castText}
-          </div>
-        </div>
-      )}
+
 
       {/* Quick Actions */}
       <div className="p-4 bg-darkPurple rounded-lg border border-limeGreenOpacity">
@@ -520,7 +533,7 @@ export default function GameWeekSummaryStepByStep() {
           </button>
           <button
             onClick={() => executeStep(2)}
-            disabled={steps[1].status === "loading" || steps[0].status !== "completed"}
+            disabled={steps[1].status === "loading"}
             className="px-3 py-1 bg-blue-600 text-white rounded text-sm disabled:opacity-50"
           >
             Step 2: Select Type
@@ -528,23 +541,9 @@ export default function GameWeekSummaryStepByStep() {
           <button
             onClick={() => executeStep(3)}
             disabled={steps[2].status === "loading" || steps[1].status !== "completed"}
-            className="px-3 py-1 bg-blue-600 text-white rounded text-sm disabled:opacity-50"
-          >
-            Step 3: Generate Infographic
-          </button>
-          <button
-            onClick={() => executeStep(4)}
-            disabled={steps[3].status === "loading" || steps[2].status !== "completed"}
-            className="px-3 py-1 bg-blue-600 text-white rounded text-sm disabled:opacity-50"
-          >
-            Step 4: Generate Cast
-          </button>
-          <button
-            onClick={() => executeStep(5)}
-            disabled={steps[4].status === "loading" || steps[3].status !== "completed"}
             className="px-3 py-1 bg-deepPink text-white rounded text-sm disabled:opacity-50"
           >
-            Step 5: Post Cast
+            Step 3: Post Cast
           </button>
         </div>
       </div>
