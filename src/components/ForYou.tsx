@@ -21,6 +21,14 @@ const ForYou = () => {
     const checkPreferences = async () => {
       setIsLoading(true);
       
+      // Check if we should show Buy Points section
+      const showBuyPoints = searchParams?.get("showBuyPoints");
+      if (showBuyPoints === "true") {
+        setSelectedTab("buyPoints");
+        setIsLoading(false);
+        return;
+      }
+      
       // If we have a profileFid from share extension, show that profile
       if (profileFid) {
         setSelectedTab("fellowFollowers");
@@ -50,7 +58,7 @@ const ForYou = () => {
     };
     
     checkPreferences();
-  }, [user, profileFid]);
+  }, [user, profileFid, searchParams]);
 
   // Show loading state while determining the correct tab
   if (isLoading) {

@@ -188,9 +188,9 @@ export default function BuyPoints() {
         <div className="text-sm text-lightPurple mb-2 space-y-1">
           <p>This is a community project built by fans, for fans of the beautiful game. Your contribution earns you $SCORES points, which *will* unlock:</p>
           <ul className="list-disc list-inside pl-2">
-            <li>Fantasy League participation</li>
+            <li>Fantasy League features</li>
             <li>Custom emoji packs</li>
-            <li>Score Square games</li>
+            <li>Earning from deploying Score Square games</li>
             <li>And more to come!</li>
           </ul>
         </div>

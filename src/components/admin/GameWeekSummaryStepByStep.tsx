@@ -271,7 +271,7 @@ export default function GameWeekSummaryStepByStep() {
       if (selectedCastType === "topBottom") {
         const topBanter = generateTopPerformersBanter(top5);
         const bottomBanter = generateBottomPerformersBanter(bottom5);
-        
+
         castText = `🎮 Game Week ${gameWeek} Summary - Farcaster Fantasy League! 🏆
 
 ${topBanter}
@@ -299,7 +299,7 @@ ${bottomBanter}
       // Prepare embeds
       const baseEmbeds = ['https://fc-footy.vercel.app'];
       const finalEmbeds = [...baseEmbeds, templateUrl];
-      
+
       console.log('🔍 Admin: Final embeds being sent to Farcaster:', finalEmbeds);
 
       // Post to Farcaster
