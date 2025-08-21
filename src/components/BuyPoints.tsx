@@ -25,7 +25,7 @@ const fetchRevnetShields = async (projectId: number, chainId: number) => {
 export default function BuyPoints() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const baseMemo = 'footy donation';
-  const [ethAmount, setEthAmount] = useState('0.01');
+  const [ethAmount, setEthAmount] = useState('0.0069');
   const [showInstructions, setShowInstructions] = useState(false);
   const { address } = useAccount();
   const { writeContractAsync } = useWriteJbMultiTerminalPay();
