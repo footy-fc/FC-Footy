@@ -517,7 +517,7 @@ export default function NotificationsTab({
       <div className="mt-8 p-6 bg-darkPurple rounded-lg border border-limeGreenOpacity">
         <div className="flex justify-between items-center mb-4">
           <h3 className="text-lg font-semibold text-notWhite">
-            Users Who Will Receive Notifications
+            Filter Who Will Receive Notifications
           </h3>
           <div className="flex items-center space-x-2">
             <button
