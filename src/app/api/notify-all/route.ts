@@ -21,11 +21,14 @@ export async function POST(request: NextRequest) {
     );
   }
   
-  const { title, body, targetURL, adminOnly = false } = await request.json();
+  const { title, body, targetURL, adminOnly = false, customFids } = await request.json();
 
   let targetFids: number[];
   
-  if (adminOnly) {
+  if (customFids && Array.isArray(customFids)) {
+    // Use custom FIDs (e.g., FEPL managers)
+    targetFids = customFids;
+  } else if (adminOnly) {
     targetFids = ADMIN_FIDS;
   } else {
     // Scan Redis to fetch all user notification keys
@@ -61,10 +64,12 @@ export async function POST(request: NextRequest) {
     notificationResults.push(...batchResults);
   }
 
+  const sentTo = customFids ? "custom FIDs" : adminOnly ? "admins only" : "all users";
+
   return Response.json({
     success: true,
     notificationResults,
-    sentTo: adminOnly ? "admins only" : "all users",
+    sentTo,
     totalSent: notificationResults.length
   });
 }

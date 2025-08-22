@@ -26,6 +26,12 @@ interface League {
   active: boolean;
 }
 
+interface FantasyManager {
+  entry_id: number;
+  fid: number;
+  team_name: string;
+}
+
 interface NotificationsTabProps {
   loading: boolean;
   setLoading: (loading: boolean) => void;
@@ -57,7 +63,7 @@ export default function NotificationsTab({
   const [selectedTeam, setSelectedTeam] = useState<string>('');
   const [loadingLeagues, setLoadingLeagues] = useState(false);
   const [loadingTeams, setLoadingTeams] = useState(false);
-  const [notificationMode, setNotificationMode] = useState<'all' | 'team'>('all');
+  const [notificationMode, setNotificationMode] = useState<'all' | 'team' | 'fepl'>('all');
 
   const categories = [
     { value: "matches", label: "Matches" },
@@ -69,6 +75,23 @@ export default function NotificationsTab({
     { value: "extraTime", label: "Extra Time" },
     { value: "settings", label: "Settings" },
   ];
+
+  // Function to get FEPL manager FIDs
+  const getFEPLManagerFIDs = async (): Promise<number[]> => {
+    try {
+      const fantasyManagersLookup = await import('../../data/fantasy-managers-lookup.json');
+      const managers = Array.isArray(fantasyManagersLookup.default) 
+        ? fantasyManagersLookup.default 
+        : fantasyManagersLookup;
+      
+      return (managers as FantasyManager[])
+        .filter(manager => manager.fid)
+        .map(manager => manager.fid);
+    } catch (error) {
+      console.error('Error loading FEPL managers:', error);
+      return [];
+    }
+  };
 
   // Fetch leagues and teams data
   const fetchLeaguesAndTeams = useCallback(async () => {
@@ -116,7 +139,6 @@ export default function NotificationsTab({
   // Get teams for selected league
   const getTeamsForLeague = (leagueId: string): Team[] => {
     if (!leagueId || !memberships[leagueId]) {
-  
       return [];
     }
     
@@ -128,6 +150,14 @@ export default function NotificationsTab({
   // Get all teams (fallback when no league is selected)
   const getAllTeams = (): Team[] => {
     return teams.sort((a, b) => a.name.localeCompare(b.name));
+  };
+
+  // Helper function to get button text
+  const getButtonText = (): string => {
+    if (adminOnly) return "Admins";
+    if (notificationMode === 'team' && selectedTeam) return "Team Followers";
+    if (notificationMode === 'fepl') return "FC FEPL Managers";
+    return "All Users";
   };
 
   // Function to fetch users who will receive notifications
@@ -143,6 +173,9 @@ export default function NotificationsTab({
           // Get team follower FIDs using the team abbreviation
           userFids = await getFansForTeamAbbr(selectedTeamData.abbreviation);
         }
+      } else if (notificationMode === 'fepl') {
+        // Get FEPL manager FIDs
+        userFids = await getFEPLManagerFIDs();
       } else {
         // Fetch all users or admin users
         const response = await fetch("/api/notification-users", {
@@ -268,6 +301,23 @@ export default function NotificationsTab({
             teamAbbreviation: selectedTeamData.abbreviation
           }),
         });
+      } else if (notificationMode === 'fepl') {
+        // Send to FEPL managers
+        const feplFids = await getFEPLManagerFIDs();
+        
+        response = await fetch("/api/notify-all", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-api-key": process.env.NEXT_PUBLIC_NOTIFICATION_API_KEY || "",
+          },
+          body: JSON.stringify({ 
+            title, 
+            body,
+            targetURL,
+            customFids: feplFids
+          }),
+        });
       } else {
         // Send to all users or admins
         response = await fetch("/api/notify-all", {
@@ -289,6 +339,8 @@ export default function NotificationsTab({
         const data = await response.json();
         const targetText = notificationMode === 'team' && selectedTeam 
           ? `team followers (${selectedTeamData?.name})` 
+          : notificationMode === 'fepl'
+          ? "FC FEPL managers"
           : adminOnly ? "admins only" : "all users";
         setResponseMessage(`Notification sent successfully to ${targetText}! (${data.totalSent} users)`);
         setTitle("");
@@ -434,7 +486,7 @@ export default function NotificationsTab({
               />
             </svg>
           ) : (
-            `Send to ${adminOnly ? "Admins" : notificationMode === 'team' ? selectedTeam ? `Team Followers` : "All Users" : "All Users"}`
+            `Send to ${getButtonText()}`
           )}
         </button>
       </form>
@@ -487,6 +539,16 @@ export default function NotificationsTab({
                     }`}
                   >
                     Team Followers
+                  </button>
+                  <button
+                    onClick={() => setNotificationMode('fepl')}
+                    className={`px-3 py-1 rounded text-sm transition-colors ${
+                      notificationMode === 'fepl'
+                        ? 'bg-deepPink text-white'
+                        : 'bg-gray-600 text-lightPurple hover:bg-gray-500'
+                    }`}
+                  >
+                    FC FEPL Managers
                   </button>
                 </div>
               </div>
@@ -544,6 +606,18 @@ export default function NotificationsTab({
                       </p>
                     )}
                   </div>
+                </div>
+              )}
+
+              {/* FC FEPL Managers Info */}
+              {notificationMode === 'fepl' && (
+                <div className="p-3 bg-blue-900/30 border border-blue-600 rounded-lg">
+                  <p className="text-sm text-blue-300">
+                    📊 Sending to all FC FEPL Fantasy League managers ({users.length} users)
+                  </p>
+                  <p className="text-xs text-blue-400 mt-1">
+                    Based on the fantasy-managers-lookup.json data
+                  </p>
                 </div>
               )}
             </div>
@@ -604,6 +678,11 @@ export default function NotificationsTab({
                   {notificationMode === 'team' && selectedTeam && (
                     <span className="ml-2 text-deepPink">
                       (Team followers)
+                    </span>
+                  )}
+                  {notificationMode === 'fepl' && (
+                    <span className="ml-2 text-blue-400">
+                      (FC FEPL managers)
                     </span>
                   )}
                 </div>
