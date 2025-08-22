@@ -380,8 +380,19 @@ export default function NotificationsTab({
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             required
+            maxLength={32}
             className="w-full p-3 border border-limeGreenOpacity rounded-lg text-lightPurple bg-darkPurple focus:outline-none focus:ring-2 focus:ring-deepPink transition-all duration-200"
           />
+          <div className="flex justify-between items-center mt-1">
+            <span className={`text-xs ${title.length > 32 ? 'text-red-400' : 'text-gray-400'}`}>
+              {title.length}/32 characters
+            </span>
+            {title.length > 32 && (
+              <span className="text-xs text-red-400 font-medium">
+                Title too long!
+              </span>
+            )}
+          </div>
         </div>
         <div>
           <label htmlFor="body" className="block text-sm font-medium text-lightPurple mb-1">
@@ -392,9 +403,20 @@ export default function NotificationsTab({
             value={body}
             onChange={(e) => setBody(e.target.value)}
             required
+            maxLength={128}
             rows={4}
             className="w-full p-3 border border-limeGreenOpacity rounded-lg text-lightPurple bg-darkPurple focus:outline-none focus:ring-2 focus:ring-deepPink transition-all duration-200"
           />
+          <div className="flex justify-between items-center mt-1">
+            <span className={`text-xs ${body.length > 128 ? 'text-red-400' : 'text-gray-400'}`}>
+              {body.length}/128 characters
+            </span>
+            {body.length > 128 && (
+              <span className="text-xs text-red-400 font-medium">
+                Message too long!
+              </span>
+            )}
+          </div>
         </div>
         
         <div className="flex items-center space-x-3">
