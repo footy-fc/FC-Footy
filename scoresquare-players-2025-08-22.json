@@ -1,0 +1,720 @@
+{
+  "timestamp": "2025-08-22T20:04:16.765Z",
+  "totalPlayers": 28,
+  "playersWithFarcaster": 25,
+  "playersWithoutFarcaster": 3,
+  "allPlayers": [
+    {
+      "address": "0x59733c7cd78d08dab90368ad2cc09c8c81f097c0",
+      "hasFarcaster": true,
+      "fid": 196509,
+      "username": "defifa",
+      "displayName": "Defifa",
+      "followerCount": 4,
+      "followingCount": 0,
+      "pfpUrl": "https://i.imgur.com/9hSL09W.png",
+      "ticketsPurchased": 585,
+      "gamesParticipated": 41,
+      "gamesDeployed": 27
+    },
+    {
+      "address": "0xdf087b724174a3e4ed2338c0798193932e851f1b",
+      "hasFarcaster": true,
+      "fid": 4163,
+      "username": "kmacb.eth",
+      "displayName": "KMac",
+      "followerCount": 62250,
+      "followingCount": 3520,
+      "pfpUrl": "https://images.colorino.site/cc214ccf3914a741130fbae423610b69406f9c7052751bd24bd0703e6d604686.png",
+      "ticketsPurchased": 371,
+      "gamesParticipated": 38,
+      "gamesDeployed": 18
+    },
+    {
+      "address": "0x623ac5b085b2ad68a18ea50c075dce31c2cb2e13",
+      "hasFarcaster": false,
+      "fid": null,
+      "username": null,
+      "displayName": "Unknown (0x623ac5...)",
+      "followerCount": null,
+      "followingCount": null,
+      "pfpUrl": null,
+      "ticketsPurchased": 86,
+      "gamesParticipated": 8,
+      "gamesDeployed": 3
+    },
+    {
+      "address": "0x35ea81cb0b759df6b2d2e6ec69df1c5f3b3a30d1",
+      "hasFarcaster": false,
+      "fid": null,
+      "username": null,
+      "displayName": "Unknown (0x35ea81...)",
+      "followerCount": null,
+      "followingCount": null,
+      "pfpUrl": null,
+      "ticketsPurchased": 62,
+      "gamesParticipated": 5,
+      "gamesDeployed": 0
+    },
+    {
+      "address": "0x1acbb32e13d98a6ca81f0fc52ecf455cc0abfdbf",
+      "hasFarcaster": true,
+      "fid": 10694,
+      "username": "chukwukaosakwe",
+      "displayName": "Chukwuka Osakwe",
+      "followerCount": 7432,
+      "followingCount": 942,
+      "pfpUrl": "https://images.colorino.site/43719bc5756370148f79ef5348196cacf9216f17d54c52ab58c47849bc92f2dd.png",
+      "ticketsPurchased": 37,
+      "gamesParticipated": 7,
+      "gamesDeployed": 1
+    },
+    {
+      "address": "0x7c527d956f47920fec38dfc5834fe31b5a72db12",
+      "hasFarcaster": true,
+      "fid": 318447,
+      "username": "plantsnft",
+      "displayName": "Plants",
+      "followerCount": 4084,
+      "followingCount": 360,
+      "pfpUrl": "https://imagedelivery.net/BXluQx4ige9GuW0Ia56BHw/4a57f006-562f-45a3-3429-b16e24f43e00/original",
+      "ticketsPurchased": 17,
+      "gamesParticipated": 4,
+      "gamesDeployed": 2
+    },
+    {
+      "address": "0xe97c29b17ed7d742e3843affa357449fa10a1855",
+      "hasFarcaster": true,
+      "fid": 4926,
+      "username": "kazani.eth",
+      "displayName": "kazani.base.eth 🦂",
+      "followerCount": 2521,
+      "followingCount": 127,
+      "pfpUrl": "https://i.imgur.com/5IfaukM.jpg",
+      "ticketsPurchased": 7,
+      "gamesParticipated": 2,
+      "gamesDeployed": 1
+    },
+    {
+      "address": "0x172a77d409c0aa422ee88514181765372c1eb8f1",
+      "hasFarcaster": true,
+      "fid": 297066,
+      "username": "supertaster.eth",
+      "displayName": "Supertaster.eth",
+      "followerCount": 6800,
+      "followingCount": 1632,
+      "pfpUrl": "https://imagedelivery.net/BXluQx4ige9GuW0Ia56BHw/bfcf490b-faa1-4ae9-7b55-f2f074534000/original",
+      "ticketsPurchased": 13,
+      "gamesParticipated": 6,
+      "gamesDeployed": 0
+    },
+    {
+      "address": "0xbe95bb47789e5f4af467306c97ded0877bf817b5",
+      "hasFarcaster": true,
+      "fid": 420564,
+      "username": "gabedev.eth",
+      "displayName": "gabedev🎩",
+      "followerCount": 3481,
+      "followingCount": 736,
+      "pfpUrl": "https://images.colorino.site/eb2db514e7781d9bd460b81f3bbaae51b951258f5dd2b149a2c2250f707b6946.png",
+      "ticketsPurchased": 12,
+      "gamesParticipated": 4,
+      "gamesDeployed": 0
+    },
+    {
+      "address": "0xe423b19262ea8fbc68ab9509f90080ab6aa1930b",
+      "hasFarcaster": true,
+      "fid": 318845,
+      "username": "0xbob",
+      "displayName": "Carl Gustaf 👨🏼‍💻",
+      "followerCount": 1174,
+      "followingCount": 219,
+      "pfpUrl": "https://imagedelivery.net/BXluQx4ige9GuW0Ia56BHw/4fd93d7c-2a6a-4c26-0a98-628ffe8c4200/original",
+      "ticketsPurchased": 10,
+      "gamesParticipated": 4,
+      "gamesDeployed": 0
+    },
+    {
+      "address": "0x8bcef893fe31eea323c5d6059ffce6a964d652fe",
+      "hasFarcaster": true,
+      "fid": 259403,
+      "username": "flupp.eth",
+      "displayName": "flupp creator",
+      "followerCount": 929,
+      "followingCount": 291,
+      "pfpUrl": "https://imagedelivery.net/BXluQx4ige9GuW0Ia56BHw/0721a383-7d82-493c-86d3-9bf7ea2b3500/original",
+      "ticketsPurchased": 0,
+      "gamesParticipated": 1,
+      "gamesDeployed": 1
+    },
+    {
+      "address": "0xa8742db29e17034e5c05028db91d2c658e648a44",
+      "hasFarcaster": true,
+      "fid": 920995,
+      "username": "ega022",
+      "displayName": "crypto whale",
+      "followerCount": 18,
+      "followingCount": 33,
+      "pfpUrl": "https://imagedelivery.net/BXluQx4ige9GuW0Ia56BHw/60216728-c41d-4439-f8dc-f49ba2ead900/rectcrop3",
+      "ticketsPurchased": 0,
+      "gamesParticipated": 1,
+      "gamesDeployed": 1
+    },
+    {
+      "address": "0x30e5a4e6a52b2d6b891454a0fd04938732c55193",
+      "hasFarcaster": true,
+      "fid": 12938,
+      "username": "ashmoney.eth",
+      "displayName": "ash",
+      "followerCount": 13013,
+      "followingCount": 2578,
+      "pfpUrl": "https://imagedelivery.net/BXluQx4ige9GuW0Ia56BHw/0e4bd7b7-2a7a-49aa-f2fa-eab067740800/original",
+      "ticketsPurchased": 9,
+      "gamesParticipated": 5,
+      "gamesDeployed": 0
+    },
+    {
+      "address": "0x3d0438cf16e6bf871d1f28e18b5bb175762f3f7c",
+      "hasFarcaster": true,
+      "fid": 472,
+      "username": "noun839.eth",
+      "displayName": "Chris",
+      "followerCount": 215816,
+      "followingCount": 238,
+      "pfpUrl": "https://imagedelivery.net/BXluQx4ige9GuW0Ia56BHw/82297fdc-0007-4e22-ecf9-623c13044000/original",
+      "ticketsPurchased": 7,
+      "gamesParticipated": 3,
+      "gamesDeployed": 0
+    },
+    {
+      "address": "0xcc8df7ab477ea26f7d4d4f2576c673f3e7bc5ed6",
+      "hasFarcaster": false,
+      "fid": null,
+      "username": null,
+      "displayName": "Unknown (0xcc8df7...)",
+      "followerCount": null,
+      "followingCount": null,
+      "pfpUrl": null,
+      "ticketsPurchased": 6,
+      "gamesParticipated": 1,
+      "gamesDeployed": 0
+    },
+    {
+      "address": "0x3944cc1a70c4be8ad75f456ba0ab525b02ad827a",
+      "hasFarcaster": true,
+      "fid": 2329,
+      "username": "veekay",
+      "displayName": "veekay ",
+      "followerCount": 8625,
+      "followingCount": 988,
+      "pfpUrl": "https://imagedelivery.net/BXluQx4ige9GuW0Ia56BHw/a1604a45-67ac-417e-8791-6380355bee00/rectcrop3",
+      "ticketsPurchased": 6,
+      "gamesParticipated": 2,
+      "gamesDeployed": 0
+    },
+    {
+      "address": "0xc9ed679962e0d4e82d6ebc12ee3f0561f44f23c6",
+      "hasFarcaster": true,
+      "fid": 237884,
+      "username": "77luka.eth",
+      "displayName": "77 Luka",
+      "followerCount": 17947,
+      "followingCount": 1914,
+      "pfpUrl": "https://imagedelivery.net/BXluQx4ige9GuW0Ia56BHw/f87e04db-01fa-4bcc-9ff5-fa1399d82100/original",
+      "ticketsPurchased": 4,
+      "gamesParticipated": 3,
+      "gamesDeployed": 0
+    },
+    {
+      "address": "0x869dcbcb689cab802badc0740e774da3e88c10dd",
+      "hasFarcaster": true,
+      "fid": 1105154,
+      "username": "coconutrinds",
+      "displayName": "peanut⭐️",
+      "followerCount": 3413,
+      "followingCount": 351,
+      "pfpUrl": "https://imagedelivery.net/BXluQx4ige9GuW0Ia56BHw/be89e34d-5494-45bb-197e-fdbd04a08900/original",
+      "ticketsPurchased": 3,
+      "gamesParticipated": 2,
+      "gamesDeployed": 0
+    },
+    {
+      "address": "0x1c00725a8ddec6d710294bb3c53021c1cdef85de",
+      "hasFarcaster": true,
+      "fid": 532378,
+      "username": "bluclaat",
+      "displayName": "Bluclaat.eth",
+      "followerCount": 374,
+      "followingCount": 114,
+      "pfpUrl": "https://imagedelivery.net/BXluQx4ige9GuW0Ia56BHw/a0125413-c2d2-400c-63e9-c5bab486c500/original",
+      "ticketsPurchased": 3,
+      "gamesParticipated": 1,
+      "gamesDeployed": 0
+    },
+    {
+      "address": "0xc77da8cb158ba77bac765625745a766af3111a69",
+      "hasFarcaster": true,
+      "fid": 416672,
+      "username": "karsaorlongdong",
+      "displayName": "Karsaorlongdong",
+      "followerCount": 6322,
+      "followingCount": 1134,
+      "pfpUrl": "https://imagedelivery.net/BXluQx4ige9GuW0Ia56BHw/0a7a9a51-7616-4d51-441d-bdf5d6da0500/original",
+      "ticketsPurchased": 2,
+      "gamesParticipated": 2,
+      "gamesDeployed": 0
+    },
+    {
+      "address": "0xbef7abf18d7e4e841a41581ab3cc0cb3dd97412f",
+      "hasFarcaster": true,
+      "fid": 514366,
+      "username": "block1337.eth",
+      "displayName": "Block.base.eth 🔵",
+      "followerCount": 7052,
+      "followingCount": 2343,
+      "pfpUrl": "https://imagedelivery.net/BXluQx4ige9GuW0Ia56BHw/0c96f660-f867-4896-00a3-a2efcefd7600/original",
+      "ticketsPurchased": 2,
+      "gamesParticipated": 1,
+      "gamesDeployed": 0
+    },
+    {
+      "address": "0x9ca210c5aa54f942461a1ed0629b84dec4186bf4",
+      "hasFarcaster": true,
+      "fid": 988053,
+      "username": "just-austin",
+      "displayName": "Austin",
+      "followerCount": 53,
+      "followingCount": 74,
+      "pfpUrl": "https://imagedelivery.net/BXluQx4ige9GuW0Ia56BHw/cf09e399-e40d-4a1e-0041-26c099b8f600/rectcrop3",
+      "ticketsPurchased": 2,
+      "gamesParticipated": 2,
+      "gamesDeployed": 0
+    },
+    {
+      "address": "0xfdc1b9b6b9cc4ea6bd70828ed171310d08f806d8",
+      "hasFarcaster": true,
+      "fid": 319714,
+      "username": "andk0108",
+      "displayName": "blacteamy1",
+      "followerCount": 439,
+      "followingCount": 823,
+      "pfpUrl": "https://i.imgur.com/3x8wO9z.jpg",
+      "ticketsPurchased": 1,
+      "gamesParticipated": 1,
+      "gamesDeployed": 0
+    },
+    {
+      "address": "0x45382f2e0323841a6fa151536a2c8c217aaf2da2",
+      "hasFarcaster": true,
+      "fid": 846335,
+      "username": "elrey",
+      "displayName": "Elrey",
+      "followerCount": 1125,
+      "followingCount": 714,
+      "pfpUrl": "https://imagedelivery.net/BXluQx4ige9GuW0Ia56BHw/a19d80b8-dbdc-4446-82c1-30837b7e6600/rectcrop3",
+      "ticketsPurchased": 1,
+      "gamesParticipated": 1,
+      "gamesDeployed": 0
+    },
+    {
+      "address": "0xf41b246040ffde54554a64081cae788822caa5d0",
+      "hasFarcaster": true,
+      "fid": 255345,
+      "username": "degend.eth",
+      "displayName": "Degend 🎩",
+      "followerCount": 1350,
+      "followingCount": 822,
+      "pfpUrl": "https://imagedelivery.net/BXluQx4ige9GuW0Ia56BHw/93dec3ce-07b2-43bf-f67c-44226df35300/rectcrop3",
+      "ticketsPurchased": 1,
+      "gamesParticipated": 1,
+      "gamesDeployed": 0
+    },
+    {
+      "address": "0xb53338891cb3b6d8c45a5683ee51eac93fb5e987",
+      "hasFarcaster": true,
+      "fid": 1049184,
+      "username": "biggydaddy",
+      "displayName": "Biggydaddy.eth",
+      "followerCount": 1186,
+      "followingCount": 773,
+      "pfpUrl": "https://imagedelivery.net/BXluQx4ige9GuW0Ia56BHw/fa14ffaa-e5e7-4575-f227-a7a3904feb00/original",
+      "ticketsPurchased": 1,
+      "gamesParticipated": 1,
+      "gamesDeployed": 0
+    },
+    {
+      "address": "0xa499ccf474840fbeab6eb58a23b487fe99de6d9e",
+      "hasFarcaster": true,
+      "fid": 707904,
+      "username": "lorenzo-007",
+      "displayName": "Kiddmetro 🎩",
+      "followerCount": 2646,
+      "followingCount": 287,
+      "pfpUrl": "https://imagedelivery.net/BXluQx4ige9GuW0Ia56BHw/bb3f6c06-50f6-49d5-ee58-b26d5a6b4600/original",
+      "ticketsPurchased": 1,
+      "gamesParticipated": 1,
+      "gamesDeployed": 0
+    },
+    {
+      "address": "0xd66c3603aaeae3d03bc521434aff992a8af6af17",
+      "hasFarcaster": true,
+      "fid": 12388,
+      "username": "trh",
+      "displayName": "tyler ↑",
+      "followerCount": 3756,
+      "followingCount": 802,
+      "pfpUrl": "https://imagedelivery.net/BXluQx4ige9GuW0Ia56BHw/5886b6bd-c2dc-4947-2ba5-0e4be6c94300/rectcrop3",
+      "ticketsPurchased": 1,
+      "gamesParticipated": 1,
+      "gamesDeployed": 0
+    }
+  ],
+  "participationStats": {
+    "0xdf087b724174a3e4ed2338c0798193932e851f1b": {
+      "tickets": 371,
+      "games": 38,
+      "deployed": 18,
+      "gameIds": [
+        "74",
+        "73",
+        "72",
+        "67",
+        "65",
+        "64",
+        "60",
+        "47",
+        "44",
+        "43",
+        "42",
+        "41",
+        "40",
+        "39",
+        "38",
+        "37",
+        "33",
+        "31",
+        "27",
+        "26",
+        "25",
+        "24",
+        "22",
+        "21",
+        "20",
+        "19",
+        "18",
+        "17",
+        "16",
+        "15",
+        "14",
+        "12",
+        "8",
+        "7",
+        "6",
+        "5",
+        "4",
+        "2"
+      ]
+    },
+    "0xe423b19262ea8fbc68ab9509f90080ab6aa1930b": {
+      "tickets": 10,
+      "games": 4,
+      "deployed": 0,
+      "gameIds": [
+        "74",
+        "72",
+        "60",
+        "47"
+      ]
+    },
+    "0xcc8df7ab477ea26f7d4d4f2576c673f3e7bc5ed6": {
+      "tickets": 6,
+      "games": 1,
+      "deployed": 0,
+      "gameIds": [
+        "74"
+      ]
+    },
+    "0x59733c7cd78d08dab90368ad2cc09c8c81f097c0": {
+      "tickets": 585,
+      "games": 41,
+      "deployed": 27,
+      "gameIds": [
+        "74",
+        "65",
+        "64",
+        "60",
+        "47",
+        "44",
+        "43",
+        "42",
+        "41",
+        "40",
+        "38",
+        "37",
+        "35",
+        "34",
+        "33",
+        "32",
+        "31",
+        "30",
+        "27",
+        "26",
+        "25",
+        "24",
+        "23",
+        "22",
+        "21",
+        "20",
+        "19",
+        "18",
+        "17",
+        "16",
+        "15",
+        "14",
+        "13",
+        "12",
+        "10",
+        "9",
+        "8",
+        "6",
+        "4",
+        "3",
+        "1"
+      ]
+    },
+    "0x869dcbcb689cab802badc0740e774da3e88c10dd": {
+      "tickets": 3,
+      "games": 2,
+      "deployed": 0,
+      "gameIds": [
+        "74",
+        "72"
+      ]
+    },
+    "0xfdc1b9b6b9cc4ea6bd70828ed171310d08f806d8": {
+      "tickets": 1,
+      "games": 1,
+      "deployed": 0,
+      "gameIds": [
+        "74"
+      ]
+    },
+    "0x7c527d956f47920fec38dfc5834fe31b5a72db12": {
+      "tickets": 17,
+      "games": 4,
+      "deployed": 2,
+      "gameIds": [
+        "74",
+        "72",
+        "67",
+        "64"
+      ]
+    },
+    "0x3d0438cf16e6bf871d1f28e18b5bb175762f3f7c": {
+      "tickets": 7,
+      "games": 3,
+      "deployed": 0,
+      "gameIds": [
+        "74",
+        "72",
+        "60"
+      ]
+    },
+    "0xc77da8cb158ba77bac765625745a766af3111a69": {
+      "tickets": 2,
+      "games": 2,
+      "deployed": 0,
+      "gameIds": [
+        "74",
+        "72"
+      ]
+    },
+    "0x45382f2e0323841a6fa151536a2c8c217aaf2da2": {
+      "tickets": 1,
+      "games": 1,
+      "deployed": 0,
+      "gameIds": [
+        "72"
+      ]
+    },
+    "0xbe95bb47789e5f4af467306c97ded0877bf817b5": {
+      "tickets": 12,
+      "games": 4,
+      "deployed": 0,
+      "gameIds": [
+        "72",
+        "67",
+        "60",
+        "47"
+      ]
+    },
+    "0x172a77d409c0aa422ee88514181765372c1eb8f1": {
+      "tickets": 13,
+      "games": 6,
+      "deployed": 0,
+      "gameIds": [
+        "72",
+        "67",
+        "65",
+        "64",
+        "60",
+        "47"
+      ]
+    },
+    "0x1c00725a8ddec6d710294bb3c53021c1cdef85de": {
+      "tickets": 3,
+      "games": 1,
+      "deployed": 0,
+      "gameIds": [
+        "72"
+      ]
+    },
+    "0x30e5a4e6a52b2d6b891454a0fd04938732c55193": {
+      "tickets": 9,
+      "games": 5,
+      "deployed": 0,
+      "gameIds": [
+        "72",
+        "65",
+        "64",
+        "60",
+        "47"
+      ]
+    },
+    "0xf41b246040ffde54554a64081cae788822caa5d0": {
+      "tickets": 1,
+      "games": 1,
+      "deployed": 0,
+      "gameIds": [
+        "72"
+      ]
+    },
+    "0x1acbb32e13d98a6ca81f0fc52ecf455cc0abfdbf": {
+      "tickets": 37,
+      "games": 7,
+      "deployed": 1,
+      "gameIds": [
+        "72",
+        "67",
+        "65",
+        "64",
+        "60",
+        "47",
+        "40"
+      ]
+    },
+    "0xb53338891cb3b6d8c45a5683ee51eac93fb5e987": {
+      "tickets": 1,
+      "games": 1,
+      "deployed": 0,
+      "gameIds": [
+        "72"
+      ]
+    },
+    "0x8bcef893fe31eea323c5d6059ffce6a964d652fe": {
+      "tickets": 0,
+      "games": 1,
+      "deployed": 1
+    },
+    "0xc9ed679962e0d4e82d6ebc12ee3f0561f44f23c6": {
+      "tickets": 4,
+      "games": 3,
+      "deployed": 0,
+      "gameIds": [
+        "67",
+        "60",
+        "47"
+      ]
+    },
+    "0xe97c29b17ed7d742e3843affa357449fa10a1855": {
+      "tickets": 7,
+      "games": 2,
+      "deployed": 1,
+      "gameIds": [
+        "65",
+        "64"
+      ]
+    },
+    "0x3944cc1a70c4be8ad75f456ba0ab525b02ad827a": {
+      "tickets": 6,
+      "games": 2,
+      "deployed": 0,
+      "gameIds": [
+        "65",
+        "64"
+      ]
+    },
+    "0xa499ccf474840fbeab6eb58a23b487fe99de6d9e": {
+      "tickets": 1,
+      "games": 1,
+      "deployed": 0,
+      "gameIds": [
+        "60"
+      ]
+    },
+    "0xd66c3603aaeae3d03bc521434aff992a8af6af17": {
+      "tickets": 1,
+      "games": 1,
+      "deployed": 0,
+      "gameIds": [
+        "60"
+      ]
+    },
+    "0xbef7abf18d7e4e841a41581ab3cc0cb3dd97412f": {
+      "tickets": 2,
+      "games": 1,
+      "deployed": 0,
+      "gameIds": [
+        "60"
+      ]
+    },
+    "0x9ca210c5aa54f942461a1ed0629b84dec4186bf4": {
+      "tickets": 2,
+      "games": 2,
+      "deployed": 0,
+      "gameIds": [
+        "60",
+        "47"
+      ]
+    },
+    "0xa8742db29e17034e5c05028db91d2c658e648a44": {
+      "tickets": 0,
+      "games": 1,
+      "deployed": 1
+    },
+    "0x623ac5b085b2ad68a18ea50c075dce31c2cb2e13": {
+      "tickets": 86,
+      "games": 8,
+      "deployed": 3,
+      "gameIds": [
+        "47",
+        "29",
+        "13",
+        "11",
+        "5",
+        "3",
+        "2",
+        "1"
+      ]
+    },
+    "0x35ea81cb0b759df6b2d2e6ec69df1c5f3b3a30d1": {
+      "tickets": 62,
+      "games": 5,
+      "deployed": 0,
+      "gameIds": [
+        "12",
+        "11",
+        "10",
+        "9",
+        "1"
+      ]
+    }
+  },
+  "summary": {
+    "totalTickets": 1250,
+    "totalGames": 149,
+    "totalDeployed": 54,
+    "totalFollowers": 371810,
+    "avgFollowers": 14872
+  }
+}
