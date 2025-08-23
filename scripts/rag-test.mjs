@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
+const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
 
 // Parse command line arguments
 const args = process.argv.slice(2);

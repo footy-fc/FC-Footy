@@ -1,5 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Redis } from '@upstash/redis';
+import { 
+  getManagerPicks, 
+  storeManagerPicks, 
+  hasManagerPicks,
+  ManagerPicksData 
+} from '~/lib/kvPicksStorage';
 
 const redis = new Redis({
   url: process.env.NEXT_PUBLIC_KV_REST_API_URL!,
@@ -291,14 +297,15 @@ export async function GET(request: NextRequest) {
     console.log(`🎯 Target: entry ${targetEntryId}, gameweek ${targetGameweek}`);
 
     // Check cache first (unless refresh is requested)
-    const cacheKey = `fc-footy:manager-picks:${targetEntryId}:${targetGameweek}`;
-    let cachedPicks = null;
+    let cachedPicks: ManagerPicksData | null = null;
     
-    try {
-      cachedPicks = refresh ? null : await redis.get(cacheKey);
-    } catch (cacheError) {
-      console.error(`❌ Error checking cache:`, cacheError);
-      // Continue without cache if Redis fails
+    if (!refresh) {
+      try {
+        cachedPicks = await getManagerPicks(targetEntryId, targetGameweek);
+      } catch (cacheError) {
+        console.error(`❌ Error checking cache:`, cacheError);
+        // Continue without cache if Redis fails
+      }
     }
     
     if (cachedPicks) {
@@ -352,11 +359,14 @@ export async function GET(request: NextRequest) {
         note: 'Player enrichment failed, returning basic picks data'
       };
       
-      // Cache the basic data for 1 hour
+      // Store the basic data with extended cache
       try {
-        await redis.setex(cacheKey, 3600, basicData);
+        await storeManagerPicks(targetEntryId, targetGameweek, {
+          ...basicData,
+          source: 'fpl_api' as const
+        });
       } catch (cacheError) {
-        console.error(`❌ Error caching basic data:`, cacheError);
+        console.error(`❌ Error storing basic data:`, cacheError);
       }
       return NextResponse.json(basicData);
     }
@@ -397,12 +407,15 @@ export async function GET(request: NextRequest) {
       fetched_at: new Date().toISOString()
     };
 
-    // Cache the enriched data for 1 hour
+    // Store the enriched data with extended cache
     try {
-      await redis.setex(cacheKey, 3600, enrichedData);
-      console.log(`✅ Cached manager picks for entry ${targetEntryId}, gameweek ${targetGameweek}`);
+      await storeManagerPicks(targetEntryId, targetGameweek, {
+        ...enrichedData,
+        source: 'fpl_api' as const
+      });
+      console.log(`✅ Stored manager picks for entry ${targetEntryId}, gameweek ${targetGameweek}`);
     } catch (cacheError) {
-      console.error(`❌ Error caching manager picks:`, cacheError);
+      console.error(`❌ Error storing manager picks:`, cacheError);
       // Still return the data even if caching fails
     }
 

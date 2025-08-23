@@ -32,7 +32,7 @@ interface Step {
   data?: StepData;
 }
 
-type CastType = "topBottom" | "biggestMovers";
+type CastType = "topBottom" | "biggestMovers" | "worstCaptainPicks";
 
 export default function GameWeekSummaryStepByStep() {
   const [currentStep, setCurrentStep] = useState(1);
@@ -46,6 +46,7 @@ export default function GameWeekSummaryStepByStep() {
   const [gameWeek, setGameWeek] = useState(1);
   const [responseMessage, setResponseMessage] = useState("");
   const [selectedCastType, setSelectedCastType] = useState<CastType>("topBottom");
+  const [worstCaptainPicks, setWorstCaptainPicks] = useState<any[]>([]);
 
   const updateStep = (stepId: number, status: Step["status"], data?: StepData) => {
     setSteps(prev => prev.map(step => 
@@ -198,6 +199,75 @@ export default function GameWeekSummaryStepByStep() {
     }
   };
 
+  // Analyze worst captain picks for gameweek 1
+  const analyzeWorstCaptainPicks = async () => {
+    console.log('🔍 Analyzing worst captain picks for gameweek 1...');
+    
+    const worstPicks: any[] = [];
+    
+    // Use existing managers with FIDs
+    const managersToAnalyze = managersWithFIDs;
+    
+    for (const manager of managersToAnalyze) {
+      try {
+        // Fetch manager picks for gameweek 1
+        const response = await fetch(`/api/manager-picks?fid=${manager.fid}&gameweek=1`);
+        
+        if (response.ok) {
+          const picksData = await response.json();
+          
+          // Find captain and vice captain
+          const captain = picksData.picks.find((p: any) => p.is_captain);
+          const viceCaptain = picksData.picks.find((p: any) => p.is_vice_captain);
+          
+          if (captain && viceCaptain && captain.player && viceCaptain.player) {
+            // Calculate points (captain gets 2x multiplier, vice captain gets 1x if captain doesn't play)
+            const captainPoints = captain.player.total_points * 2;
+            const viceCaptainPoints = viceCaptain.player.total_points;
+            
+            // If vice captain outscored captain, this is a bad captain choice
+            if (viceCaptainPoints > captainPoints) {
+              const pointsDifference = viceCaptainPoints - captainPoints;
+              
+              worstPicks.push({
+                manager: manager.username || manager.entry_name,
+                fid: manager.fid,
+                captain: {
+                  name: captain.player.web_name,
+                  team: captain.player.team?.short_name,
+                  points: captain.player.total_points,
+                  captainPoints: captainPoints
+                },
+                viceCaptain: {
+                  name: viceCaptain.player.web_name,
+                  team: viceCaptain.player.team?.short_name,
+                  points: viceCaptain.player.total_points,
+                  viceCaptainPoints: viceCaptainPoints
+                },
+                pointsDifference: pointsDifference,
+                missedPoints: pointsDifference
+              });
+            }
+          }
+        }
+        
+        // Add small delay to avoid rate limiting
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+      } catch (error) {
+        console.error(`Error analyzing picks for ${manager.username}:`, error);
+      }
+    }
+    
+    // Sort by points difference (worst first)
+    worstPicks.sort((a, b) => b.pointsDifference - a.pointsDifference);
+    
+    console.log(`📊 Found ${worstPicks.length} managers with bad captain choices`);
+    setWorstCaptainPicks(worstPicks);
+    
+    return worstPicks;
+  };
+
   const fetchUsernameByFid = async (fid: number): Promise<string | null> => {
     try {
       const response = await fetch(`https://hub.merv.fun/v1/userDataByFid?fid=${fid}`);
@@ -285,6 +355,26 @@ ${bottomBanter}
 🎯 Coming soon: Highlighting managers with the biggest rank changes this week!
 
 ⚽ Stay tuned for more exciting content! 🔥`;
+      } else if (selectedCastType === "worstCaptainPicks") {
+        // Analyze worst captain picks first
+        const worstPicks = await analyzeWorstCaptainPicks();
+        
+        if (worstPicks.length > 0) {
+          const top3Worst = worstPicks.slice(0, 3);
+          const worstBanter = generateWorstCaptainPicksBanter(top3Worst);
+          
+          castText = `👑 Game Week 1 - Worst Captain Picks! 😅
+
+${worstBanter}
+
+⚽ Sometimes the vice captain knows best! 🔥`;
+        } else {
+          castText = `👑 Game Week 1 - Captain Analysis! 🎯
+
+🎉 Great news! No managers had their vice captain outscore their captain this week!
+
+⚽ Everyone made solid captain choices! 🔥`;
+        }
       }
 
       // Create template URL with data
@@ -341,6 +431,19 @@ ${bottomBanter}
     bottom5.reverse().forEach((manager, index) => {
       const reaction = reactions[index] || '😅';
       const banter = `${reaction} @${manager.username} - ${manager.total}pts`;
+      banterLines.push(banter);
+    });
+    
+    return banterLines.join('\n');
+  };
+
+  const generateWorstCaptainPicksBanter = (worstPicks: any[]) => {
+    const banterLines: string[] = [];
+    const reactions = ['😅', '🤦‍♂️', '😬'];
+    
+    worstPicks.forEach((pick, index) => {
+      const reaction = reactions[index] || '😅';
+      const banter = `${reaction} @${pick.manager} - C: ${pick.captain.name} (${pick.captain.captainPoints}pts) vs VC: ${pick.viceCaptain.name} (${pick.viceCaptain.points}pts) - Missed ${pick.missedPoints}pts!`;
       banterLines.push(banter);
     });
     
@@ -511,6 +614,20 @@ ${bottomBanter}
                       <p className="text-xs text-gray-400">Highlight managers with biggest rank changes this week (Coming Soon)</p>
                     </div>
                   </label>
+                  <label className="flex items-center space-x-3 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="castType"
+                      value="worstCaptainPicks"
+                      checked={selectedCastType === "worstCaptainPicks"}
+                      onChange={(e) => setSelectedCastType(e.target.value as CastType)}
+                      className="text-deepPink"
+                    />
+                    <div>
+                      <span className="text-lightPurple font-medium">👑 Worst Captain Picks</span>
+                      <p className="text-xs text-gray-400">Find managers whose vice captain outscored their captain in GW1</p>
+                    </div>
+                  </label>
                 </div>
               </div>
             )}
@@ -523,7 +640,7 @@ ${bottomBanter}
       {/* Quick Actions */}
       <div className="p-4 bg-darkPurple rounded-lg border border-limeGreenOpacity">
         <h4 className="text-notWhite font-semibold mb-2">Quick Actions</h4>
-        <div className="flex space-x-2">
+        <div className="flex space-x-2 flex-wrap">
           <button
             onClick={() => executeStep(1)}
             disabled={steps[0].status === "loading"}
@@ -545,8 +662,43 @@ ${bottomBanter}
           >
             Step 3: Post Cast
           </button>
+          <button
+            onClick={analyzeWorstCaptainPicks}
+            disabled={managersWithFIDs.length === 0}
+            className="px-3 py-1 bg-orange-600 text-white rounded text-sm disabled:opacity-50"
+          >
+            Analyze Worst Captain Picks
+          </button>
         </div>
       </div>
+
+      {/* Worst Captain Picks Results */}
+      {worstCaptainPicks.length > 0 && (
+        <div className="p-4 bg-darkPurple rounded-lg border border-limeGreenOpacity">
+          <h4 className="text-notWhite font-semibold mb-3">👑 Worst Captain Picks - Game Week 1</h4>
+          <div className="space-y-3">
+            {worstCaptainPicks.slice(0, 5).map((pick, index) => (
+              <div key={index} className="p-3 bg-purplePanel rounded border border-limeGreenOpacity">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <p className="text-lightPurple font-medium">@{pick.manager}</p>
+                    <p className="text-sm text-gray-400">
+                      Captain: {pick.captain.name} ({pick.captain.team}) - {pick.captain.captainPoints}pts
+                    </p>
+                    <p className="text-sm text-gray-400">
+                      Vice Captain: {pick.viceCaptain.name} ({pick.viceCaptain.team}) - {pick.viceCaptain.points}pts
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-red-400 font-bold">-{pick.missedPoints}pts</p>
+                    <p className="text-xs text-gray-400">Missed</p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

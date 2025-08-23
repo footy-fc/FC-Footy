@@ -11,11 +11,12 @@ config();
  * Fetch FPL league standings from cached API endpoint
  */
 async function fetchFPLLeagueData(leagueId = 18526) {
-  // 1) Try cached API on Vercel or env URL, then localhost
+  // 1) Try cached API on ngrok, Vercel, or localhost
   const baseCandidates = [
+    process.env.NEXT_PUBLIC_BASE_URL,
     process.env.NEXT_PUBLIC_URL || 'https://fc-footy.vercel.app',
     'http://localhost:3000',
-  ];
+  ].filter(Boolean); // Remove undefined values
 
   for (const base of baseCandidates) {
     const baseUrl = String(base).replace(/\/$/, '');
