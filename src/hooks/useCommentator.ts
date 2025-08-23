@@ -39,7 +39,7 @@ export function useCommentator() {
     if (userPreference && userPreference !== selectedCommentator) {
       setSelectedCommentator(userPreference);
     }
-  }, [selectedCommentator]);
+  }, []); // Only run on mount
 
   return {
     commentators,

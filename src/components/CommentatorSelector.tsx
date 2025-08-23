@@ -1,8 +1,17 @@
 import React from 'react';
-import { useCommentator } from '~/hooks/useCommentator';
+import { Commentator } from '~/types/commentatorTypes';
 
-export const CommentatorSelector: React.FC = () => {
-  const { commentators, selectedCommentator, switchCommentator } = useCommentator();
+interface CommentatorSelectorProps {
+  commentators: Commentator[];
+  selectedCommentator: string;
+  onCommentatorChange: (commentatorId: string) => void;
+}
+
+export const CommentatorSelector: React.FC<CommentatorSelectorProps> = ({
+  commentators,
+  selectedCommentator,
+  onCommentatorChange
+}) => {
 
   return (
     <div className="bg-purplePanel rounded-lg p-4 border border-limeGreenOpacity/20">
@@ -11,7 +20,7 @@ export const CommentatorSelector: React.FC = () => {
         {commentators.map((commentator) => (
           <button
             key={commentator.id}
-            onClick={() => switchCommentator(commentator.id)}
+            onClick={() => onCommentatorChange(commentator.id)}
             className={`p-3 rounded-lg border transition-all text-left ${
               selectedCommentator === commentator.id
                 ? 'border-limeGreenOpacity bg-limeGreenOpacity/10'

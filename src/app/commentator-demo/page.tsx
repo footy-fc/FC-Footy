@@ -1,10 +1,11 @@
 'use client';
 
 import React, { useState } from 'react';
-import PeterDruryComposeCast from '~/components/PeterDruryComposeCast';
-import { MatchEvent } from '~/components/ai/PeterDruryRAG';
+import { CommentatorSelector } from '~/components/CommentatorSelector';
+import { useCommentator } from '~/hooks/useCommentator';
+import { MatchEvent } from '~/types/commentatorTypes';
 
-// Demo scenarios for testing Peter Drury commentary
+// Demo scenarios for testing commentary
 const DEMO_SCENARIOS: Array<MatchEvent & { id: string; name: string }> = [
   {
     id: 'messi-wc-final',
@@ -86,12 +87,19 @@ const DEMO_SCENARIOS: Array<MatchEvent & { id: string; name: string }> = [
   }
 ];
 
-export default function PeterDruryDemoPage() {
+export default function CommentatorDemoPage() {
   const [selectedScenario, setSelectedScenario] = useState(DEMO_SCENARIOS[0]);
   const [generatedCommentary, setGeneratedCommentary] = useState<string>('');
+  const { generateCommentary, isGenerating, currentCommentator, commentators, selectedCommentator, switchCommentator } = useCommentator();
 
-  const handleCommentaryGenerated = (commentary: string) => {
-    setGeneratedCommentary(commentary);
+  const handleGenerateCommentary = async () => {
+    try {
+      const commentary = await generateCommentary(selectedScenario);
+      setGeneratedCommentary(commentary);
+    } catch (error) {
+      console.error('Failed to generate commentary:', error);
+      setGeneratedCommentary('Failed to generate commentary. Please try again.');
+    }
   };
 
   return (
@@ -100,12 +108,21 @@ export default function PeterDruryDemoPage() {
         {/* Header */}
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold text-notWhite mb-4">
-            🎤 Peter Drury Commentary AI
+            🎤 AI Commentary Demo
           </h1>
           <p className="text-lightPurple text-lg max-w-2xl mx-auto">
-            Experience the magic of Peter Drury&apos;s legendary commentary style, 
-            powered by AI and trained on his most iconic moments.
+            Experience legendary football commentary powered by AI, 
+            featuring the styles of Peter Drury and Ray Hudson.
           </p>
+        </div>
+
+        {/* Commentator Selector */}
+        <div className="mb-8">
+          <CommentatorSelector 
+            commentators={commentators}
+            selectedCommentator={selectedCommentator}
+            onCommentatorChange={switchCommentator}
+          />
         </div>
 
         {/* Scenario Selector */}
@@ -136,34 +153,45 @@ export default function PeterDruryDemoPage() {
           </div>
         </div>
 
-        {/* Peter Drury Commentary Component */}
-        <div className="mb-8">
-          <PeterDruryComposeCast
-            eventId={selectedScenario.eventId}
-            homeTeam={selectedScenario.homeTeam}
-            awayTeam={selectedScenario.awayTeam}
-            competition={selectedScenario.competition}
-            eventType={selectedScenario.eventType}
-            player={selectedScenario.player}
-            minute={selectedScenario.minute}
-            score={selectedScenario.score}
-            context={selectedScenario.context}
-            onCommentaryGenerated={handleCommentaryGenerated}
-          />
+        {/* Generate Commentary Button */}
+        <div className="mb-8 text-center">
+          <button
+            onClick={handleGenerateCommentary}
+            disabled={isGenerating}
+            className="bg-limeGreenOpacity text-darkPurple px-8 py-3 rounded-lg font-semibold text-lg hover:bg-limeGreenOpacity/80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isGenerating ? (
+              <div className="flex items-center justify-center">
+                <svg className="animate-spin h-5 w-5 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 2.577 1.03 4.91 2.709 6.709l1.291-1.418z"></path>
+                </svg>
+                Generating Commentary...
+              </div>
+            ) : (
+              `Generate ${currentCommentator?.name || 'Commentary'}`
+            )}
+          </button>
         </div>
 
         {/* Generated Commentary History */}
         {generatedCommentary && (
           <div className="bg-purplePanel rounded-lg p-6 border border-limeGreenOpacity/20">
-            <h2 className="text-2xl font-bold text-notWhite mb-4">🎭 Latest Commentary</h2>
+            <h2 className="text-2xl font-bold text-notWhite mb-4">
+              🎭 Generated Commentary
+              {currentCommentator && (
+                <span className="text-sm text-lightPurple ml-2">
+                  by {currentCommentator.name}
+                </span>
+              )}
+            </h2>
             <div className="bg-darkPurple rounded p-4 border border-limeGreenOpacity/10">
               <p className="text-lightPurple italic text-xl leading-relaxed">
                 &quot;{generatedCommentary}&quot;
               </p>
             </div>
             <div className="mt-4 text-sm text-gray-400">
-              <p>💡 This commentary was generated using AI trained on Peter Drury&apos;s iconic moments, 
-              including his legendary calls from Roma vs Barcelona, World Cup finals, and more.</p>
+              <p>💡 This commentary was generated using AI trained on {currentCommentator?.name}&apos;s iconic moments and signature style.</p>
             </div>
           </div>
         )}
@@ -173,16 +201,16 @@ export default function PeterDruryDemoPage() {
           <div className="bg-purplePanel rounded-lg p-6 border border-limeGreenOpacity/20">
             <h3 className="text-xl font-bold text-notWhite mb-3">🎯 RAG-Powered</h3>
             <p className="text-lightPurple">
-              Uses Retrieval-Augmented Generation to find the most relevant Peter Drury quotes 
+              Uses Retrieval-Augmented Generation to find the most relevant quotes 
               for each match scenario.
             </p>
           </div>
           
           <div className="bg-purplePanel rounded-lg p-6 border border-limeGreenOpacity/20">
-            <h3 className="text-xl font-bold text-notWhite mb-3">🎭 Authentic Style</h3>
+            <h3 className="text-xl font-bold text-notWhite mb-3">🎭 Authentic Styles</h3>
             <p className="text-lightPurple">
-              Trained on Drury&apos;s signature poetic language, mythology references, 
-              and dramatic crescendos.
+              Trained on authentic commentary styles with signature language, 
+              metaphors, and dramatic delivery.
             </p>
           </div>
           
@@ -197,9 +225,7 @@ export default function PeterDruryDemoPage() {
 
         {/* Footer */}
         <div className="mt-12 text-center text-lightPurple">
-          <p className="text-sm">
-            🎤 Peter Drury Commentary AI - Bringing the magic of football&apos;s greatest commentator to your fingertips
-          </p>
+          <p>Experience the future of football commentary with AI-powered authenticity.</p>
         </div>
       </div>
     </div>

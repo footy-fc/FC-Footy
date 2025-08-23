@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { generatePeterDruryCommentary, createMatchEvent, type MatchEvent } from '~/components/ai/PeterDruryRAG';
+import { commentatorFactory } from '~/services/CommentatorFactory';
+import { MatchEvent } from '~/types/commentatorTypes';
 
 export async function POST(request: NextRequest) {
   try {
@@ -34,24 +35,22 @@ export async function POST(request: NextRequest) {
     }
 
     // Create match event
-    const matchEvent = createMatchEvent(
+    const matchEvent: MatchEvent = {
       eventId,
       homeTeam,
       awayTeam,
       competition,
-      eventType as MatchEvent['eventType'],
-      {
-        player,
-        minute,
-        score,
-        context
-      }
-    );
+      eventType: eventType as MatchEvent['eventType'],
+      player,
+      minute,
+      score,
+      context
+    };
 
-    console.log('🎤 Generating Peter Drury commentary for match event:', matchEvent);
+    console.log('🎤 Generating commentary for match event:', matchEvent);
 
-    // Generate commentary
-    const commentary = await generatePeterDruryCommentary(matchEvent);
+    // Generate commentary using the factory (defaults to Peter Drury)
+    const commentary = await commentatorFactory.generateCommentary('peter-drury', matchEvent);
 
     return NextResponse.json({
       success: true,
@@ -106,24 +105,22 @@ export async function GET(request: NextRequest) {
     }
 
     // Create match event
-    const matchEvent = createMatchEvent(
+    const matchEvent: MatchEvent = {
       eventId,
       homeTeam,
       awayTeam,
       competition,
-      eventType as MatchEvent['eventType'],
-      {
-        player: player || undefined,
-        minute: minute ? parseInt(minute) : undefined,
-        score: score || undefined,
-        context: context || undefined
-      }
-    );
+      eventType: eventType as MatchEvent['eventType'],
+      player: player || undefined,
+      minute: minute ? parseInt(minute) : undefined,
+      score: score || undefined,
+      context: context || undefined
+    };
 
-    console.log('🎤 Generating Peter Drury commentary for match event:', matchEvent);
+    console.log('🎤 Generating commentary for match event:', matchEvent);
 
-    // Generate commentary
-    const commentary = await generatePeterDruryCommentary(matchEvent);
+    // Generate commentary using the factory (defaults to Peter Drury)
+    const commentary = await commentatorFactory.generateCommentary('peter-drury', matchEvent);
 
     return NextResponse.json({
       success: true,
