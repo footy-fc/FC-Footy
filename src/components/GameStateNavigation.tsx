@@ -24,7 +24,7 @@ const GameStateNavigation: React.FC<GameStateNavigationProps> = ({
   // Define the tabs for game state navigation
   const tabs: Tab[] = [
     { id: 'active', label: 'Active Games' },
-    { id: 'create', label: 'Create Game' },
+    // { id: 'create', label: 'Create Game' }, // Temporarily disabled
     { id: 'completed', label: 'Completed Games' }
   ];
   

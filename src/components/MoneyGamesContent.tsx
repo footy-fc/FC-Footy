@@ -21,7 +21,7 @@ const MoneyGamesContent: React.FC = () => {
 
   const [gameState, setGameState] = useState<'create' | 'active' | 'completed'>(
     gameStateParam === 'completed' ? 'completed' : 
-    gameStateParam === 'create' ? 'create' : 'active'
+    gameStateParam === 'create' ? 'active' : 'active' // Redirect 'create' to 'active' since create is disabled
   );
 
   const [hasMounted, setHasMounted] = useState(false);
