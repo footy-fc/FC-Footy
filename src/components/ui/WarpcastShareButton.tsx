@@ -1,7 +1,9 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { sdk } from "@farcaster/miniapp-sdk";
 import { BASE_URL } from '~/lib/config';
-import { generatePeterDruryCommentary, createMatchEvent, type MatchEvent } from '~/components/ai/PeterDruryRAG';
+import { useCommentator } from '~/hooks/useCommentator';
+import { findMostSignificantEvent, createMatchEventFromRichData } from '~/utils/matchDataUtils';
+import { RichMatchEvent, MatchEvent } from '~/types/commentatorTypes';
 
 async function generateCompositeImage(
   homeLogo: string,
@@ -95,19 +97,7 @@ async function generateCompositeImage(
   return canvas.toDataURL('image/png');
 }
 
-interface RichMatchEvent {
-  type: {
-    text: string;
-  };
-  clock: {
-    displayValue: string;
-  };
-  team: {
-    id: string;
-    abbreviation: string;
-  };
-  athletesInvolved: Array<{ displayName: string }>;
-}
+
 
 interface SelectedMatch {
   competitorsLong: string;
@@ -142,7 +132,7 @@ interface WarpcastShareButtonProps {
 }
 
 export function WarpcastShareButton({ selectedMatch, buttonText, compositeImage, leagueId, moneyGamesParams, ticketPriceEth, prizePoolEth }: WarpcastShareButtonProps) {
-  const [isGeneratingCommentary, setIsGeneratingCommentary] = useState(false);
+  const { generateCommentary, isGenerating, currentCommentator } = useCommentator();
   const [ethUsdPrice, setEthUsdPrice] = useState<number | null>(null);
 
   useEffect(() => {
@@ -162,7 +152,7 @@ export function WarpcastShareButton({ selectedMatch, buttonText, compositeImage,
     return () => { cancelled = true; };
   }, [moneyGamesParams]);
 
-  const generateDruryCommentaryForMatch = async (
+  const generateCommentaryForMatch = async (
     homeTeam: string,
     awayTeam: string,
     competition: string,
@@ -171,76 +161,37 @@ export function WarpcastShareButton({ selectedMatch, buttonText, compositeImage,
     awayScore: number
   ): Promise<string> => {
     try {
-      // Find the most significant events by parsing type.text
-      const significantEvents = matchEvents.filter(event => {
-        const eventType = event.type.text.toLowerCase();
-        return eventType.includes('goal') || eventType.includes('card') || eventType.includes('penalty');
-      });
+      const significantEvent = findMostSignificantEvent(matchEvents);
 
-      if (significantEvents.length === 0) {
+      if (!significantEvent) {
         // No significant events, generate final whistle commentary
-        const matchEvent = createMatchEvent(
-          `match-${Date.now()}`,
+        const matchEvent: MatchEvent = {
+          eventId: `match-${Date.now()}`,
           homeTeam,
           awayTeam,
-          competition || 'Football Match',
-          'final_whistle',
-          {
-            score: `${homeScore}-${awayScore}`,
-            context: `Match between ${homeTeam} and ${awayTeam}`
-          }
-        );
-        return await generatePeterDruryCommentary(matchEvent);
+          competition: competition || 'Football Match',
+          eventType: 'final_whistle',
+          score: `${homeScore}-${awayScore}`,
+          context: `Match between ${homeTeam} and ${awayTeam}`
+        };
+        return await generateCommentary(matchEvent);
       }
 
-      // Prioritize goals over cards
-      const goals = significantEvents.filter(event => 
-        event.type.text.toLowerCase().includes('goal')
-      );
-      const selectedEvent = goals.length > 0 ? goals[goals.length - 1] : significantEvents[significantEvents.length - 1];
-
-      // Extract event details
-      const player = selectedEvent.athletesInvolved[0]?.displayName || 'Unknown Player';
-      const minute = selectedEvent.clock.displayValue;
-      const minuteNum = parseInt(minute.replace("'", "")) || 0;
-      const eventType = selectedEvent.type.text.toLowerCase();
-
-      // Determine Drury event type
-      let druryEventType: MatchEvent['eventType'] = 'goal';
-      if (eventType.includes('red card')) druryEventType = 'red_card';
-      else if (eventType.includes('yellow card')) druryEventType = 'yellow_card';
-      else if (eventType.includes('penalty')) druryEventType = 'penalty';
-      else if (eventType.includes('goal')) druryEventType = 'goal';
-
-      // Create time context
-      let timeContext = '';
-      if (minuteNum <= 10) timeContext = 'a lightning-fast goal';
-      else if (minuteNum <= 30) timeContext = 'a first-half goal';
-      else if (minuteNum <= 60) timeContext = 'a second-half goal';
-      else timeContext = 'a late goal';
-
-      // Build rich context
-      const isGoal = eventType.includes('goal');
-      const isRedCard = eventType.includes('red card');
-      const contextString = `${player} ${isGoal ? 'scores' : isRedCard ? 'is sent off' : 'receives a booking'} at ${minute}. This is ${timeContext}.`;
-
-      const matchEvent = createMatchEvent(
-        `match-${Date.now()}`,
+      // Create rich match data and match event
+      const richData = {
         homeTeam,
         awayTeam,
-        competition || 'Football Match',
-        druryEventType,
-        {
-          player: player,
-          minute: minuteNum,
-          score: `${homeScore}-${awayScore}`,
-          context: contextString
-        }
-      );
+        homeScore,
+        awayScore,
+        competition: competition || 'Football Match',
+        eventId: `match-${Date.now()}`,
+        matchEvents
+      };
 
-      return await generatePeterDruryCommentary(matchEvent);
+      const matchEvent = createMatchEventFromRichData(richData, significantEvent);
+      return await generateCommentary(matchEvent);
     } catch (error) {
-      console.error('Error generating Drury commentary:', error);
+      console.error('Error generating commentary:', error);
       return '';
     }
   };
@@ -273,12 +224,11 @@ export function WarpcastShareButton({ selectedMatch, buttonText, compositeImage,
         competition,
       } = selectedMatch;
 
-      // Generate Peter Drury commentary if we have rich match data
+      // Generate commentary if we have rich match data
       let commentary = '';
       if (matchEvents && matchEvents.length > 0 && !moneyGamesParams) {
-        setIsGeneratingCommentary(true);
         try {
-          commentary = await generateDruryCommentaryForMatch(
+          commentary = await generateCommentaryForMatch(
             selectedMatch.homeTeam,
             selectedMatch.awayTeam,
             competition || 'Football Match',
@@ -288,8 +238,6 @@ export function WarpcastShareButton({ selectedMatch, buttonText, compositeImage,
           );
         } catch (error) {
           console.error('Failed to generate commentary:', error);
-        } finally {
-          setIsGeneratingCommentary(false);
         }
       }
 
@@ -341,8 +289,9 @@ export function WarpcastShareButton({ selectedMatch, buttonText, compositeImage,
           : '';
         matchSummary = `${selectedMatch.homeTeam} v ${selectedMatch.awayTeam} ScoreSquare 🎟️ 25 squares, 2 winners\nTicket: ${ticketEthStr}${ticketUsdStr} \nPrize: ${prizeEthStr}${prizeUsdStr}`;
       } else if (commentary) {
-        // Prepend Peter Drury commentary for regular matches with proper formatting
-        matchSummary = `🎤 "${commentary}" — P. Drury ai\n\n${competitorsLong} ${keyMomentsText}\n\n@gabedev.eth @kmacb.eth are you in on this one?`;
+        // Prepend commentary for regular matches with proper formatting
+        const commentatorDisplay = currentCommentator?.displayName || 'P. Drury';
+        matchSummary = `🎤 "${commentary}" — ${commentatorDisplay} ai\n\n${competitorsLong} ${keyMomentsText}\n\n@gabedev.eth @kmacb.eth are you in on this one?`;
       }
 
       //let imageUrl = '';
@@ -387,10 +336,10 @@ export function WarpcastShareButton({ selectedMatch, buttonText, compositeImage,
   return (
     <button
       onClick={openWarpcastUrl}
-      disabled={isGeneratingCommentary}
+      disabled={isGenerating}
       className="w-full sm:w-38 bg-deepPink text-white py-2 px-4 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-deepPink hover:bg-fontRed"
     >
-      {isGeneratingCommentary ? '🎤 Generating Commentary...' : (buttonText || 'Share')}
+      {isGenerating ? '🎤 Generating Commentary...' : (buttonText || 'Share')}
     </button>
   );
 }

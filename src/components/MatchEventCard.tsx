@@ -11,6 +11,7 @@ import { getFansForTeam } from '../lib/kvPerferences';
 import { fetchFanUserData } from './utils/fetchFCProfile';
 import { fetchTeamLogos } from './utils/fetchTeamLogos';
 import { GET_SS_GAMES } from '../lib/graphql/queries';
+import { createRichMatchData } from '~/utils/matchDataUtils';
 // import FarcasterAvatar from './FarcasterAvatar';
 import { sdk } from '@farcaster/miniapp-sdk';
 // import { fetchNativeTokenPrice } from '~/utils/fetchUsdPrice';
@@ -177,20 +178,21 @@ const MatchEventCard: React.FC<EventCardProps> = ({ event, sportId }) => {
    //   fetchPrice();
    // }, []);
 
-  // Extract match info from event data.
+  // Extract match info from event data using utilities
   const competitorsLong = event.name;
-  
-  // Use actual competitor data instead of parsing shortName
-  const homeTeam = event.competitions[0]?.competitors[0]?.team.abbreviation || event.shortName.slice(6, 9);
-  const awayTeam = event.competitions[0]?.competitors[1]?.team.abbreviation || event.shortName.slice(0, 3);
   
   const eventStarted = new Date() >= new Date(event.date);
   const clock = event.status.displayClock + ' ' + event.status.type.detail || '00:00';
 
+  // Use match data utilities for consistent processing
+  const matchData = createRichMatchData(event, teams);
+  const homeTeam = matchData.homeTeam;
+  const awayTeam = matchData.awayTeam;
+  const homeScore = matchData.homeScore;
+  const awayScore = matchData.awayScore;
+  
   const homeTeamLogo = event.competitions[0]?.competitors[0]?.team.logo;
   const awayTeamLogo = event.competitions[0]?.competitors[1]?.team.logo;
-  const homeScore = event.competitions[0]?.competitors[0]?.score;
-  const awayScore = event.competitions[0]?.competitors[1]?.score;
   const [chatRoomHash, setChatRoomHash] = useState<string | null>(null);
   const [checkingRoom, setCheckingRoom] = useState<boolean>(false);
 
@@ -242,22 +244,9 @@ const MatchEventCard: React.FC<EventCardProps> = ({ event, sportId }) => {
         return `${moment.action} ${moment.teamName} by ${moment.playerName} at ${formattedTime}`;
       });
     
-      // Build canonical eventId from league map (no trailing underscore)
-      const deriveLeagueId = () => {
-        try {
-          const homeAbbr = event.competitions[0]?.competitors[0]?.team.abbreviation?.toUpperCase();
-          const awayAbbr = event.competitions[0]?.competitors[1]?.team.abbreviation?.toUpperCase();
-          return (
-            (teams.find((t) => t.abbreviation.toUpperCase() === homeAbbr)?.league) ||
-            (teams.find((t) => t.abbreviation.toUpperCase() === awayAbbr)?.league) ||
-            'eng.1'
-          );
-        } catch {
-          return 'eng.1';
-        }
-      };
-      const leagueId = deriveLeagueId();
-      const baseId = `${leagueId.replace('.', '_')}_${homeTeam}_${awayTeam}`;
+      // Use match data utilities for consistent processing
+      const leagueId = matchData.competition;
+      const baseId = matchData.eventId;
       console.log("Event ID (canonical):", baseId);
       // Check room using canonical, then legacy with trailing underscore
       setCheckingRoom(true);
@@ -309,8 +298,8 @@ const MatchEventCard: React.FC<EventCardProps> = ({ event, sportId }) => {
         clock,
         eventStarted,
         keyMoments: keyMomentStrings,
-        // Add rich match data for Peter Drury integration
-        matchEvents: event.competitions[0]?.details || [],
+        // Add rich match data for commentator integration
+        matchEvents: matchData.matchEvents,
         competition: leagueId,
         eventId: baseId,
       });
