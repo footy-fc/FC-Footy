@@ -48,7 +48,6 @@ const MatchRoomsTab: React.FC = () => {
   const [leagues, setLeagues] = useState<League[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
   const [memberships, setMemberships] = useState<Record<string, string[]>>({});
-  const [loadingMeta, setLoadingMeta] = useState<boolean>(false);
 
   useEffect(() => {
     const load = async () => {
@@ -82,7 +81,6 @@ const MatchRoomsTab: React.FC = () => {
   useEffect(() => {
     const fetchMeta = async () => {
       try {
-        setLoadingMeta(true);
         const [leaguesRes, teamsRes, membershipsRes] = await Promise.all([
           fetch('/api/leagues'),
           fetch('/api/teams', { headers: { 'x-api-key': process.env.NEXT_PUBLIC_NOTIFICATION_API_KEY || '' } }),
@@ -98,8 +96,7 @@ const MatchRoomsTab: React.FC = () => {
         // eslint-disable-next-line no-console
         console.warn('Failed to load league/team metadata', e);
       } finally {
-        setLoadingMeta(false);
-        console.log('Loaded league/team metadata', loadingMeta);
+        console.log('Loaded league/team metadata');
       }
     };
     fetchMeta();
@@ -145,13 +142,13 @@ const MatchRoomsTab: React.FC = () => {
       // If no cast hash provided, create a new cast
       if (!finalCastHash) {
         await sdk.actions.ready();
-        const composeOptions: any = {
+        const composeOptions = {
           text: `Match Room created for ${newEventId}. Join the chat!`,
-          parent: { type: "url", url: finalParent },
+          embeds: [finalParent] as [] | [string] | [string, string],
           channelKey: "football",
         };
-        const cast = await (sdk.actions as any).composeCast(composeOptions);
-        finalCastHash = (cast as any)?.hash || (cast as any)?.cast?.hash || "";
+        const cast = await sdk.actions.composeCast(composeOptions);
+        finalCastHash = cast?.cast?.hash || "";
       }
 
       const res = await fetch("/api/match-rooms", {
@@ -169,8 +166,8 @@ const MatchRoomsTab: React.FC = () => {
       } else {
         setResponse(data?.error || "Failed to save room");
       }
-    } catch (e: any) {
-      setResponse(e?.message || "Failed to create room");
+    } catch (e: unknown) {
+      setResponse((e as Error)?.message || "Failed to create room");
     } finally {
       setIsCreating(false);
     }
@@ -227,8 +224,8 @@ const MatchRoomsTab: React.FC = () => {
       } else {
         setResponse(data?.error || "Failed to update room");
       }
-    } catch (e: any) {
-      setResponse(e?.message || "Failed to update room");
+    } catch (e: unknown) {
+      setResponse((e as Error)?.message || "Failed to update room");
     } finally {
       setIsUpdating(false);
     }

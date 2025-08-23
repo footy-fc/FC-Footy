@@ -597,7 +597,7 @@ const ContentLiveChat = ({ teamId, parentCastHash, parentUrl, hubUrl, eventId }:
       // Prepare the parent configuration
       let parentConfig = undefined;
       if (parentCastHash) {
-        parentConfig = { type: 'cast', hash: parentCastHash };
+        parentConfig = { type: 'cast' as const, hash: parentCastHash };
       }
       
       // Compose the cast using the SDK
