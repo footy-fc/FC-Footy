@@ -1,0 +1,41 @@
+type Game @entity {
+  id: ID!
+  deployer: Bytes!
+  squarePrice: BigInt!
+  paymentToken: Bytes!
+  eventId: String!
+  referee: Bytes!
+  deployerFeePercent: Int!
+  ticketsSold: Int!
+  prizePool: BigInt!
+  active: Boolean!
+  prizeClaimed: Boolean!
+  createdAt: BigInt!
+  finalizedAt: BigInt
+}
+
+type TicketPurchase @entity {
+  id: ID!
+  game: Game!
+  buyer: Bytes!
+  numTickets: Int!
+}
+
+type GameFinalization @entity {
+  id: ID!
+  game: Game!
+  winningSquares: [Int!]!
+  winnerPercentages: [Int!]!
+}
+
+type PrizeDistribution @entity {
+  id: ID!
+  game: Game!
+  distributor: Bytes!
+}
+
+type Refund @entity {
+  id: ID!
+  game: Game!
+  ticketsRefunded: Int!
+}
