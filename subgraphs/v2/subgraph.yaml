@@ -23,7 +23,7 @@ dataSources:
         - name: ScoreSquareV2
           file: ./abis/ScoreSquareV2.json
       eventHandlers:
-        - event: GameCreated(indexed uint256,indexed address,uint256,string,address,uint8,uint256)
+        - event: GameCreated(indexed uint256,indexed address,uint256,address,string,address,uint8)
           handler: handleGameCreated
         - event: TicketsPurchased(indexed uint256,indexed address,uint8)
           handler: handleTicketsPurchased
