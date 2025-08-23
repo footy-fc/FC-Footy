@@ -39,3 +39,18 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 .aider*
+
+# contracts
+contracts/cache/
+contracts/artifacts/
+contracts/typechain/
+contracts/coverage/
+contracts/coverage.json
+contracts/.env
+contracts/.env.local
+
+# subgraphs
+subgraphs/*/dist/
+subgraphs/*/build/
+subgraphs/*/generated/
+subgraphs/*/.graphrc

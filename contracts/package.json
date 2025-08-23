@@ -1,0 +1,36 @@
+{
+  "name": "fc-footy-contracts",
+  "version": "1.0.0",
+  "description": "Smart contracts for FC Footy ScoreSquare game",
+  "main": "index.js",
+  "scripts": {
+    "compile": "hardhat compile",
+    "test": "hardhat test",
+    "deploy:base": "hardhat run scripts/deploy-v2.js --network base",
+    "deploy:base-sepolia": "hardhat run scripts/deploy-v2.js --network baseSepolia",
+    "deploy:local": "hardhat run scripts/deploy-v2.js --network localhost",
+    "verify:base": "hardhat verify --network base",
+    "verify:base-sepolia": "hardhat verify --network baseSepolia",
+    "clean": "hardhat clean",
+    "node": "hardhat node"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^4.0.0",
+    "@nomicfoundation/hardhat-verify": "^2.0.0",
+    "dotenv": "^16.3.1",
+    "hardhat": "^2.19.0"
+  },
+  "dependencies": {
+    "@openzeppelin/contracts": "^5.0.0"
+  },
+  "keywords": [
+    "solidity",
+    "ethereum",
+    "smart-contracts",
+    "hardhat",
+    "base"
+  ],
+  "author": "FC Footy Team",
+  "license": "MIT",
+  "packageManager": "yarn@4.0.0"
+}

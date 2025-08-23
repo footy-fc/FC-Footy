@@ -1,0 +1,36 @@
+specVersion: 0.0.5
+schema:
+  file: ./schema.graphql
+dataSources:
+  - kind: ethereum
+    name: ScoreSquareV2
+    network: base
+    source:
+      address: "0x0000000000000000000000000000000000000000"  # Replace with deployed V2 address
+      abi: ScoreSquareV2
+      startBlock: 0  # Replace with deployment block
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - Game
+        - TicketPurchase
+        - GameFinalization
+        - PrizeDistribution
+        - Refund
+      abis:
+        - name: ScoreSquareV2
+          file: ./abis/ScoreSquareV2.json
+      eventHandlers:
+        - event: GameCreated(indexed uint256,indexed address,uint256,string,address,uint8,uint256)
+          handler: handleGameCreated
+        - event: TicketsPurchased(indexed uint256,indexed address,uint8)
+          handler: handleTicketsPurchased
+        - event: GameFinalized(indexed uint256,uint8[],uint8[])
+          handler: handleGameFinalized
+        - event: PrizesDistributed(indexed uint256,address)
+          handler: handlePrizesDistributed
+        - event: TicketsRefunded(indexed uint256,uint8)
+          handler: handleTicketsRefunded
+      file: ./src/mapping.ts
