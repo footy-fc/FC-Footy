@@ -4,7 +4,7 @@ export const tabDisplayMap: Record<string, string> = {
     contests: "Contests",
     rewards: "Rewards",
     scoutPlayers: "Scout Players",
-    moneyGames: "ScoreSquare",
+    // moneyGames: "ScoreSquare", // Temporarily disabled
     //oCaptain: "O'Captain",
     extraTime: "Extra Time",
     settings: "Settings",

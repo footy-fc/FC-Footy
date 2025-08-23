@@ -18,13 +18,13 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
     "matches",
     "contests",
     // "scoutPlayers",
-    "moneyGames",
+    // "moneyGames", // Temporarily disabled
     // "oCaptain",
     "extraTime",
     "rewards",
     "settings",
   ];
-  const adminFids = new Set<number>([4163, 420564]);
+  const adminFids = React.useMemo(() => new Set<number>([4163, 420564]), []);
   const [includeAdmins, setIncludeAdmins] = React.useState(false);
 
   React.useEffect(() => {
@@ -41,7 +41,7 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
     };
     load();
     return () => { cancelled = true; };
-  }, []);
+  }, [adminFids]);
 
   const tabs = includeAdmins ? [...tabsBase, 'admins'] : tabsBase;
 

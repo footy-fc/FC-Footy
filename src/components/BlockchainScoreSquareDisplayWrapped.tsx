@@ -211,7 +211,7 @@ useEffect(() => {
     }, 5000);
 
     return () => clearInterval(interval);
-  }, [gameDataState?.prizeClaimed]);
+  }, [gameDataState, gameDataState?.prizeClaimed, refetchOnChainTickets]);
 
   const handleBuyTickets = async () => {
     if (!gameDataState || cart.length === 0) {

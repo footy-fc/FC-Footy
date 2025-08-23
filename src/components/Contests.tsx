@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import ContestFCFantasy from "./ContestFCFantasy";
 import FavoriteTeamLeaderboard from "./ContestFavoriteTeamLeaderboard";
 import ContestScoresPoints from "./ContestScoresPoints";
-import ContestScoreSquare from "./ContestScoreSquare";
+// import ContestScoreSquare from "./ContestScoreSquare"; // Temporarily disabled
 
 const Contests = () => {
   const [selectedTab, setSelectedTab] = useState<string>("fCFantasy"); // Default to FPL
@@ -34,14 +34,14 @@ const Contests = () => {
           Fan Clubs
         </button>
 
-        <button
+        {/* <button
           onClick={() => handleTabSelect("scoreSquare")}
           className={`flex-shrink-0 py-1 px-6 text-sm font-semibold cursor-pointer rounded-full border-2 ${
             selectedTab === "scoreSquare" ? "border-limeGreenOpacity text-lightPurple" : "border-gray-500 text-gray-500"
           }`}
         >
           ScoreSquare
-        </button>
+        </button> */}
        {/*  <button
           onClick={() => handleTabSelect("scoresPoints")}
           className={`flex-shrink-0 py-1 px-6 text-sm font-semibold cursor-pointer rounded-full border-2 ${
@@ -56,7 +56,7 @@ const Contests = () => {
       <div className="bg-purplePanel text-lightPurple rounded-lg p-1">
         {selectedTab === "fCFantasy" && <ContestFCFantasy />}
         {selectedTab === "fanClubs" && <FavoriteTeamLeaderboard />}
-        {selectedTab === "scoreSquare" && <ContestScoreSquare />}
+        {/* {selectedTab === "scoreSquare" && <ContestScoreSquare />} */}
         {selectedTab === "scoresPoints" && <ContestScoresPoints />}
       </div>
     </div>
