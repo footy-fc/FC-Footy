@@ -96,6 +96,61 @@ export async function DELETE(req: NextRequest) {
   }
 }
 
+export async function PUT(req: NextRequest) {
+  // Admin-only via API key
+  const apiKey = req.headers.get("x-api-key");
+  if (apiKey !== process.env.NEXT_PUBLIC_NOTIFICATION_API_KEY) {
+    return Response.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const body = await req.json();
+  const { oldEventId, newEventId, parentUrl, castHash } = body || {};
+  
+  if (!oldEventId) {
+    return Response.json({ error: "Missing required field: oldEventId" }, { status: 400 });
+  }
+  if (!newEventId) {
+    return Response.json({ error: "Missing required field: newEventId" }, { status: 400 });
+  }
+
+  try {
+    // Get the existing room data
+    const existingRoom = await redis.get(keyForEvent(oldEventId));
+    if (!existingRoom) {
+      return Response.json({ error: "Room not found" }, { status: 404 });
+    }
+
+    const roomData = existingRoom as {
+      eventId: string;
+      parentUrl: string | null;
+      castHash: string;
+      fid: number | null;
+      createdAt: string;
+    };
+
+    // Update the room data
+    const updatedRecord = {
+      eventId: newEventId,
+      parentUrl: parentUrl !== undefined ? parentUrl : roomData.parentUrl,
+      castHash: castHash !== undefined ? castHash : roomData.castHash,
+      fid: roomData.fid,
+      createdAt: roomData.createdAt, // Preserve original creation time
+    };
+
+    // If the eventId is changing, delete the old key and create a new one
+    if (oldEventId !== newEventId) {
+      await redis.del(keyForEvent(oldEventId));
+    }
+    
+    await redis.set(keyForEvent(newEventId), updatedRecord);
+    
+    return Response.json({ success: true, room: updatedRecord });
+  } catch (e) {
+    console.error('Failed to update room', e);
+    return Response.json({ error: "Failed to update room" }, { status: 500 });
+  }
+}
+
 export const runtime = 'nodejs';
 
 

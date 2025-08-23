@@ -240,7 +240,7 @@ const ChatInput = ({
           }
         }}
         maxLength={390}
-        placeholder="Chat Disabled. Soon ish. Maybe."
+        placeholder="Chat Disabled. Soon ish. Maybe. Type your message anyway..."
         className="w-full px-4 py-2 rounded-md border border-limeGreenOpacity bg-gray-800 text-white outline-none resize-none overflow-hidden pb-12"
       />
       <button
@@ -584,17 +584,41 @@ const ContentLiveChat = ({ teamId, parentCastHash, parentUrl, hubUrl, eventId }:
   }, [footyChat]);
 
   const postMessage = async () => {
-    console.log('[Chat] postMessage start (read-only mode)');
-    if (isPosting) return;
+    console.log('[Chat] postMessage start');
+    if (isPosting || !message.trim()) return;
     setIsPosting(true);
 
     try {
       await sdk.actions.ready();
-      // Read-only: skip posting
+      
+      // Prepare the cast text with default footy::popcorn emoji
+      const castText = message.trim() + ' footy::popcorn';
+      
+      // Prepare the parent configuration
+      let parentConfig = undefined;
+      if (parentCastHash) {
+        parentConfig = { type: 'cast', hash: parentCastHash };
+      }
+      
+      // Compose the cast using the SDK
+      const composeOptions = {
+        text: castText,
+        parent: parentConfig,
+        channelKey: "football",
+      };
+      
+      console.log('[Chat] Composing cast with options:', composeOptions);
+      const cast = await sdk.actions.composeCast(composeOptions);
+      
+      console.log('[Chat] Cast composed successfully:', cast);
+      
+      // Clear the message and close emoji panel
       setMessage("");
       setShowEmojiPanel(false);
+      
     } catch (error) {
       console.error("[Chat] Error sending cast:", error);
+      // You might want to show an error message to the user here
     } finally {
       console.log('[Chat] postMessage done');
       setIsPosting(false);

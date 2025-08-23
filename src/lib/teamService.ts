@@ -122,6 +122,54 @@ export class TeamService {
       return null;
     }
   }
+
+  /**
+   * Get team by abbreviation with comprehensive lookup including fplMappings
+   * This method checks both the primary abbreviation and the fplMappings array
+   */
+  async getTeamByAbbrComprehensive(abbreviation: string): Promise<Team | null> {
+    try {
+      const normalizedAbbr = abbreviation.toLowerCase();
+      
+      // First, try the direct abbreviation lookup
+      const team = await this.getTeamByAbbr(normalizedAbbr);
+      if (team) {
+        return team;
+      }
+      
+      // If not found, search through all teams for fplMappings
+      const allTeams = await this.getAllTeams();
+      
+      for (const team of allTeams) {
+        const fplMappingsRaw = team.metadata?.fplMappings;
+        if (fplMappingsRaw) {
+          let fplMappings: string[] = [];
+          
+          // Handle both string and array formats
+          if (typeof fplMappingsRaw === 'string') {
+            try {
+              fplMappings = JSON.parse(fplMappingsRaw);
+            } catch (error) {
+              console.warn(`Failed to parse fplMappings for team ${team.name}:`, error);
+              continue;
+            }
+          } else if (Array.isArray(fplMappingsRaw)) {
+            fplMappings = fplMappingsRaw;
+          }
+          
+          // Check if the abbreviation matches any in the fplMappings array
+          if (fplMappings.some(mapping => mapping.toLowerCase() === normalizedAbbr)) {
+            return team;
+          }
+        }
+      }
+      
+      return null;
+    } catch (error) {
+      console.error(`Error getting team by comprehensive abbreviation lookup ${abbreviation}:`, error);
+      return null;
+    }
+  }
   
   async getTeamByName(name: string): Promise<Team | null> {
     try {

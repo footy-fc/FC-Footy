@@ -27,7 +27,7 @@ export async function GET(
     }
 
     // Find team by abbreviation
-    const team = await teamService.getTeamByAbbr(normalizedAbbr);
+    const team = await teamService.getTeamByAbbrComprehensive(normalizedAbbr);
     
     if (!team) {
       return NextResponse.json(
