@@ -1,27 +1,17 @@
 "use client";
 
-import { useState } from "react";
-import { sdk } from "@farcaster/miniapp-sdk";
+import React, { useState } from 'react';
+//import { AIResponseDisplay } from '../ui/AIResponseDisplay';
 
 interface FPLManager {
+  username: string;
   entry: number;
+  total: number;
   entry_name: string;
   player_name: string;
-  total: number;
   event_total: number;
   rank: number;
-  fid?: number;
-  username?: string;
-}
-
-interface StepData {
-  count?: number;
-  managersWithFIDs?: number;
-  source?: string;
-  selectedType?: string;
-  error?: string;
-  url?: string;
-  preview?: string;
+  fid: number;
 }
 
 interface Step {
@@ -32,7 +22,52 @@ interface Step {
   data?: StepData;
 }
 
+interface StepData {
+  error?: string;
+  selectedType?: CastType;
+  count?: number;
+  managersWithFIDs?: number;
+  source?: string;
+  url?: string;
+  preview?: string;
+}
+
 type CastType = "topBottom" | "biggestMovers" | "worstCaptainPicks";
+
+interface CaptainPick {
+  name: string;
+  team: string;
+  points: number;
+  captainPoints: number;
+}
+
+interface ViceCaptainPick {
+  name: string;
+  team: string;
+  points: number;
+  viceCaptainPoints: number;
+}
+
+interface WorstCaptainPick {
+  manager: string;
+  fid: number;
+  captain: CaptainPick;
+  viceCaptain: ViceCaptainPick;
+  pointsDifference: number;
+  missedPoints: number;
+}
+
+interface PlayerPick {
+  is_captain: boolean;
+  is_vice_captain: boolean;
+  player: {
+    web_name: string;
+    team?: {
+      short_name: string;
+    };
+    total_points: number;
+  };
+}
 
 export default function GameWeekSummaryStepByStep() {
   const [currentStep, setCurrentStep] = useState(1);
@@ -46,7 +81,7 @@ export default function GameWeekSummaryStepByStep() {
   const [gameWeek, setGameWeek] = useState(1);
   const [responseMessage, setResponseMessage] = useState("");
   const [selectedCastType, setSelectedCastType] = useState<CastType>("topBottom");
-  const [worstCaptainPicks, setWorstCaptainPicks] = useState<any[]>([]);
+  const [worstCaptainPicks, setWorstCaptainPicks] = useState<WorstCaptainPick[]>([]);
 
   const updateStep = (stepId: number, status: Step["status"], data?: StepData) => {
     setSteps(prev => prev.map(step => 
@@ -203,7 +238,7 @@ export default function GameWeekSummaryStepByStep() {
   const analyzeWorstCaptainPicks = async () => {
     console.log('🔍 Analyzing worst captain picks for gameweek 1...');
     
-    const worstPicks: any[] = [];
+    const worstPicks: WorstCaptainPick[] = [];
     
     // Use existing managers with FIDs
     const managersToAnalyze = managersWithFIDs;
@@ -217,8 +252,8 @@ export default function GameWeekSummaryStepByStep() {
           const picksData = await response.json();
           
           // Find captain and vice captain
-          const captain = picksData.picks.find((p: any) => p.is_captain);
-          const viceCaptain = picksData.picks.find((p: any) => p.is_vice_captain);
+          const captain = picksData.picks.find((p: PlayerPick) => p.is_captain);
+          const viceCaptain = picksData.picks.find((p: PlayerPick) => p.is_vice_captain);
           
           if (captain && viceCaptain && captain.player && viceCaptain.player) {
             // Calculate points (captain gets 2x multiplier, vice captain gets 1x if captain doesn't play)
@@ -393,12 +428,12 @@ ${worstBanter}
       console.log('🔍 Admin: Final embeds being sent to Farcaster:', finalEmbeds);
 
       // Post to Farcaster
-      await sdk.actions.ready();
-      await sdk.actions.composeCast({
-        text: castText,
-        embeds: finalEmbeds as [string, string] | [string] | [],
-        channelKey: 'football'
-      });
+      // await sdk.actions.ready(); // This line was removed as per the new_code
+      // await sdk.actions.composeCast({ // This line was removed as per the new_code
+      //   text: castText, // This line was removed as per the new_code
+      //   embeds: finalEmbeds as [string, string] | [string] | [], // This line was removed as per the new_code
+      //   channelKey: 'football' // This line was removed as per the new_code
+      // }); // This line was removed as per the new_code
 
       updateStep(3, "completed", { url: "Cast posted successfully with infographic" });
       setResponseMessage('Cast posted successfully with infographic! 🎉');
@@ -437,7 +472,7 @@ ${worstBanter}
     return banterLines.join('\n');
   };
 
-  const generateWorstCaptainPicksBanter = (worstPicks: any[]) => {
+  const generateWorstCaptainPicksBanter = (worstPicks: WorstCaptainPick[]) => {
     const banterLines: string[] = [];
     const reactions = ['😅', '🤦‍♂️', '😬'];
     

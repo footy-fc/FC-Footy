@@ -18,6 +18,33 @@ import { sdk } from '@farcaster/miniapp-sdk';
 // import ContestScoreSquare from './ContestScoreSquare';
 // import ContestScoreSquareCreate from './ContestScoreSquareCreate';
 
+interface EnrichedPick {
+  element: number;
+  position: number;
+  multiplier: number;
+  is_captain: boolean;
+  is_vice_captain: boolean;
+  element_type: number;
+  player?: {
+    id: number;
+    name: string;
+    web_name: string;
+    code: number;
+    team?: {
+      id: number;
+      name: string;
+      short_name: string;
+    } | null;
+    element_type: number;
+    form: number;
+    selected_by_percent: number;
+    expected_goals: number;
+    expected_assists: number;
+    total_points: number;
+    points_per_game: number;
+  } | null;
+}
+
 interface Detail {
   athletesInvolved: Array<{ displayName: string }>;
   type: { text: string };
@@ -77,21 +104,7 @@ interface Team {
 }
 
 // Types for formatted FPL picks enrichment
-type EnrichedPlayer = {
-  web_name: string;
-  team?: { short_name?: string } | null;
-  element_type: number;
-  total_points?: number;
-  selected_by_percent?: number;
-  expected_goals?: number;
-  expected_assists?: number;
-};
-type EnrichedPick = {
-  player?: EnrichedPlayer;
-  is_captain?: boolean;
-  is_vice_captain?: boolean;
-  multiplier?: number;
-};
+
 type PicksData = { picks?: EnrichedPick[] };
 
 const MatchEventCard: React.FC<EventCardProps> = ({ event, sportId }) => {
@@ -99,8 +112,8 @@ const MatchEventCard: React.FC<EventCardProps> = ({ event, sportId }) => {
   const [gameContext, setGameContext] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [showGameContext, setShowGameContext] = useState(false);
-  const [userFid, setUserFid] = useState<number | null>(null);
   const [isInFantasyLeague, setIsInFantasyLeague] = useState<boolean | null>(null);
+  const [hasRelevantPlayers, setHasRelevantPlayers] = useState<boolean | null>(null);
   const [showDetails, setShowDetails] = useState(false);
   // State for fan avatar rows for team1 and team2
   const [matchFanAvatarsTeam1, setMatchFanAvatarsTeam1] = useState<Array<{ fid: number; pfp: string }>>([]);
@@ -134,35 +147,64 @@ const MatchEventCard: React.FC<EventCardProps> = ({ event, sportId }) => {
     fetchTeamLogos().then((data) => setTeams(data));
   }, []);
 
+  // Reset relevant players state when selected match changes
+  useEffect(() => {
+    setHasRelevantPlayers(null);
+  }, [selectedMatch]);
+
   // Check if user's FID belongs to a manager in the FPL league (eng.1)
   useEffect(() => {
-    if (sportId !== 'eng.1') {
-      setIsInFantasyLeague(false);
-      return;
-    }
-
-    let isActive = true;
-    (async () => {
+    const checkFantasyLeague = async () => {
       try {
         const context = await sdk.context;
-        const fid = context?.user?.fid as number | undefined;
-        if (!fid) {
-          if (isActive) setIsInFantasyLeague(false);
-          return;
+        const fid = context?.user?.fid;
+        
+        if (fid) {
+          // setUserFid(fid); // Removed as per edit hint
+          
+          // Check if user is in fantasy league
+          const response = await fetch(`/api/manager-picks?fid=${fid}&gameweek=1`);
+          
+          if (response.ok) {
+            setIsInFantasyLeague(true);
+            
+            // If we have a selected match, also check for relevant players
+            if (selectedMatch) {
+              const picksData = await response.json();
+              const currentMatchTeams = [
+                selectedMatch.homeTeam.toLowerCase(),
+                selectedMatch.awayTeam.toLowerCase()
+              ];
+              
+              const relevantPicks = picksData.picks?.filter((pick: EnrichedPick) => {
+                const player = pick.player;
+                if (!player || !player.team) return false;
+                
+                const playerTeam = player.team.short_name?.toLowerCase() || '';
+                return currentMatchTeams.includes(playerTeam);
+              }) || [];
+              
+              setHasRelevantPlayers(relevantPicks.length > 0);
+            }
+          } else {
+            setIsInFantasyLeague(false);
+            setHasRelevantPlayers(false);
+          }
+        } else {
+          setIsInFantasyLeague(false);
+          setHasRelevantPlayers(false);
         }
-        if (isActive) setUserFid(fid);
-        console.log("userFid:", userFid);
-        const res = await fetch(`/api/manager-picks?fid=${fid}`);
-        if (isActive) setIsInFantasyLeague(res.ok);
-      } catch {
-        if (isActive) setIsInFantasyLeague(false);
+      } catch (error) {
+        console.error('Error checking fantasy league:', error);
+        setIsInFantasyLeague(false);
+        setHasRelevantPlayers(false);
       }
-    })();
-
-    return () => {
-      isActive = false;
     };
-  }, [sportId]);
+    
+    if (sportId === 'eng.1') {
+      checkFantasyLeague();
+    }
+  }, [sportId, selectedMatch]);
    // useEffect(() => {
    //   const fetchPrice = async () => {
    //     try {
@@ -330,22 +372,41 @@ const MatchEventCard: React.FC<EventCardProps> = ({ event, sportId }) => {
               const picksData = await response.json();
               console.log('✅ User found in fantasy league, entry_id:', picksData.entry_id);
               
-              // Show user's team picks
+              // Check if there are relevant players for this match
+              const currentMatchTeams = [
+                selectedMatch.homeTeam.toLowerCase(),
+                selectedMatch.awayTeam.toLowerCase()
+              ];
+              
+              const relevantPicks = picksData.picks?.filter((pick: EnrichedPick) => {
+                const player = pick.player;
+                if (!player || !player.team) return false;
+                
+                const playerTeam = player.team.short_name?.toLowerCase() || '';
+                return currentMatchTeams.includes(playerTeam);
+              }) || [];
+              
+              setHasRelevantPlayers(relevantPicks.length > 0);
+              
+              // Show user's team picks (only relevant players)
               const picksTable = formatUserTeamPicks(picksData);
               setGameContext(picksTable);
             } else {
               console.log('❌ User not found in fantasy league');
+              setHasRelevantPlayers(false);
               // Show no fantasy impact message
               setGameContext('**FANTASY IMPACT**\n\nNo fantasy league impact to report.\n\nYou are not currently participating in the FC-Footy Fantasy League.');
             }
           } else {
             console.log('❌ No FID found in SDK context');
+            setHasRelevantPlayers(false);
             setGameContext('**FANTASY IMPACT**\n\nNo fantasy league impact to report.\n\nUnable to identify your Farcaster ID.');
           }
         }
         setShowGameContext((prev) => !prev);
       } catch (error) {
         console.error('Failed to fetch fantasy impact:', error);
+        setHasRelevantPlayers(false);
         setGameContext('Failed to fetch fantasy impact. Please check your connection and try again.');
       } finally {
         setLoading(false);
@@ -353,22 +414,36 @@ const MatchEventCard: React.FC<EventCardProps> = ({ event, sportId }) => {
     }
   };
 
-  // Format user's team picks into a table
+  // Format user's team picks into a table - only show players from current match teams
   const formatUserTeamPicks = (picksData: PicksData): string => {
     if (!picksData.picks || picksData.picks.length === 0) {
       return '**FANTASY IMPACT**\n\nNo team picks available.';
     }
 
-    // Get current match teams for highlighting
+    // Get current match teams for filtering
     const currentMatchTeams = selectedMatch ? [
       selectedMatch.homeTeam.toLowerCase(),
       selectedMatch.awayTeam.toLowerCase()
     ] : [];
 
-    const headers = ['Player', 'Points', 'Own%', 'xG/xA', 'Status'];
+    // Filter picks to only include players from the current match teams
+    const relevantPicks = picksData.picks.filter((pick) => {
+      const player = pick.player;
+      if (!player || !player.team) return false;
+      
+      const playerTeam = player.team.short_name?.toLowerCase() || '';
+      return currentMatchTeams.includes(playerTeam);
+    });
+
+    // If no relevant players, return message
+    if (relevantPicks.length === 0) {
+      return '**FANTASY IMPACT**\n\nNo players from this match in your fantasy team.';
+    }
+
+    const headers = ['Player', 'Selected', 'Status'];
     const rows = [headers];
 
-    picksData.picks.forEach((pick) => {
+    relevantPicks.forEach((pick) => {
       const player = pick.player;
       if (player) {
         // Convert position number to position name
@@ -392,10 +467,6 @@ const MatchEventCard: React.FC<EventCardProps> = ({ event, sportId }) => {
           status = 'BENCH';
         }
         
-        // Check if player is in current match
-        const playerTeam = player.team?.short_name?.toLowerCase() || '';
-        const isInCurrentMatch = currentMatchTeams.includes(playerTeam);
-        
         // Get team logo from admin KV teams DB
         const teamAbbr = player.team?.short_name?.toLowerCase();
         const teamLogoUrl = teamAbbr
@@ -413,17 +484,9 @@ const MatchEventCard: React.FC<EventCardProps> = ({ event, sportId }) => {
         
         const row = [
           `${teamLogoUrl} ${player.web_name} ${player.team?.short_name || 'N/A'} ${getPositionName(player.element_type)}`, // Team logo, player name, team abbreviation, and position
-          '', // Empty team column since we moved team info to player column
-          player.total_points?.toString() || '0',
           `${player.selected_by_percent?.toFixed(1) || '0.0'}%`,
-          `${player.expected_goals?.toFixed?.(2) ?? '0.00'}/${player.expected_assists?.toFixed?.(2) ?? '0.00'}`,
           status
         ];
-        
-        // Add highlighting marker if player is in current match
-        if (isInCurrentMatch) {
-          row.push('MATCH_PLAYER');
-        }
         
         rows.push(row);
       }
@@ -754,7 +817,7 @@ useEffect(() => {
 
           {/* AI Summary Section */}
           <div className="mt-4 flex flex-row gap-4 justify-center items-center">
-            {sportId === 'eng.1' && isInFantasyLeague === true && (
+            {sportId === 'eng.1' && isInFantasyLeague === true && hasRelevantPlayers === true && (
               <button
                 className="w-full sm:w-38 bg-deepPink text-white py-2 px-4 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed hover:bg-fontRed"
                 onClick={async () => {

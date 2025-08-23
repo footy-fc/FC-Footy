@@ -1,4 +1,5 @@
 import React from 'react';
+import { sdk } from '@farcaster/miniapp-sdk';
 
 interface AIResponseDisplayProps {
   content: string;
@@ -48,7 +49,18 @@ const AIResponseDisplay: React.FC<AIResponseDisplayProps> = ({
     <div className="mt-4 text-lightPurple bg-purplePanel rounded-lg p-4 border border-limeGreenOpacity/20 shadow-lg">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
-          <h2 className="text-xl text-notWhite font-bold">
+          <h2 
+            onClick={async () => {
+              if (!isPreview) {
+                try {
+                  await sdk.actions.openUrl({ url: 'https://fantasy.premierleague.com/' });
+                } catch (error) {
+                  console.error('Failed to open FPL URL:', error);
+                }
+              }
+            }}
+            className={`text-xl text-notWhite font-bold ${!isPreview ? 'cursor-pointer hover:underline' : ''}`}
+          >
             {isPreview ? '🎯 Match Preview' : '📊 Fantasy Impact'}
           </h2>
 

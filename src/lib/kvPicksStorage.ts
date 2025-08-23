@@ -53,6 +53,42 @@ export interface ManagerPicksData {
   source: 'fpl_api' | 'kv_cache';
 }
 
+interface PicksMetadata {
+  last_updated: string;
+  gameweek: number;
+  entry_id: number;
+  picks_count: number;
+  has_captain: boolean;
+  has_vice_captain: boolean;
+  source: 'fpl_api' | 'kv_cache';
+  cache_duration: string;
+}
+
+interface CacheStats {
+  totalKeys: number;
+  sampleKeys: string[];
+  memoryUsage: {
+    picksKeys: number;
+    metadataKeys: number;
+    gameweeksKeys: number;
+  };
+  cacheHealth: {
+    picksData: number;
+    metadata: number;
+    gameweeks: number;
+    totalManagers: number;
+    averagePicksPerManager: number;
+    maxGameweek: number;
+    gameweekRange: string;
+  };
+}
+
+interface CacheHealthSummary {
+  status: 'healthy' | 'warning' | 'error';
+  message: string;
+  stats: CacheStats | null;
+}
+
 /**
  * Get the KV key for manager picks
  */
@@ -142,12 +178,12 @@ export async function getManagerPicks(
 export async function getManagerPicksMetadata(
   entryId: number, 
   gameweek: number
-): Promise<any | null> {
+): Promise<PicksMetadata | null> {
   const metadataKey = getPicksMetadataKey(entryId, gameweek);
   
   try {
     const metadata = await redis.get(metadataKey);
-    return metadata as any;
+    return metadata as PicksMetadata;
   } catch (error) {
     console.error(`❌ Error retrieving picks metadata:`, error);
     return null;
@@ -254,24 +290,7 @@ export async function hasManagerPicks(entryId: number, gameweek: number): Promis
 /**
  * Get comprehensive cache statistics
  */
-export async function getPicksCacheStats(): Promise<{
-  totalKeys: number;
-  sampleKeys: string[];
-  memoryUsage: {
-    picksKeys: number;
-    metadataKeys: number;
-    gameweeksKeys: number;
-  };
-  cacheHealth: {
-    picksData: number;
-    metadata: number;
-    gameweeks: number;
-    totalManagers: number;
-    averagePicksPerManager: number;
-    maxGameweek: number;
-    gameweekRange: string;
-  };
-}> {
+export async function getPicksCacheStats(): Promise<CacheStats> {
   try {
     // Instead of scanning all keys (which is slow), let's use a more efficient approach
     // We know we have 145 managers and we can check a sample to estimate coverage
@@ -384,11 +403,7 @@ export async function getPicksCacheStats(): Promise<{
 /**
  * Get cache health summary for monitoring
  */
-export async function getCacheHealthSummary(): Promise<{
-  status: 'healthy' | 'warning' | 'error';
-  message: string;
-  stats: any;
-}> {
+export async function getCacheHealthSummary(): Promise<CacheHealthSummary> {
   try {
     const stats = await getPicksCacheStats();
     

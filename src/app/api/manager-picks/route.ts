@@ -3,7 +3,6 @@ import { Redis } from '@upstash/redis';
 import { 
   getManagerPicks, 
   storeManagerPicks, 
-  hasManagerPicks,
   ManagerPicksData 
 } from '~/lib/kvPicksStorage';
 
