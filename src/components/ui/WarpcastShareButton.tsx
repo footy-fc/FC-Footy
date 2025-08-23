@@ -290,8 +290,8 @@ export function WarpcastShareButton({ selectedMatch, buttonText, compositeImage,
         matchSummary = `${selectedMatch.homeTeam} v ${selectedMatch.awayTeam} ScoreSquare 🎟️ 25 squares, 2 winners\nTicket: ${ticketEthStr}${ticketUsdStr} \nPrize: ${prizeEthStr}${prizeUsdStr}`;
       } else if (commentary) {
         // Prepend commentary for regular matches with proper formatting
-        const commentatorDisplay = currentCommentator?.displayName || 'P. Drury';
-        matchSummary = `🎤 "${commentary}" — ${commentatorDisplay} ai\n\n${competitorsLong} ${keyMomentsText}\n\n@gabedev.eth @kmacb.eth are you in on this one?`;
+        const commentatorDisplay = currentCommentator?.displayName || 'Hattrick Homer';
+        matchSummary = `🎤 ${commentary} — ${commentatorDisplay} ai\n\n${competitorsLong} ${keyMomentsText}\n\n@gabedev.eth @kmacb.eth are you in on this one?`;
       }
 
       //let imageUrl = '';
