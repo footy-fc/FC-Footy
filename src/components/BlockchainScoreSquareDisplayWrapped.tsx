@@ -270,6 +270,10 @@ useEffect(() => {
     clock: isMatchLive ? 'LIVE' : (timeUntilMatch || ''),
     eventStarted: !!isMatchLive,
     keyMoments: [],
+    // Add rich match data for Peter Drury integration (empty for ScoreSquare games)
+    matchEvents: [],
+    competition: leagueId,
+    eventId: gameDataState?.eventId || '',
   };
 
   // Resolve chat parent (cast hash and/or URL) for this event, if any

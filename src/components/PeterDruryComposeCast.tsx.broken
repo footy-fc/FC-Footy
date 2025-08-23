@@ -1,0 +1,248 @@
+'apos;use client'apos;;
+
+import React, { useState, useEffect } from 'apos;react'apos;;
+import { createMatchEvent, type MatchEvent } from 'apos;~/components/ai/PeterDruryRAG'apos;;
+
+interface PeterDruryComposeCastProps {
+  eventId: string;
+  homeTeam: string;
+  awayTeam: string;
+  competition: string;
+  eventType: MatchEvent['apos;eventType'apos;];
+  player?: string;
+  minute?: number;
+  score?: string;
+  context?: string;
+  onCommentaryGenerated?: (commentary: string) => void;
+}
+
+const PeterDruryComposeCast: React.FC<PeterDruryComposeCastProps> = ({
+  eventId,
+  homeTeam,
+  awayTeam,
+  competition,
+  eventType,
+  player,
+  minute,
+  score,
+  context,
+  onCommentaryGenerated
+}) => {
+  const [commentary, setCommentary] = useState<string>('apos;'apos;);
+  const [isGenerating, setIsGenerating] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
+  const [isComposing, setIsComposing] = useState<boolean>(false);
+  const [sdk, setSdk] = useState<unknown>(null);
+
+  // Initialize Farcaster SDK
+  useEffect(() => {
+    const initSDK = async () => {
+      try {
+        console.log('apos;Farcaster SDK not available (running outside miniapp)'apos;);
+      } catch {
+        console.log('apos;Farcaster SDK not available (running outside miniapp)'apos;);
+      }
+    };
+    initSDK();
+  }, []);
+
+  // Generate Peter Drury commentary
+  const generateCommentary = async () => {
+    setIsGenerating(true);
+    setError(null);
+
+    try {
+      const matchEvent = createMatchEvent(
+        eventId,
+        homeTeam,
+        awayTeam,
+        competition,
+        eventType,
+        {
+          player,
+          minute,
+          score,
+          context
+        }
+      );
+
+      const response = await fetch('apos;/api/peter-drury-commentary'apos;, {
+        method: 'apos;POST'apos;,
+        headers: {
+          'apos;Content-Type'apos;: 'apos;application/json'apos;,
+        },
+        body: JSON.stringify(matchEvent),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'apos;Failed to generate commentary'apos;);
+      }
+
+      const data = await response.json();
+      const generatedCommentary = data.commentary;
+      
+      setCommentary(generatedCommentary);
+      onCommentaryGenerated?.(generatedCommentary);
+      
+      console.log('apos;🎭 Generated Peter Drury commentary:'apos;, generatedCommentary);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'apos;Unknown error occurred'apos;;
+      setError(errorMessage);
+      console.error('apos;Error generating commentary:'apos;, err);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  // Compose cast with Peter Drury commentary
+  const composeCast = async () => {
+    if (!commentary) {
+      setError('apos;No commentary generated yet'apos;);
+      return;
+    }
+
+    if (!sdk) {
+      setError('apos;Farcaster SDK not available - running outside miniapp'apos;);
+      return;
+    }
+
+    setIsComposing(true);
+    setError(null);
+
+    try {
+      await sdk.haptics.impactOccurred('apos;light'apos;);
+
+      // Create the cast message with Peter Drury commentary
+      let castMessage = `🎤 ${commentary}\n\n⚽ ${homeTeam} vs ${awayTeam}\n🏆 ${competition}`;
+      
+      if (player) {
+        castMessage += `\n👤 ${player}`;
+      }
+      if (minute) {
+        castMessage += `\n⏰ ${minute}'apos;`;
+      }
+      if (score) {
+        castMessage += `\n📊 ${score}`;
+      }
+
+      await sdk.actions.composeCast({
+        text: castMessage,
+        embeds: [`https://fc-footy.vercel.app/?eventId=${eventId}`],
+      });
+
+      console.log('apos;✅ Cast composed with Peter Drury commentary'apos;);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'apos;Failed to compose cast'apos;;
+      setError(errorMessage);
+      console.error('apos;Error composing cast:'apos;, err);
+    } finally {
+      setIsComposing(false);
+    }
+  };
+
+  // Auto-generate commentary on mount
+  useEffect(() => {
+    generateCommentary();
+  }, [eventId, homeTeam, awayTeam, competition, eventType, player, minute, score, context, generateCommentary]);
+
+  return (
+    <div className="bg-darkPurple rounded-lg p-4 border border-limeGreenOpacity/20">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-lg font-bold text-notWhite">
+          🎤 Peter Drury Commentary
+        </h3>
+        <div className="flex items-center gap-2">
+          {isGenerating && (
+            <div className="flex items-center gap-2 text-limeGreenOpacity">
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-limeGreenOpacity"></div>
+              <span className="text-sm">Generating...</span>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Match Event Info */}
+      <div className="mb-4 p-3 bg-purplePanel rounded border border-limeGreenOpacity/10">
+        <div className="grid grid-cols-2 gap-2 text-sm text-lightPurple">
+          <div>
+            <span className="font-semibold">🏟️ Match:</span> {homeTeam} vs {awayTeam}
+          </div>
+          <div>
+            <span className="font-semibold">⚽ Event:</span> {eventType.toUpperCase()}
+          </div>
+          {player && (
+            <div>
+              <span className="font-semibold">👤 Player:</span> {player}
+            </div>
+          )}
+          {minute && (
+            <div>
+              <span className="font-semibold">⏰ Minute:</span> {minute}'apos;
+            </div>
+          )}
+          {score && (
+            <div>
+              <span className="font-semibold">📊 Score:</span> {score}
+            </div>
+          )}
+          {context && (
+            <div className="col-span-2">
+              <span className="font-semibold">📝 Context:</span> {context}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Generated Commentary */}
+      {commentary && (
+        <div className="mb-4">
+          <h4 className="text-md font-semibold text-notWhite mb-2">🎭 Generated Commentary:</h4>
+          <div className="p-3 bg-purplePanel rounded border border-limeGreenOpacity/10">
+            <p className="text-lightPurple italic text-lg leading-relaxed">
+              "{commentary}"quot;{commentary}"{commentary}"quot;
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Error Display */}
+      {error && (
+        <div className="mb-4 p-3 bg-red-900/20 border border-red-500/30 rounded">
+          <p className="text-red-400 text-sm">❌ {error}</p>
+        </div>
+      )}
+
+      {/* Action Buttons */}
+      <div className="flex gap-3">
+        <button
+          onClick={generateCommentary}
+          disabled={isGenerating}
+          className="flex-1 px-4 py-2 bg-limeGreenOpacity text-darkPurple font-semibold rounded hover:bg-limeGreenOpacity/80 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+        >
+          {isGenerating ? 'apos;Generating...'apos; : 'apos;🔄 Regenerate'apos;}
+        </button>
+        
+        <button
+          onClick={composeCast}
+          disabled={!commentary || isComposing || !sdk}
+          className="flex-1 px-4 py-2 bg-deepPink text-white font-semibold rounded hover:bg-deepPink/80 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+        >
+          {isComposing ? 'apos;Composing...'apos; : !sdk ? 'apos;📝 Farcaster Not Available'apos; : 'apos;📝 Compose Cast'apos;}
+        </button>
+      </div>
+
+      {/* Loading States */}
+      {isComposing && (
+        <div className="mt-3 text-center">
+          <div className="flex items-center justify-center gap-2 text-limeGreenOpacity">
+            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-limeGreenOpacity"></div>
+            <span className="text-sm">Composing cast...</span>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default PeterDruryComposeCast;

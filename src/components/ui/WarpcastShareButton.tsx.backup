@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import { useSearchParams } from "next/navigation";
 import { sdk } from "@farcaster/miniapp-sdk";
 import { BASE_URL } from '~/lib/config';
-import { generatePeterDruryCommentary, createMatchEvent, type MatchEvent } from '~/components/ai/PeterDruryRAG';
 
 async function generateCompositeImage(
   homeLogo: string,
@@ -95,20 +95,6 @@ async function generateCompositeImage(
   return canvas.toDataURL('image/png');
 }
 
-interface RichMatchEvent {
-  type: {
-    text: string;
-  };
-  clock: {
-    displayValue: string;
-  };
-  team: {
-    id: string;
-    abbreviation: string;
-  };
-  athletesInvolved: Array<{ displayName: string }>;
-}
-
 interface SelectedMatch {
   competitorsLong: string;
   homeTeam: string;
@@ -120,10 +106,6 @@ interface SelectedMatch {
   awayLogo: string;
   eventStarted: boolean;
   keyMoments?: string[];
-  // New rich data fields
-  matchEvents?: RichMatchEvent[];
-  competition?: string;
-  eventId?: string;
 }
 
 interface WarpcastShareButtonProps {
@@ -141,9 +123,26 @@ interface WarpcastShareButtonProps {
   prizePoolEth?: number;
 }
 
-export function WarpcastShareButton({ selectedMatch, buttonText, compositeImage, leagueId, moneyGamesParams, ticketPriceEth, prizePoolEth }: WarpcastShareButtonProps) {
-  const [isGeneratingCommentary, setIsGeneratingCommentary] = useState(false);
+export function WarpcastShareButton({ selectedMatch, buttonText, compositeImage, fallbackLeague, leagueId, moneyGamesParams, ticketPriceEth, prizePoolEth }: WarpcastShareButtonProps) {
+  const [context, setContext] = useState<unknown>(undefined);
+  const [isContextLoaded, setIsContextLoaded] = useState(false);
+  const searchParams = useSearchParams();
   const [ethUsdPrice, setEthUsdPrice] = useState<number | null>(null);
+
+  useEffect(() => {
+    const loadContext = async () => {
+      try {
+        setContext(await sdk.context);
+        setIsContextLoaded(true);
+      } catch (error) {
+        console.error("Failed to load Farcaster context:", error);
+      }
+    };
+
+    if (!isContextLoaded) {
+      loadContext();
+    }
+  }, [isContextLoaded]);
 
   useEffect(() => {
     // Fetch ETH price when we are composing MoneyGames link so we can show USD affordance
@@ -162,89 +161,6 @@ export function WarpcastShareButton({ selectedMatch, buttonText, compositeImage,
     return () => { cancelled = true; };
   }, [moneyGamesParams]);
 
-  const generateDruryCommentaryForMatch = async (
-    homeTeam: string,
-    awayTeam: string,
-    competition: string,
-    matchEvents: RichMatchEvent[],
-    homeScore: number,
-    awayScore: number
-  ): Promise<string> => {
-    try {
-      // Find the most significant events by parsing type.text
-      const significantEvents = matchEvents.filter(event => {
-        const eventType = event.type.text.toLowerCase();
-        return eventType.includes('goal') || eventType.includes('card') || eventType.includes('penalty');
-      });
-
-      if (significantEvents.length === 0) {
-        // No significant events, generate final whistle commentary
-        const matchEvent = createMatchEvent(
-          `match-${Date.now()}`,
-          homeTeam,
-          awayTeam,
-          competition || 'Football Match',
-          'final_whistle',
-          {
-            score: `${homeScore}-${awayScore}`,
-            context: `Match between ${homeTeam} and ${awayTeam}`
-          }
-        );
-        return await generatePeterDruryCommentary(matchEvent);
-      }
-
-      // Prioritize goals over cards
-      const goals = significantEvents.filter(event => 
-        event.type.text.toLowerCase().includes('goal')
-      );
-      const selectedEvent = goals.length > 0 ? goals[goals.length - 1] : significantEvents[significantEvents.length - 1];
-
-      // Extract event details
-      const player = selectedEvent.athletesInvolved[0]?.displayName || 'Unknown Player';
-      const minute = selectedEvent.clock.displayValue;
-      const minuteNum = parseInt(minute.replace("'", "")) || 0;
-      const eventType = selectedEvent.type.text.toLowerCase();
-
-      // Determine Drury event type
-      let druryEventType: MatchEvent['eventType'] = 'goal';
-      if (eventType.includes('red card')) druryEventType = 'red_card';
-      else if (eventType.includes('yellow card')) druryEventType = 'yellow_card';
-      else if (eventType.includes('penalty')) druryEventType = 'penalty';
-      else if (eventType.includes('goal')) druryEventType = 'goal';
-
-      // Create time context
-      let timeContext = '';
-      if (minuteNum <= 10) timeContext = 'a lightning-fast goal';
-      else if (minuteNum <= 30) timeContext = 'a first-half goal';
-      else if (minuteNum <= 60) timeContext = 'a second-half goal';
-      else timeContext = 'a late goal';
-
-      // Build rich context
-      const isGoal = eventType.includes('goal');
-      const isRedCard = eventType.includes('red card');
-      const contextString = `${player} ${isGoal ? 'scores' : isRedCard ? 'is sent off' : 'receives a booking'} at ${minute}. This is ${timeContext}.`;
-
-      const matchEvent = createMatchEvent(
-        `match-${Date.now()}`,
-        homeTeam,
-        awayTeam,
-        competition || 'Football Match',
-        druryEventType,
-        {
-          player: player,
-          minute: minuteNum,
-          score: `${homeScore}-${awayScore}`,
-          context: contextString
-        }
-      );
-
-      return await generatePeterDruryCommentary(matchEvent);
-    } catch (error) {
-      console.error('Error generating Drury commentary:', error);
-      return '';
-    }
-  };
-
   const openWarpcastUrl = useCallback(async () => {
     // Stronger and more noticeable haptic feedback
     try {
@@ -257,7 +173,6 @@ export function WarpcastShareButton({ selectedMatch, buttonText, compositeImage,
     } catch {
       // Ignore haptics errors
     }
-
     if (selectedMatch) {
       const frameUrlRaw = BASE_URL || 'https://fc-footy.vercel.app';
       const frameUrl = frameUrlRaw.startsWith('http') ? frameUrlRaw : `https://${frameUrlRaw}`;
@@ -269,29 +184,7 @@ export function WarpcastShareButton({ selectedMatch, buttonText, compositeImage,
         homeLogo,
         awayLogo,
         keyMoments,
-        matchEvents,
-        competition,
       } = selectedMatch;
-
-      // Generate Peter Drury commentary if we have rich match data
-      let commentary = '';
-      if (matchEvents && matchEvents.length > 0 && !moneyGamesParams) {
-        setIsGeneratingCommentary(true);
-        try {
-          commentary = await generateDruryCommentaryForMatch(
-            selectedMatch.homeTeam,
-            selectedMatch.awayTeam,
-            competition || 'Football Match',
-            matchEvents,
-            homeScore,
-            awayScore
-          );
-        } catch (error) {
-          console.error('Failed to generate commentary:', error);
-        } finally {
-          setIsGeneratingCommentary(false);
-        }
-      }
 
       const keyMomentsText = keyMoments && keyMoments.length > 0
         ? `\n\nKey Moments:\n${keyMoments.join('\n')}`
@@ -325,7 +218,6 @@ export function WarpcastShareButton({ selectedMatch, buttonText, compositeImage,
       // Build the cast text
       const isMoneyGame = Boolean(moneyGamesParams);
       let matchSummary = `${competitorsLong} ${keyMomentsText}\n\n@gabedev.eth @kmacb.eth are you in on this one?`;
-      
       if (isMoneyGame) {
         const ticketEthStr = typeof ticketPriceEth === 'number' && !isNaN(ticketPriceEth)
           ? `${ticketPriceEth.toFixed(4)} ETH`
@@ -340,9 +232,6 @@ export function WarpcastShareButton({ selectedMatch, buttonText, compositeImage,
           ? ` (~$${(prizePoolEth * ethUsdPrice).toFixed(2)})`
           : '';
         matchSummary = `${selectedMatch.homeTeam} v ${selectedMatch.awayTeam} ScoreSquare 🎟️ 25 squares, 2 winners\nTicket: ${ticketEthStr}${ticketUsdStr} \nPrize: ${prizeEthStr}${prizeUsdStr}`;
-      } else if (commentary) {
-        // Prepend Peter Drury commentary for regular matches with proper formatting
-        matchSummary = `🎤 "${commentary}" — P. Drury ai\n\n${competitorsLong} ${keyMomentsText}\n\n@gabedev.eth @kmacb.eth are you in on this one?`;
       }
 
       //let imageUrl = '';
@@ -382,15 +271,14 @@ export function WarpcastShareButton({ selectedMatch, buttonText, compositeImage,
         console.error('composeCast failed:', e);
       }
     }
-  }, [selectedMatch, compositeImage, leagueId, moneyGamesParams, ticketPriceEth, prizePoolEth, ethUsdPrice]);
+  }, [selectedMatch, context, searchParams, compositeImage, fallbackLeague, leagueId, moneyGamesParams]);
 
   return (
     <button
       onClick={openWarpcastUrl}
-      disabled={isGeneratingCommentary}
       className="w-full sm:w-38 bg-deepPink text-white py-2 px-4 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-deepPink hover:bg-fontRed"
     >
-      {isGeneratingCommentary ? '🎤 Generating Commentary...' : (buttonText || 'Share')}
+      {buttonText || 'Share'}
     </button>
   );
 }

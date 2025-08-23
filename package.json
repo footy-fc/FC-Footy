@@ -20,7 +20,9 @@
     "rag:test:leeds": "node scripts/rag-test.mjs --preset leeds-everton",
     "rag:test:help": "node scripts/rag-test.mjs --help",
     "gameweek:summary": "node scripts/gameweek-summary.mjs",
-    "gameweek:summary:test": "node scripts/gameweek-summary-test.mjs"
+    "gameweek:summary:test": "node scripts/gameweek-summary-test.mjs",
+    "scoresquare:players": "node scripts/scoresquare-players-test.mjs",
+    "drury:test": "node scripts/peter-drury-test.mjs"
   },
   "type": "module",
   "engines": {
@@ -36,6 +38,9 @@
     "@farcaster/miniapp-sdk": "^0.1.8",
     "@farcaster/miniapp-wagmi-connector": "^1.0.0",
     "@google/generative-ai": "^0.24.1",
+    "@langchain/community": "^0.3.53",
+    "@langchain/core": "^0.3.72",
+    "@langchain/openai": "^0.6.9",
     "@neynar/nodejs-sdk": "^3.34.0",
     "@neynar/react": "^1.2.8",
     "@privy-io/react-auth": "^2.0.4",
@@ -64,6 +69,7 @@
     "jotai": "^2.12.0",
     "juice-sdk-core": "^1.8.0-beta",
     "juice-sdk-react": "^1.9.1-beta",
+    "langchain": "^0.3.31",
     "lodash": "^4.17.21",
     "lucide-react": "^0.469.0",
     "next": "15.2.4",

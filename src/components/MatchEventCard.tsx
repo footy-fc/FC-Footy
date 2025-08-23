@@ -61,6 +61,10 @@ interface SelectedMatch {
   clock: string;
   eventStarted: boolean;
   keyMoments: string[];
+  // Rich match data for Peter Drury integration
+  matchEvents?: Detail[];
+  competition?: string;
+  eventId?: string;
 }
 
 // Extended Team interface (from fetchTeamLogos) including league information.
@@ -175,8 +179,10 @@ const MatchEventCard: React.FC<EventCardProps> = ({ event, sportId }) => {
 
   // Extract match info from event data.
   const competitorsLong = event.name;
-  const homeTeam = event.shortName.slice(6, 9);
-  const awayTeam = event.shortName.slice(0, 3);
+  
+  // Use actual competitor data instead of parsing shortName
+  const homeTeam = event.competitions[0]?.competitors[0]?.team.abbreviation || event.shortName.slice(6, 9);
+  const awayTeam = event.competitions[0]?.competitors[1]?.team.abbreviation || event.shortName.slice(0, 3);
   
   const eventStarted = new Date() >= new Date(event.date);
   const clock = event.status.displayClock + ' ' + event.status.type.detail || '00:00';
@@ -303,6 +309,10 @@ const MatchEventCard: React.FC<EventCardProps> = ({ event, sportId }) => {
         clock,
         eventStarted,
         keyMoments: keyMomentStrings,
+        // Add rich match data for Peter Drury integration
+        matchEvents: event.competitions[0]?.details || [],
+        competition: leagueId,
+        eventId: baseId,
       });
     
       // Finally toggle the dropdown
