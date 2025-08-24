@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate eventType
-    const validEventTypes = ['goal', 'assist', 'red_card', 'yellow_card', 'substitution', 'final_whistle', 'penalty', 'free_kick'];
+    const validEventTypes = ['goal', 'assist', 'red_card', 'yellow_card', 'substitution', 'final_whistle', 'penalty', 'free_kick', 'chat_commentary'];
     if (!validEventTypes.includes(eventType)) {
       return NextResponse.json(
         { error: `Invalid eventType. Must be one of: ${validEventTypes.join(', ')}` },

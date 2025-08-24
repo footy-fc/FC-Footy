@@ -2,8 +2,9 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { sdk } from "@farcaster/miniapp-sdk";
 import { BASE_URL } from '~/lib/config';
 import { useCommentator } from '~/hooks/useCommentator';
-import { findMostSignificantEvent, createMatchEventFromRichData } from '~/utils/matchDataUtils';
-import { RichMatchEvent, MatchEvent } from '~/types/commentatorTypes';
+import { findMostSignificantEvent } from '~/utils/matchDataUtils';
+import { RichMatchEvent } from '~/types/commentatorTypes';
+import { CommentaryPipeline, CommentaryContext } from '~/services/CommentaryPipeline';
 
 async function generateCompositeImage(
   homeLogo: string,
@@ -132,7 +133,7 @@ interface WarpcastShareButtonProps {
 }
 
 export function WarpcastShareButton({ selectedMatch, buttonText, compositeImage, leagueId, moneyGamesParams, ticketPriceEth, prizePoolEth }: WarpcastShareButtonProps) {
-  const { generateCommentary, isGenerating, currentCommentator } = useCommentator();
+  const { isGenerating, currentCommentator } = useCommentator();
   const [ethUsdPrice, setEthUsdPrice] = useState<number | null>(null);
 
   useEffect(() => {
@@ -163,33 +164,35 @@ export function WarpcastShareButton({ selectedMatch, buttonText, compositeImage,
     try {
       const significantEvent = findMostSignificantEvent(matchEvents);
 
-      if (!significantEvent) {
-        // No significant events, generate final whistle commentary
-        const matchEvent: MatchEvent = {
-          eventId: `match-${Date.now()}`,
-          homeTeam,
-          awayTeam,
-          competition: competition || 'Football Match',
-          eventType: 'final_whistle',
-          score: `${homeScore}-${awayScore}`,
-          context: `Match between ${homeTeam} and ${awayTeam}`
-        };
-        return await generateCommentary(matchEvent);
-      }
-
-      // Create rich match data and match event
-      const richData = {
+      // Build flexible context for match sharing
+      const context: CommentaryContext = {
+        eventId: `match-${Date.now()}`,
         homeTeam,
         awayTeam,
-        homeScore,
-        awayScore,
         competition: competition || 'Football Match',
-        eventId: `match-${Date.now()}`,
-        matchEvents
+        eventType: significantEvent ? 'goal' : 'final_whistle',
+        score: `${homeScore}-${awayScore}`,
+        context: `Match between ${homeTeam} and ${awayTeam}`,
+        // Match sharing context - only match events, no chat or FPL
+        matchEvents: matchEvents?.map(event => ({
+          type: { text: event.type?.text || '' },
+          athletesInvolved: event.athletesInvolved || [],
+          clock: { displayValue: event.clock?.displayValue || '' },
+          action: undefined,
+          playerName: event.athletesInvolved?.[0]?.displayName,
+          time: event.clock?.displayValue
+        })),
+        currentScore: `${homeScore}-${awayScore}`,
+        matchStatus: 'Final'
       };
 
-      const matchEvent = createMatchEventFromRichData(richData, significantEvent);
-      return await generateCommentary(matchEvent);
+      // Use the flexible pipeline for match sharing
+      const response = await CommentaryPipeline.generateMatchSharingCommentary(
+        'peter-drury', // Default commentator for match sharing
+        context
+      );
+
+      return response.commentary;
     } catch (error) {
       console.error('Error generating commentary:', error);
       return '';
@@ -331,7 +334,7 @@ export function WarpcastShareButton({ selectedMatch, buttonText, compositeImage,
         console.error('composeCast failed:', e);
       }
     }
-  }, [selectedMatch, compositeImage, leagueId, moneyGamesParams, ticketPriceEth, prizePoolEth, ethUsdPrice]);
+  }, [selectedMatch, compositeImage, leagueId, moneyGamesParams, ticketPriceEth, prizePoolEth, ethUsdPrice, currentCommentator?.displayName]);
 
   return (
     <button

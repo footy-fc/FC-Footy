@@ -39,18 +39,7 @@ export function useScoresTokenGate() {
   const hasScores = TEST_NO_TOKENS ? false : (balance && balance >= MIN_REQUIRED_SCORES_WEI);
   const balanceFormatted = TEST_NO_TOKENS ? 0 : (balance ? Number(balance) / 1e18 : 0);
 
-  // Debug logging
-  console.log('🔍 Token Gate Debug:', {
-    address,
-    isConnected,
-    balance: balance?.toString(),
-    balanceFormatted,
-    MIN_REQUIRED_SCORES_WEI: MIN_REQUIRED_SCORES_WEI.toString(),
-    hasScores,
-    TEST_NO_TOKENS,
-    isLoading,
-    error
-  });
+
 
   return {
     hasScores,
