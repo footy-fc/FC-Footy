@@ -861,7 +861,19 @@ const MatchEventCard: React.FC<EventCardProps> = ({ event, sportId }) => {
                 const awayTeamData = teams.find((t) => t.abbreviation.toLowerCase() === awayAbbr);
                 return homeTeamData?.league || awayTeamData?.league || '';
               })()}
-              onRoomCreated={refreshChatRoomStatus}
+              chatRoomExists={!!chatRoomHash}
+              checkingChatRoom={checkingRoom}
+              isPremierLeague={sportId === 'eng.1'}
+              onRoomCreated={(castHash?: string) => {
+                if (castHash) {
+                  // Directly set the chat room hash without re-checking the database
+                  setChatRoomHash(castHash);
+                  console.log(`✅ Room created, setting hash directly:`, castHash);
+                } else {
+                  // Fallback to refresh if no castHash provided
+                  refreshChatRoomStatus();
+                }
+              }}
             />
           </div>
           {showGameContext && gameContext && (

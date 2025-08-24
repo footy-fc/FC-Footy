@@ -129,45 +129,27 @@ interface WarpcastShareButtonProps {
   };
   ticketPriceEth?: number;
   prizePoolEth?: number;
-  onRoomCreated?: () => void; // Callback when room is successfully created
+  onRoomCreated?: (castHash?: string) => void; // Callback when room is successfully created, with optional castHash
+  chatRoomExists?: boolean | null; // Pass chat room status from parent
+  checkingChatRoom?: boolean; // Pass checking status from parent
+  isPremierLeague?: boolean; // Whether this is a Premier League match (eng.1)
 }
 
-export function WarpcastShareButton({ selectedMatch, compositeImage, leagueId, moneyGamesParams, ticketPriceEth, prizePoolEth, onRoomCreated }: WarpcastShareButtonProps) {
+export function WarpcastShareButton({ selectedMatch, compositeImage, leagueId, moneyGamesParams, ticketPriceEth, prizePoolEth, onRoomCreated, chatRoomExists, checkingChatRoom, isPremierLeague }: WarpcastShareButtonProps) {
   const { isGenerating, currentCommentator } = useCommentator();
   const [ethUsdPrice, setEthUsdPrice] = useState<number | null>(null);
-  const [chatRoomExists, setChatRoomExists] = useState<boolean | null>(null);
-  const [checkingChatRoom, setCheckingChatRoom] = useState<boolean>(false);
+  // Use props from parent instead of local state
+  const [localChatRoomExists, setLocalChatRoomExists] = useState<boolean | null>(chatRoomExists ?? null);
+  const [localCheckingChatRoom, setLocalCheckingChatRoom] = useState<boolean>(checkingChatRoom ?? false);
 
-  // Check if chat room exists for this match
+  // Update local state when props change
   useEffect(() => {
-    const checkChatRoom = async () => {
-      if (!selectedMatch?.eventId) return;
-      
-      setCheckingChatRoom(true);
-      try {
-        const candidates = [selectedMatch.eventId, `${selectedMatch.eventId}_`];
-        let found = false;
-        
-        for (const id of candidates) {
-          const res = await fetch(`/api/match-rooms?eventId=${encodeURIComponent(id)}`);
-          const data = await res.json();
-          if (data?.room?.castHash) {
-            found = true;
-            break;
-          }
-        }
-        
-        setChatRoomExists(found);
-      } catch (error) {
-        console.error('Error checking chat room:', error);
-        setChatRoomExists(false);
-      } finally {
-        setCheckingChatRoom(false);
-      }
-    };
-    
-    checkChatRoom();
-  }, [selectedMatch?.eventId]);
+    setLocalChatRoomExists(chatRoomExists ?? null);
+  }, [chatRoomExists]);
+
+  useEffect(() => {
+    setLocalCheckingChatRoom(checkingChatRoom ?? false);
+  }, [checkingChatRoom]);
 
   useEffect(() => {
     // Fetch ETH price when we are composing MoneyGames link so we can show USD affordance
@@ -386,8 +368,8 @@ export function WarpcastShareButton({ selectedMatch, compositeImage, leagueId, m
             if (saveResponse.ok) {
               console.log('💾 Cast hash saved to KV for room creation');
               // Update local state to reflect new room
-              setChatRoomExists(true);
-              onRoomCreated?.(); // Call the callback if room was created
+              setLocalChatRoomExists(true);
+              onRoomCreated?.(result.cast.hash); // Call the callback with the castHash
             } else {
               console.error('Failed to save cast hash to KV:', await saveResponse.text());
             }
@@ -410,9 +392,10 @@ export function WarpcastShareButton({ selectedMatch, compositeImage, leagueId, m
       className="w-full sm:w-38 bg-deepPink text-white py-2 px-4 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-deepPink hover:bg-fontRed"
     >
       {isGenerating ? '🎤 Generating Commentary...' : 
-       checkingChatRoom ? 'Checking...' :
-       chatRoomExists ? 'Share Match' : 
-       'Create Room'}
+       localCheckingChatRoom ? 'Checking...' :
+       isPremierLeague ? (
+         localChatRoomExists ? 'Share Match' : 'Create Room'
+       ) : 'Share'}
     </button>
   );
 }
