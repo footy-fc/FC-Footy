@@ -41,7 +41,8 @@ export interface ProcessedMatchData {
 
 export function createRichMatchData(
   event: MatchEvent_API,
-  teams: Team[] = []
+  teams: Team[] = [],
+  sportId?: string
 ): ProcessedMatchData {
   // Extract team names from competitor data (more reliable than parsing shortName)
   const homeTeam = event.competitions[0]?.competitors[0]?.team.abbreviation || 
@@ -52,8 +53,8 @@ export function createRichMatchData(
   const homeScore = event.competitions[0]?.competitors[0]?.score || 0;
   const awayScore = event.competitions[0]?.competitors[1]?.score || 0;
   
-  // Derive league/competition
-  const leagueId = deriveLeagueId(event, teams);
+  // Use sportId if provided, otherwise derive league/competition from teams
+  const leagueId = sportId || deriveLeagueId(event, teams);
   
   // Create event ID
   const eventId = `${leagueId.replace('.', '_')}_${homeTeam}_${awayTeam}`;

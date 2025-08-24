@@ -503,7 +503,6 @@ const copyShareLink = async () => {
             <div className="mt-3 sm:mt-0 w-full sm:w-auto flex flex-col sm:flex-row gap-2 sm:items-center">
               <WarpcastShareButton
                 selectedMatch={selectedMatch}
-                buttonText="Share"
                 compositeImage={true}
                 leagueId={leagueId}
                 moneyGamesParams={{ eventId: gameDataState?.eventId || '' }}

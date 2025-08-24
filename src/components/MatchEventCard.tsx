@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { useApolloClient } from '@apollo/client';
+//import { useApolloClient } from '@apollo/client';
 import Image from 'next/image';
 // import Link from 'next/link';
 // import { FaTrophy, FaTicketAlt } from 'react-icons/fa';
@@ -8,7 +8,7 @@ import Image from 'next/image';
 import AIResponseDisplay from './ui/AIResponseDisplay';
 import { WarpcastShareButton } from './ui/WarpcastShareButton';
 import { fetchTeamLogos } from './utils/fetchTeamLogos';
-import { GET_SS_GAMES } from '../lib/graphql/queries';
+//import { GET_SS_GAMES } from '../lib/graphql/queries';
 import { createRichMatchData } from '~/utils/matchDataUtils';
 // import FarcasterAvatar from './FarcasterAvatar';
 import { sdk } from '@farcaster/miniapp-sdk';
@@ -119,14 +119,11 @@ const MatchEventCard: React.FC<EventCardProps> = ({ event, sportId }) => {
   //const [isLoadingFans, setIsLoadingFans] = useState(false);
   const [loadingDots, setLoadingDots] = useState('');
   const elementRef = useRef<HTMLDivElement | null>(null);
-  const client = useApolloClient();
-  const [hasQueried, setHasQueried] = useState(false);
+  //const client = useApolloClient();
+  //const [hasQueried, setHasQueried] = useState(false);
   // const [ethPrice, setEthPrice] = useState<number | null>(null);
   // const [ssGames, setSsGames] = useState<
   //   Array<{ eventId: string; gameId: string; referee: string; prizePool: string; squarePrice: string; deployerFeePercent: string }>>([]);
-  useEffect(() => {
-    setHasQueried(false);
-  }, [event.id]);
 
   // Animate three dots every 500ms
   useEffect(() => {
@@ -182,7 +179,7 @@ const MatchEventCard: React.FC<EventCardProps> = ({ event, sportId }) => {
               setHasRelevantPlayers(relevantPicks.length > 0);
             }
           } else {
-            setIsInFantasyLeague(false);
+      setIsInFantasyLeague(false);
             setHasRelevantPlayers(false);
           }
         } else {
@@ -200,6 +197,84 @@ const MatchEventCard: React.FC<EventCardProps> = ({ event, sportId }) => {
       checkFantasyLeague();
     }
   }, [sportId, selectedMatch]);
+
+  // Check for existing chat room when component mounts
+  useEffect(() => {
+    const checkExistingChatRoom = async () => {
+      try {
+        // Use match data utilities for consistent processing
+        const matchData = createRichMatchData(event, teams, sportId);
+        // const leagueId = matchData.competition;
+        const baseId = matchData.eventId;
+        
+        console.log("Checking for existing chat room:", baseId);
+        setCheckingRoom(true);
+        
+        const candidates = [baseId, `${baseId}_`];
+        let found: string | null = null;
+        
+        // First, try to find existing room
+        for (const id of candidates) {
+          const res = await fetch(`/api/match-rooms?eventId=${encodeURIComponent(id)}`);
+          const data = await res.json();
+          if (data?.room?.castHash) {
+            found = data.room.castHash;
+            break;
+          }
+        }
+        
+        setChatRoomHash(found);
+        setCheckingRoom(false);
+        
+        if (found) {
+          console.log(`✅ Found existing chat room for ${baseId}:`, found);
+        } else {
+          console.log(`❌ No existing chat room for ${baseId}`);
+        }
+      } catch (error) {
+        console.error('Error checking for existing chat room:', error);
+        setChatRoomHash(null);
+        setCheckingRoom(false);
+      }
+    };
+    
+    // Check for existing room when component mounts
+    checkExistingChatRoom();
+  }, [event, teams, sportId]);
+
+  // Function to refresh chat room status (can be called after successful cast)
+  const refreshChatRoomStatus = async () => {
+    try {
+      const matchData = createRichMatchData(event, teams, sportId);
+      const baseId = matchData.eventId;
+      
+      console.log("Refreshing chat room status for:", baseId);
+      setCheckingRoom(true);
+      
+      const candidates = [baseId, `${baseId}_`];
+      let found: string | null = null;
+      
+      for (const id of candidates) {
+        const res = await fetch(`/api/match-rooms?eventId=${encodeURIComponent(id)}`);
+        const data = await res.json();
+        if (data?.room?.castHash) {
+          found = data.room.castHash;
+          break;
+        }
+      }
+      
+      setChatRoomHash(found);
+      setCheckingRoom(false);
+      
+      if (found) {
+        console.log(`✅ Room found after refresh for ${baseId}:`, found);
+      }
+    } catch (error) {
+      console.error('Error refreshing chat room status:', error);
+      setChatRoomHash(null);
+      setCheckingRoom(false);
+    }
+  };
    // useEffect(() => {
    //   const fetchPrice = async () => {
    //     try {
@@ -222,7 +297,7 @@ const MatchEventCard: React.FC<EventCardProps> = ({ event, sportId }) => {
   const clock = event.status.displayClock + ' ' + event.status.type.detail || '00:00';
 
   // Use match data utilities for consistent processing
-  const matchData = createRichMatchData(event, teams);
+  const matchData = createRichMatchData(event, teams, sportId);
   const homeTeam = matchData.homeTeam;
   const awayTeam = matchData.awayTeam;
   const homeScore = matchData.homeScore;
@@ -285,44 +360,6 @@ const MatchEventCard: React.FC<EventCardProps> = ({ event, sportId }) => {
       const leagueId = matchData.competition;
       const baseId = matchData.eventId;
       console.log("Event ID (canonical):", baseId);
-      // Check room using canonical, then legacy with trailing underscore
-      setCheckingRoom(true);
-      (async () => {
-        try {
-          const candidates = [baseId, `${baseId}_`];
-          let found: string | null = null;
-          for (const id of candidates) {
-            const res = await fetch(`/api/match-rooms?eventId=${encodeURIComponent(id)}`);
-            const data = await res.json();
-            if (data?.room?.castHash) {
-              found = data.room.castHash;
-              break;
-            }
-          }
-          setChatRoomHash(found);
-        } catch {
-          setChatRoomHash(null);
-        } finally {
-          setCheckingRoom(false);
-        }
-      })();
-    
-      // Only fetch on first open
-      if (!showDetails && !hasQueried) {
-        client
-          .query({
-            query: GET_SS_GAMES,
-            variables: { prefix: `${baseId}_` },
-          })
-          .then((result) => {
-            console.log("Subgraph GET_SS_GAMES:", result.data);
-            setHasQueried(true);
-            // setSsGames(result.data.games); // Store subgraph results
-          })
-          .catch((err) => {
-            console.error("Subgraph query error:", err);
-          });
-      }
     
       setSelectedMatch({
         homeTeam,
@@ -519,7 +556,107 @@ const MatchEventCard: React.FC<EventCardProps> = ({ event, sportId }) => {
           <div className="cursor-pointer text-lightPurple mr-4">
             {showDetails ? "▼" : "▷"}
           </div>
-          <span className="flex justify-center space-x-4 ml-2 mr-2">
+          {/* Chat Room Affordance - moved to left for perfect alignment */}
+          {(() => {
+            try {
+              // Use the sportId prop which contains the actual competition (e.g., eng.league_cup)
+              const leagueId = sportId || 'eng.1';
+              const home = event.competitions[0]?.competitors[0]?.team.abbreviation?.toUpperCase() || '';
+              const away = event.competitions[0]?.competitors[1]?.team.abbreviation?.toUpperCase() || '';
+              const baseId = `${leagueId.replace('.', '_')}_${home}_${away}`;
+              const appUrlRaw = process.env.NEXT_PUBLIC_URL || 'https://fc-footy.vercel.app';
+              const appUrl = appUrlRaw.startsWith('http') ? appUrlRaw : `https://${appUrlRaw}`;
+              const chatUrl = `${appUrl}/chat?eventId=${encodeURIComponent(baseId)}`;
+              const isChatPage = typeof window !== 'undefined' && window.location.pathname.startsWith('/chat');
+
+              if (isChatPage) return null;
+              if (checkingRoom) {
+                return (
+                  <div className="flex flex-col items-center w-8 opacity-80 mr-2">
+                    <div className="inline-flex items-center justify-center w-5 h-5 bg-yellow-500 rounded-full">
+                      <span className="text-sm">💬</span>
+                    </div>
+                  </div>
+                );
+              }
+              if (chatRoomHash) {
+                return (
+                  <div className="flex flex-col items-center w-8 opacity-60 mr-2">
+                  <a
+                    href={chatUrl}
+                      className="inline-flex items-center justify-center w-5 h-5 bg-limeGreen hover:bg-limeGreen/80 rounded-full transition-colors"
+                      title="Join match chat"
+                  >
+                      💬
+                  </a>
+                  </div>
+                );
+              }
+              // No room exists - show share prompt
+              return (
+                <div className="flex flex-col items-center w-8 opacity-60 mr-2">
+                                    <button
+                  onClick={async () => {
+                    try {
+                      // Add haptic feedback for better UX during loading
+                      try {
+                        await sdk.haptics.impactOccurred('medium');
+                      } catch {
+                        // ignore haptics errors
+                      }
+                      
+                      console.log(`🎯 Auto-creating chat room for ${baseId}...`);
+                      setCheckingRoom(true);
+                      
+                      const autoCreateRes = await fetch('/api/match-rooms/auto-create', {
+                        method: 'POST',
+                        headers: {
+                          'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                          eventId: baseId,
+                          homeTeam,
+                          awayTeam,
+                          competition: leagueId,
+                          homeScore,
+                          awayScore,
+                          clock
+                        })
+                      });
+                      
+                      if (autoCreateRes.ok) {
+                        const autoCreateData = await autoCreateRes.json();
+                        if (autoCreateData.success && autoCreateData.castHash) {
+                          setChatRoomHash(autoCreateData.castHash);
+                          console.log(`✅ Auto-created chat room for ${baseId}:`, autoCreateData.castHash);
+                          
+                          // Automatically navigate to the new chat room
+                          const appUrlRaw = process.env.NEXT_PUBLIC_URL || 'https://fc-footy.vercel.app';
+                          const appUrl = appUrlRaw.startsWith('http') ? appUrlRaw : `https://${appUrlRaw}`;
+                          const chatUrl = `${appUrl}/chat?eventId=${encodeURIComponent(baseId)}`;
+                          window.open(chatUrl, '_blank');
+                        }
+                      } else {
+                        console.error('Failed to auto-create chat room:', await autoCreateRes.text());
+                      }
+                    } catch (autoCreateError) {
+                      console.error('Error auto-creating chat room:', autoCreateError);
+                    } finally {
+                      setCheckingRoom(false);
+                    }
+                  }}
+                  className="inline-flex items-center justify-center w-5 h-5 bg-fontRed/90 hover:bg-fontRed rounded-full transition-colors cursor-pointer"
+                  title="Share match to create chat room"
+                >
+                  <span className="text-sm">💬</span>
+                </button>
+                </div>
+              );
+            } catch {
+              return null;
+            }
+          })()}
+          <span className="flex justify-center items-center space-x-4 ml-2 mr-2">
             <div className="flex flex-col items-center space-y-1">
               <Image
                 src={homeTeamLogo || "/assets/defifa_spinner.gif"}
@@ -530,18 +667,18 @@ const MatchEventCard: React.FC<EventCardProps> = ({ event, sportId }) => {
               />
               <span>{homeTeam}</span>
             </div>
-            <div className="flex flex-col items-center space-y-1">
+            <div className="flex flex-col items-center space-y-1 w-20">
               {eventStarted ? (
                 <>
                   <span className="text-white font-bold text-2xl">
                     {homeScore} - {awayScore}
                   </span>
-                  <span className="text-lightPurple text-xs">{clock}</span>
+                  <span className="text-lightPurple text-xs text-center">{clock}</span>
                 </>
               ) : (
                 <span className="flex flex-col items-center">
                   <span>Kickoff:</span>
-                  <span className="text-sm text-lightPurple">
+                  <span className="text-sm text-lightPurple text-center">
                     {new Date(event.date).toLocaleString("en-GB", {
                       weekday: "short",
                       hour: "2-digit",
@@ -566,61 +703,8 @@ const MatchEventCard: React.FC<EventCardProps> = ({ event, sportId }) => {
             </div>
           </span>
         </button>
-      </div>
-
-          {/* Link to Match Chat (conditional) */}
-          <div className="mt-3">
-            {(() => {
-              try {
-                const leagueId = (() => {
-                  const homeAbbr = event.competitions[0]?.competitors[0]?.team.abbreviation?.toUpperCase();
-                  const awayAbbr = event.competitions[0]?.competitors[1]?.team.abbreviation?.toUpperCase();
-                  const maybeLeague = (teams.find((t) => t.abbreviation.toUpperCase() === homeAbbr)?.league)
-                    || (teams.find((t) => t.abbreviation.toUpperCase() === awayAbbr)?.league) || 'eng.1';
-                  return maybeLeague;
-                })();
-                const home = event.competitions[0]?.competitors[0]?.team.abbreviation?.toUpperCase() || '';
-                const away = event.competitions[0]?.competitors[1]?.team.abbreviation?.toUpperCase() || '';
-                const baseId = `${leagueId.replace('.', '_')}_${home}_${away}`;
-                const appUrlRaw = process.env.NEXT_PUBLIC_URL || 'https://fc-footy.vercel.app';
-                const appUrl = appUrlRaw.startsWith('http') ? appUrlRaw : `https://${appUrlRaw}`;
-                const chatUrl = `${appUrl}/chat?eventId=${encodeURIComponent(baseId)}`;
-                const isChatPage = typeof window !== 'undefined' && window.location.pathname.startsWith('/chat');
-
-                if (isChatPage) return null;
-                if (checkingRoom) return <span className="text-xs text-gray-400">Checking chat…</span>;
-                if (chatRoomHash) {
-                  return (
-                    <a
-                      href={chatUrl}
-                      className="inline-flex items-center gap-2 text-sm text-blue-300 hover:text-white underline"
-                    >
-                      💬 Footy Match Chat
-                    </a>
-                  );
-                }
-                // No room: render a compose suggestion link to ping the admin to create one
-                return (
-                  <button
-                    onClick={async () => {
-                      try {
-                        await sdk.actions.composeCast({
-                          text: `hey @kmacb.eth please create a match chat for ${baseId}`
-                        });
-                      } catch (error) {
-                        console.error('Failed to compose cast:', error);
-                      }
-                    }}
-                    className="inline-flex items-center gap-2 text-xs text-gray-300 hover:text-white underline bg-transparent border-none cursor-pointer"
-                  >
-                    ✍️ No live match chat. Ask mods to do something.
-                  </button>
-                );
-              } catch {
-                return null;
-              }
-            })()}
           </div>
+
        
       {showDetails && selectedMatch && (
         <div ref={elementRef} className="mt-2 bg-purplePanel p-2 rounded-lg">
@@ -645,7 +729,7 @@ const MatchEventCard: React.FC<EventCardProps> = ({ event, sportId }) => {
               </div>
             </>
           )}
-   
+          
           {/* Combined Fan Avatars Section */}
 
           {/* Following section temporarily disabled
@@ -654,24 +738,24 @@ const MatchEventCard: React.FC<EventCardProps> = ({ event, sportId }) => {
             <h3 className="text-notWhite font-semibold mb-1">
               Following ({matchFanAvatarsTeam1.length + matchFanAvatarsTeam2.length})
             </h3>
-            <div className="flex items-center gap-4 text-xs text-lightPurple mb-2">
-              <div className="flex items-center gap-1">
-                <span className="w-3 h-3 border-2 border-blue-500 rounded-full"></span>
-                <span>Home ({matchFanAvatarsTeam1.length})</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <span className="w-3 h-3 border-2 border-yellow-500 rounded-full"></span>
-                <span>Away ({matchFanAvatarsTeam2.length})</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <span className="w-3 h-3 border-2 border-purple-500 rounded-full"></span>
-                Both ({
-                  matchFanAvatarsTeam1.filter(fan1 =>
-                    matchFanAvatarsTeam2.some(fan2 => fan2.fid === fan1.fid)
-                  ).length
-                })
-              </div>
+          <div className="flex items-center gap-4 text-xs text-lightPurple mb-2">
+            <div className="flex items-center gap-1">
+              <span className="w-3 h-3 border-2 border-blue-500 rounded-full"></span>
+              <span>Home ({matchFanAvatarsTeam1.length})</span>
             </div>
+            <div className="flex items-center gap-1">
+              <span className="w-3 h-3 border-2 border-yellow-500 rounded-full"></span>
+              <span>Away ({matchFanAvatarsTeam2.length})</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <span className="w-3 h-3 border-2 border-purple-500 rounded-full"></span>
+              Both ({
+                matchFanAvatarsTeam1.filter(fan1 =>
+                  matchFanAvatarsTeam2.some(fan2 => fan2.fid === fan1.fid)
+                ).length
+              })
+            </div>
+          </div>
           <div className="grid grid-cols-10 gap-1">
             ):()}
   {isLoadingFans ? (
@@ -760,7 +844,6 @@ const MatchEventCard: React.FC<EventCardProps> = ({ event, sportId }) => {
 
             <WarpcastShareButton
               selectedMatch={selectedMatch}
-              buttonText="Share Match"
               compositeImage={true}
               leagueId={(() => {
                 const homeAbbr = event.competitions[0]?.competitors[0]?.team.abbreviation.toLowerCase();
@@ -769,6 +852,7 @@ const MatchEventCard: React.FC<EventCardProps> = ({ event, sportId }) => {
                 const awayTeamData = teams.find((t) => t.abbreviation.toLowerCase() === awayAbbr);
                 return homeTeamData?.league || awayTeamData?.league || '';
               })()}
+              onRoomCreated={refreshChatRoomStatus}
             />
           </div>
           {showGameContext && gameContext && (

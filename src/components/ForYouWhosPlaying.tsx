@@ -52,7 +52,21 @@ const ForYouWhosPlaying: React.FC<Props> = ({ eventId }) => {
       // If a specific event is provided, skip favorites and fetch only that match
       const parts = eventId.split('_');
       if (parts.length >= 3) {
-        const maybeLeague = parts.length >= 4 ? `${parts[0]}.${parts[1]}` : (parts[0].includes('.') ? parts[0] : 'eng.1');
+        // Handle different eventId formats:
+        // - eng_1_MNC_TOT (4 parts: eng, 1, MNC, TOT)
+        // - eng_league_cup_PNE_WXM (5 parts: eng, league, cup, PNE, WXM)
+        // - uefa_champions_LIV_BAY (4 parts: uefa, champions, LIV, BAY)
+        let maybeLeague: string;
+        if (parts.length >= 5) {
+          // Format: eng_league_cup_PNE_WXM -> eng.league_cup
+          maybeLeague = `${parts[0]}.${parts[1]}_${parts[2]}`;
+        } else if (parts.length >= 4) {
+          // Format: eng_1_MNC_TOT -> eng.1 or uefa_champions_LIV_BAY -> uefa.champions
+          maybeLeague = `${parts[0]}.${parts[1]}`;
+        } else {
+          // Fallback
+          maybeLeague = parts[0].includes('.') ? parts[0] : 'eng.1';
+        }
         const home = parts[parts.length - 2]?.toUpperCase();
         const away = parts[parts.length - 1]?.toUpperCase();
         (async () => {

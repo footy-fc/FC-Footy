@@ -120,7 +120,6 @@ interface SelectedMatch {
 interface WarpcastShareButtonProps {
   selectedMatch: SelectedMatch;
   targetElement?: HTMLElement | null;
-  buttonText?: string;
   compositeImage?: boolean;
   fallbackLeague?: string;
   leagueId?: string;
@@ -130,11 +129,45 @@ interface WarpcastShareButtonProps {
   };
   ticketPriceEth?: number;
   prizePoolEth?: number;
+  onRoomCreated?: () => void; // Callback when room is successfully created
 }
 
-export function WarpcastShareButton({ selectedMatch, buttonText, compositeImage, leagueId, moneyGamesParams, ticketPriceEth, prizePoolEth }: WarpcastShareButtonProps) {
+export function WarpcastShareButton({ selectedMatch, compositeImage, leagueId, moneyGamesParams, ticketPriceEth, prizePoolEth, onRoomCreated }: WarpcastShareButtonProps) {
   const { isGenerating, currentCommentator } = useCommentator();
   const [ethUsdPrice, setEthUsdPrice] = useState<number | null>(null);
+  const [chatRoomExists, setChatRoomExists] = useState<boolean | null>(null);
+  const [checkingChatRoom, setCheckingChatRoom] = useState<boolean>(false);
+
+  // Check if chat room exists for this match
+  useEffect(() => {
+    const checkChatRoom = async () => {
+      if (!selectedMatch?.eventId) return;
+      
+      setCheckingChatRoom(true);
+      try {
+        const candidates = [selectedMatch.eventId, `${selectedMatch.eventId}_`];
+        let found = false;
+        
+        for (const id of candidates) {
+          const res = await fetch(`/api/match-rooms?eventId=${encodeURIComponent(id)}`);
+          const data = await res.json();
+          if (data?.room?.castHash) {
+            found = true;
+            break;
+          }
+        }
+        
+        setChatRoomExists(found);
+      } catch (error) {
+        console.error('Error checking chat room:', error);
+        setChatRoomExists(false);
+      } finally {
+        setCheckingChatRoom(false);
+      }
+    };
+    
+    checkChatRoom();
+  }, [selectedMatch?.eventId]);
 
   useEffect(() => {
     // Fetch ETH price when we are composing MoneyGames link so we can show USD affordance
@@ -329,12 +362,46 @@ export function WarpcastShareButton({ selectedMatch, buttonText, compositeImage,
    
       try {
         await sdk.actions.ready({});
-        await sdk.actions.composeCast({ text: matchSummary, embeds, channelKey: 'football' });
+        const result = await sdk.actions.composeCast({ text: matchSummary, embeds, channelKey: 'football' });
+        
+        // Save cast hash to KV if cast was successful
+        if (result?.cast?.hash && selectedMatch?.eventId) {
+          console.log('✅ Cast successful, saving to KV:', result.cast.hash);
+          
+          try {
+            const saveResponse = await fetch('/api/match-rooms', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'x-api-key': process.env.NEXT_PUBLIC_NOTIFICATION_API_KEY || '',
+              },
+              body: JSON.stringify({
+                eventId: selectedMatch.eventId,
+                castHash: result.cast.hash,
+                parentUrl: shareUrl,
+                fid: null
+              })
+            });
+            
+            if (saveResponse.ok) {
+              console.log('💾 Cast hash saved to KV for room creation');
+              // Update local state to reflect new room
+              setChatRoomExists(true);
+              onRoomCreated?.(); // Call the callback if room was created
+            } else {
+              console.error('Failed to save cast hash to KV:', await saveResponse.text());
+            }
+          } catch (saveError) {
+            console.error('Error saving cast hash to KV:', saveError);
+          }
+        } else if (result?.cast === null) {
+          console.log('User cancelled the cast');
+        }
       } catch (e) {
         console.error('composeCast failed:', e);
       }
     }
-  }, [selectedMatch, compositeImage, leagueId, moneyGamesParams, ticketPriceEth, prizePoolEth, ethUsdPrice, currentCommentator?.displayName]);
+  }, [selectedMatch, compositeImage, leagueId, moneyGamesParams, ticketPriceEth, prizePoolEth, ethUsdPrice, currentCommentator?.displayName, onRoomCreated]);
 
   return (
     <button
@@ -342,7 +409,10 @@ export function WarpcastShareButton({ selectedMatch, buttonText, compositeImage,
       disabled={isGenerating}
       className="w-full sm:w-38 bg-deepPink text-white py-2 px-4 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-deepPink hover:bg-fontRed"
     >
-      {isGenerating ? '🎤 Generating Commentary...' : (buttonText || 'Share')}
+      {isGenerating ? '🎤 Generating Commentary...' : 
+       checkingChatRoom ? 'Checking...' :
+       chatRoomExists ? 'Share Match' : 
+       'Create Room'}
     </button>
   );
 }

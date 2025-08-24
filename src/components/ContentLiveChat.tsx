@@ -1045,7 +1045,7 @@ const ContentLiveChat = ({ teamId, parentCastHash, parentUrl, hubUrl, eventId }:
                     {isPosting ? '📤 Posting...' : '📤 Cast'}
                   </button>
                 )}
-              </div>
+          </div>
             ) : (
               <div className="bg-darkPurple/60 rounded-lg p-2 border border-limeGreenOpacity/50">
                 {!isConnected ? (
@@ -1065,7 +1065,7 @@ const ContentLiveChat = ({ teamId, parentCastHash, parentUrl, hubUrl, eventId }:
                       <span className="text-fontRed">→</span>
                     </button>
                     <p className="text-xs text-gray-400 mt-1">
-                      {balance.toLocaleString()}/{MIN_REQUIRED_SCORES.toLocaleString()} $SCORES
+                      Holding: {balance.toLocaleString()}/{MIN_REQUIRED_SCORES.toLocaleString()} $SCORES
                     </p>
                   </div>
                 )}
