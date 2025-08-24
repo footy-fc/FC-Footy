@@ -561,6 +561,10 @@ const MatchEventCard: React.FC<EventCardProps> = ({ event, sportId }) => {
             try {
               // Use the sportId prop which contains the actual competition (e.g., eng.league_cup)
               const leagueId = sportId || 'eng.1';
+              
+              // Only show chat affordance for Premier League matches (eng.1)
+              if (leagueId !== 'eng.1') return null;
+              
               const home = event.competitions[0]?.competitors[0]?.team.abbreviation?.toUpperCase() || '';
               const away = event.competitions[0]?.competitors[1]?.team.abbreviation?.toUpperCase() || '';
               const baseId = `${leagueId.replace('.', '_')}_${home}_${away}`;
