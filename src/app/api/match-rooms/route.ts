@@ -60,6 +60,18 @@ export async function POST(req: NextRequest) {
   if (!castHash || typeof castHash !== 'string' || castHash.trim().length === 0) {
     return Response.json({ error: "Missing required field: castHash" }, { status: 400 });
   }
+
+  // Check if room already exists - prevent overwriting existing records
+  const existingRoom = await redis.get(keyForEvent(eventId));
+  if (existingRoom) {
+    console.log(`⚠️ Room already exists for ${eventId}, refusing to overwrite`);
+    return Response.json({ 
+      error: "Room already exists", 
+      existingRoom,
+      message: "Use PUT endpoint to update existing rooms" 
+    }, { status: 409 });
+  }
+
   // With a valid API key, allow creation regardless of fid (admin page may not have frame context)
   // If you want to enforce fid when no API key is present, add a separate branch.
 

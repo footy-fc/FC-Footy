@@ -632,13 +632,18 @@ const MatchEventCard: React.FC<EventCardProps> = ({ event, sportId }) => {
                         const autoCreateData = await autoCreateRes.json();
                         if (autoCreateData.success && autoCreateData.castHash) {
                           setChatRoomHash(autoCreateData.castHash);
-                          console.log(`✅ Auto-created chat room for ${baseId}:`, autoCreateData.castHash);
                           
-                          // Automatically navigate to the new chat room
-                          const appUrlRaw = process.env.NEXT_PUBLIC_URL || 'https://fc-footy.vercel.app';
-                          const appUrl = appUrlRaw.startsWith('http') ? appUrlRaw : `https://${appUrlRaw}`;
-                          const chatUrl = `${appUrl}/chat?eventId=${encodeURIComponent(baseId)}`;
-                          window.open(chatUrl, '_blank');
+                          if (autoCreateData.source === 'new') {
+                            console.log(`✅ Created new chat room for ${baseId}:`, autoCreateData.castHash);
+                            // Only navigate to chat room if it was newly created
+                            const appUrlRaw = process.env.NEXT_PUBLIC_URL || 'https://fc-footy.vercel.app';
+                            const appUrl = appUrlRaw.startsWith('http') ? appUrlRaw : `https://${appUrlRaw}`;
+                            const chatUrl = `${appUrl}/chat?eventId=${encodeURIComponent(baseId)}`;
+                            window.open(chatUrl, '_blank');
+                          } else {
+                            console.log(`✅ Using existing chat room for ${baseId}:`, autoCreateData.castHash);
+                            // For existing rooms, just update the UI - no navigation
+                          }
                         }
                       } else {
                         console.error('Failed to auto-create chat room:', await autoCreateRes.text());
