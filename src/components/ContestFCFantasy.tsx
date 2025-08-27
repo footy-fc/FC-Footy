@@ -727,13 +727,6 @@ const ContestFCFantasy = () => {
           <h3 className="text-md font-bold text-lightPurple mb-4 text-center">Select and collect</h3>
           <h3 className="text-md font-bold text-lightPurple mb-4 text-center">Proceeds back $SCORES treasury</h3>
 
-          {!currentUserEntry && currentUserFid && (
-            <div className="text-center mb-4 p-3 bg-gray-800 rounded-lg">
-              <p className="text-lightPurple text-sm">
-                💡 <strong>Not in the Fantasy League?</strong> Click any row to see the season pass and join the league!
-              </p>
-            </div>
-          )}
           {loadingFantasy ? (
             <div className="text-center">Loading...</div>
           ) : errorFantasy ? (
