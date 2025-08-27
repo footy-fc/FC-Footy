@@ -136,7 +136,7 @@ export default function GameWeekSummaryStepByStep() {
         console.log('🔍 Miniapp context: Using relative URLs');
       } else {
         // In web context, use absolute URLs
-        baseCandidates.push('https://f91db06e1b5e.ngrok.app'); // Primary - stable production URL
+        baseCandidates.push('https://fc-footy.vercel.app'); // Primary - production URL
         
         // Only add localhost if we're in development
         if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
