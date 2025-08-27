@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useState } from 'react';
-//import { AIResponseDisplay } from '../ui/AIResponseDisplay';
+import React, { useState, useEffect } from 'react';
+import { sdk } from "@farcaster/miniapp-sdk";
+import { fetchFanUserData } from '../utils/fetchFCProfile';
 
 interface FPLManager {
   username: string;
@@ -82,6 +83,23 @@ export default function GameWeekSummaryStepByStep() {
   const [responseMessage, setResponseMessage] = useState("");
   const [selectedCastType, setSelectedCastType] = useState<CastType>("topBottom");
   const [worstCaptainPicks, setWorstCaptainPicks] = useState<WorstCaptainPick[]>([]);
+  const [castPreview, setCastPreview] = useState<string>("");
+  const [isMiniapp, setIsMiniapp] = useState<boolean>(false);
+
+  // Game week options for dropdown
+  const gameWeekOptions = Array.from({ length: 38 }, (_, i) => i + 1);
+
+  // Check if we're in miniapp context
+  useEffect(() => {
+    const checkMiniappContext = () => {
+      const isMiniappContext = typeof window !== 'undefined' && 
+        (window.location.href.includes('warpcast.com') || 
+         window.location.href.includes('farcaster.xyz') ||
+         window.location.href.includes('ngrok.app'));
+      setIsMiniapp(isMiniappContext);
+    };
+    checkMiniappContext();
+  }, []);
 
   const updateStep = (stepId: number, status: Step["status"], data?: StepData) => {
     setSteps(prev => prev.map(step => 
@@ -91,16 +109,22 @@ export default function GameWeekSummaryStepByStep() {
     ));
   };
 
-  // Step 1: Load FPL Data & Process FIDs (Combined)
+  // Step 1: Load FPL Data & Process FIDs (Combined) - Only run once per session
   const loadFPLDataAndProcessFIDs = async () => {
+    // Check if we already have data loaded
+    if (managersWithFIDs.length > 0) {
+      console.log('🔍 Admin: FPL data already loaded, skipping Step 1');
+      updateStep(1, "completed", { 
+        count: managersWithFIDs.length,
+        managersWithFIDs: managersWithFIDs.length,
+        source: "Previously loaded" 
+      });
+      setCurrentStep(2);
+      return;
+    }
+
     updateStep(1, "loading");
     try {
-      // Check if we're in a miniapp context
-      const isMiniapp = typeof window !== 'undefined' && 
-        (window.location.href.includes('warpcast.com') || 
-         window.location.href.includes('farcaster.xyz') ||
-         window.location.href.includes('ngrok.app'));
-      
       console.log(`🔍 Context: ${isMiniapp ? 'Miniapp' : 'Web'}`);
       
       // Build base candidates based on context
@@ -112,7 +136,7 @@ export default function GameWeekSummaryStepByStep() {
         console.log('🔍 Miniapp context: Using relative URLs');
       } else {
         // In web context, use absolute URLs
-        baseCandidates.push('https://fc-footy.vercel.app'); // Primary - stable production URL
+        baseCandidates.push('https://f91db06e1b5e.ngrok.app'); // Primary - stable production URL
         
         // Only add localhost if we're in development
         if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
@@ -180,7 +204,6 @@ export default function GameWeekSummaryStepByStep() {
         }
       }
 
-      // We don't need to store fplData separately since we process it immediately
       console.log(`📊 FPL Data: ${standings.length} total managers`);
 
       // Now process FIDs
@@ -200,19 +223,22 @@ export default function GameWeekSummaryStepByStep() {
         );
         
         if (lookupEntry && lookupEntry.fid) {
-          const username = await fetchUsernameByFid(lookupEntry.fid);
+          const userData = await fetchFanUserData(lookupEntry.fid);
+          const username = userData['USER_DATA_TYPE_USERNAME']?.[0];
           if (username) {
             managersWithFIDs.push({
               ...entry,
               fid: lookupEntry.fid,
-              username,
+              username: username.toLowerCase(),
             });
           } else {
-            // Fallback to team_name
+            // Use entry_name as fallback instead of team_name
+            const fallbackUsername = entry.entry_name.toLowerCase().replace(/[^a-z0-9]/g, '');
+            console.log(`⚠️ Using fallback username for ${entry.entry_name} (FID: ${lookupEntry.fid}) - using entry_name: ${fallbackUsername}`);
             managersWithFIDs.push({
               ...entry,
               fid: lookupEntry.fid,
-              username: lookupEntry.team_name.toLowerCase().replace(/[^a-z0-9]/g, ''),
+              username: fallbackUsername,
             });
           }
         }
@@ -303,25 +329,76 @@ export default function GameWeekSummaryStepByStep() {
     return worstPicks;
   };
 
-  const fetchUsernameByFid = async (fid: number): Promise<string | null> => {
-    try {
-      const response = await fetch(`https://hub.merv.fun/v1/userDataByFid?fid=${fid}`);
-      if (response.ok) {
-        const data = await response.json();
-        return data.username?.toLowerCase() || null;
-      }
-    } catch (error) {
-      console.error(`Error fetching username for FID ${fid}:`, error);
+
+
+  // Generate cast preview
+  const generateCastPreview = () => {
+    // Use demo data if no FPL data has been loaded
+    let dataToUse = managersWithFIDs;
+    if (dataToUse.length === 0) {
+      dataToUse = [
+        { username: "manager1", entry: 192153, total: 91, entry_name: "JE11YF15H 🍖🔵-", player_name: "je11yf15h", event_total: 91, rank: 1, fid: 249647 },
+        { username: "manager2", entry: 215181, total: 89, entry_name: "FeMMie", player_name: "femmie", event_total: 89, rank: 2, fid: 267104 },
+        { username: "test", entry: 200716, total: 87, entry_name: "Ghost 🎩", player_name: "ghost", event_total: 87, rank: 3, fid: 528707 },
+        { username: "data", entry: 204596, total: 85, entry_name: "kimken", player_name: "kimken", event_total: 85, rank: 4, fid: 844615 },
+        { username: "henry", entry: 179856, total: 83, entry_name: "Henry Adewole 👾", player_name: "henry", event_total: 83, rank: 5, fid: 718134 },
+        { username: "milo", entry: 23272, total: 26, entry_name: "Milo Bowman  🇬🇧", player_name: "milo", event_total: 26, rank: 96, fid: 231807 },
+        { username: "vyenepaul", entry: 47421, total: 29, entry_name: "Vyenepaul11", player_name: "vyenepaul", event_total: 29, rank: 95, fid: 1136655 },
+        { username: "zipar", entry: 55728, total: 31, entry_name: "Zipar 🔵🟦", player_name: "zipar", event_total: 31, rank: 94, fid: 317946 },
+        { username: "kazani", entry: 56917, total: 33, entry_name: "kazani.base.eth 🦂", player_name: "kazani", event_total: 33, rank: 93, fid: 4926 },
+        { username: "supertaster", entry: 100599, total: 35, entry_name: "Supertaster.eth", player_name: "supertaster", event_total: 35, rank: 92, fid: 297066 }
+      ];
     }
-    return null;
+    
+    // Process the data to get top/bottom performers
+    const sortedByTotal = [...dataToUse].sort((a, b) => b.total - a.total);
+    
+    // Get top 5 and bottom 5
+    const top5 = sortedByTotal.slice(0, 5);
+    const bottom5 = sortedByTotal.slice(-5);
+    
+    // Generate cast text
+    let castText = "";
+    if (selectedCastType === "topBottom") {
+      const topBanter = generateTopPerformersBanter(top5);
+      const bottomBanter = generateBottomPerformersBanter(bottom5);
+
+      castText = `🎮 Game Week ${gameWeek} Summary - Farcaster Fantasy League! 🏆
+
+${topBanter}
+
+${bottomBanter}
+
+⚽ Keep the banter friendly and the competition fierce! 🔥`;
+    } else if (selectedCastType === "biggestMovers") {
+      castText = `📈 Game Week ${gameWeek} - Biggest Movers! 🚀
+
+🎯 Coming soon: Highlighting managers with the biggest rank changes this week!
+
+⚽ Stay tuned for more exciting content! 🔥`;
+    } else if (selectedCastType === "worstCaptainPicks") {
+      castText = `👑 Game Week 1 - Worst Captain Picks! 😅
+
+🎯 Analysis of managers whose vice captain outscored their captain!
+
+⚽ Sometimes the vice captain knows best! 🔥`;
+    }
+
+    setCastPreview(castText);
+    return castText;
   };
 
   // Step 2: Select Cast Type
   const selectCastType = () => {
     updateStep(2, "loading");
     try {
-      // This step is just for selection, no processing needed
-      updateStep(2, "completed", { selectedType: selectedCastType });
+      // Generate preview
+      const preview = generateCastPreview();
+      
+      updateStep(2, "completed", { 
+        selectedType: selectedCastType,
+        preview: preview.substring(0, 100) + "..."
+      });
       setCurrentStep(3);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
@@ -329,8 +406,6 @@ export default function GameWeekSummaryStepByStep() {
       updateStep(2, "error", { error: errorMessage });
     }
   };
-
-
 
   // Step 3: Post to Farcaster (with infographic generation and cast text)
   const postToFarcaster = async () => {
@@ -413,10 +488,10 @@ ${worstBanter}
       }
 
       // Create template URL with data
-                        const templateUrl = `https://fc-footy.vercel.app/templates/gameweek-table-toppers?` + 
-                    `top5=${encodeURIComponent(JSON.stringify(top5))}&` +
-                    `bottom5=${encodeURIComponent(JSON.stringify(bottom5))}&` +
-                    `gameWeek=${gameWeek}`;
+      const templateUrl = `https://fc-footy.vercel.app/templates/gameweek-table-toppers?` + 
+          `top5=${encodeURIComponent(JSON.stringify(top5))}&` +
+          `bottom5=${encodeURIComponent(JSON.stringify(bottom5))}&` +
+          `gameWeek=${gameWeek}`;
 
       console.log('🔍 Admin: Template URL created:', templateUrl);
       console.log('🔍 Admin: Cast text generated:', castText.substring(0, 100) + '...');
@@ -427,13 +502,26 @@ ${worstBanter}
 
       console.log('🔍 Admin: Final embeds being sent to Farcaster:', finalEmbeds);
 
-      // Post to Farcaster
-      // await sdk.actions.ready(); // This line was removed as per the new_code
-      // await sdk.actions.composeCast({ // This line was removed as per the new_code
-      //   text: castText, // This line was removed as per the new_code
-      //   embeds: finalEmbeds as [string, string] | [string] | [], // This line was removed as per the new_code
-      //   channelKey: 'football' // This line was removed as per the new_code
-      // }); // This line was removed as per the new_code
+      // Post to Farcaster using SDK
+      if (isMiniapp) {
+        try {
+          await sdk.actions.ready();
+          await sdk.actions.composeCast({
+            text: castText,
+            embeds: finalEmbeds as [string, string] | [string] | [],
+            channelKey: 'football'
+          });
+          console.log('✅ Cast posted successfully via SDK');
+        } catch (sdkError) {
+          console.error('❌ SDK cast failed:', sdkError);
+          throw new Error(`Failed to post cast via SDK: ${sdkError}`);
+        }
+      } else {
+        // For web context, open compose URL
+        const composeUrl = `https://warpcast.com/~/compose?text=${encodeURIComponent(castText)}&embeds[]=${encodeURIComponent(finalEmbeds[0])}&embeds[]=${encodeURIComponent(finalEmbeds[1])}&channelKey=football`;
+        window.open(composeUrl, '_blank');
+        console.log('✅ Opened compose URL for web context');
+      }
 
       updateStep(3, "completed", { url: "Cast posted successfully with infographic" });
       setResponseMessage('Cast posted successfully with infographic! 🎉');
@@ -463,7 +551,10 @@ ${worstBanter}
     const banterLines: string[] = [];
     const reactions = ['😅', '🤔', '😬', '😱', '💀'];
     
-    bottom5.reverse().forEach((manager, index) => {
+    // Sort bottom5 in descending order (highest to lowest points among bottom 5)
+    const sortedBottom5 = [...bottom5].sort((a, b) => b.total - a.total);
+    
+    sortedBottom5.forEach((manager, index) => {
       const reaction = reactions[index] || '😅';
       const banter = `${reaction} @${manager.username} - ${manager.total}pts`;
       banterLines.push(banter);
@@ -504,10 +595,17 @@ ${worstBanter}
   const resetAll = () => {
     setSteps(prev => prev.map(step => ({ ...step, status: "pending" as const })));
     setCurrentStep(1);
-    // No need to reset fplData since we don't store it separately
     setManagersWithFIDs([]);
     setResponseMessage("");
+    setCastPreview("");
   };
+
+  // Generate preview when cast type or game week changes
+  useEffect(() => {
+    if (selectedCastType) {
+      generateCastPreview();
+    }
+  }, [selectedCastType, gameWeek, managersWithFIDs]);
 
   return (
     <div className="space-y-6">
@@ -516,14 +614,17 @@ ${worstBanter}
         <div className="flex items-center space-x-4">
           <div className="flex items-center space-x-2">
             <label className="text-lightPurple text-sm">Game Week:</label>
-            <input
-              type="number"
+            <select
               value={gameWeek}
               onChange={(e) => setGameWeek(parseInt(e.target.value) || 1)}
-              min="1"
-              max="38"
-              className="w-16 px-2 py-1 bg-darkPurple border border-limeGreenOpacity rounded text-lightPurple text-center"
-            />
+              className="px-3 py-1 bg-darkPurple border border-limeGreenOpacity rounded text-lightPurple"
+            >
+              {gameWeekOptions.map(week => (
+                <option key={week} value={week}>
+                  GW {week}
+                </option>
+              ))}
+            </select>
           </div>
           <button
             onClick={resetAll}
@@ -538,6 +639,16 @@ ${worstBanter}
       {responseMessage && (
         <div className="p-4 bg-purplePanel rounded-lg border border-limeGreenOpacity">
           <p className="text-lightPurple">{responseMessage}</p>
+        </div>
+      )}
+
+      {/* Cast Preview */}
+      {castPreview && (
+        <div className="p-4 bg-darkPurple rounded-lg border border-limeGreenOpacity">
+          <h4 className="text-notWhite font-semibold mb-2">📝 Cast Preview</h4>
+          <div className="bg-gray-800 p-3 rounded border border-gray-600">
+            <pre className="text-lightPurple text-sm whitespace-pre-wrap font-mono">{castPreview}</pre>
+          </div>
         </div>
       )}
 
@@ -669,8 +780,6 @@ ${worstBanter}
           </div>
         ))}
       </div>
-
-
 
       {/* Quick Actions */}
       <div className="p-4 bg-darkPurple rounded-lg border border-limeGreenOpacity">

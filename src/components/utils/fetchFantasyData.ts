@@ -231,6 +231,8 @@ export const fetchFPLLeagueData = async (leagueId: number = 18526): Promise<Fant
   }
 };
 
+
+
 // Update the main function to use FPL API with Upstash favorite team data
 export const fetchFantasyData = async (): Promise<FantasyEntry[]> => {
   try {
