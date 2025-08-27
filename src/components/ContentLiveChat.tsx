@@ -1002,12 +1002,12 @@ const ContentLiveChat = ({ teamId, parentCastHash, parentUrl, hubUrl, eventId }:
               &larr; Back
             </button>
             
-            {/* AI Commentary Controls - Token Gated */}
+            {/* AI Commentary Controls - DISABLED */}
+            {/* 
             {tokenLoading ? (
               <div className="text-xs text-gray-400">Checking tokens...</div>
             ) : hasScores ? (
               <div className="flex items-center gap-2">
-                {/* Commentator Selector */}
                 <select
                   value={selectedCommentator}
                   onChange={(e) => setSelectedCommentator(e.target.value)}
@@ -1045,7 +1045,7 @@ const ContentLiveChat = ({ teamId, parentCastHash, parentUrl, hubUrl, eventId }:
                     {isPosting ? '📤 Posting...' : '📤 Cast'}
                   </button>
                 )}
-          </div>
+              </div>
             ) : (
               <div className="bg-darkPurple/60 rounded-lg p-2 border border-limeGreenOpacity/50">
                 {!isConnected ? (
@@ -1071,13 +1071,15 @@ const ContentLiveChat = ({ teamId, parentCastHash, parentUrl, hubUrl, eventId }:
                 )}
               </div>
             )}
+            */}
           </div>
           
           <div className="border border-limeGreenOpacity/50 rounded-lg bg-darkPurple/60">
             <ForYouWhosPlaying eventId={eventId} />
           </div>
           
-          {/* AI Commentary Display */}
+          {/* AI Commentary Display - DISABLED */}
+          {/*
           {aiCommentary && (
             <div className="mt-2 p-3 bg-gradient-to-r from-purple-900/80 to-pink-900/80 rounded-lg border border-limeGreenOpacity/30">
               <div className="flex items-start justify-between gap-2">
@@ -1102,6 +1104,7 @@ const ContentLiveChat = ({ teamId, parentCastHash, parentUrl, hubUrl, eventId }:
               </div>
             </div>
           )}
+          */}
         </div>
       </div>
 
@@ -1181,10 +1184,11 @@ const ContentLiveChat = ({ teamId, parentCastHash, parentUrl, hubUrl, eventId }:
         </div>
       </div>
 
-      {/* ScoresInfo Modal */}
-      {showScoresInfo && <ScoresInfo defaultOpen onClose={() => setShowScoresInfo(false)} />}
+      {/* ScoresInfo Modal - DISABLED */}
+      {/* {showScoresInfo && <ScoresInfo defaultOpen onClose={() => setShowScoresInfo(false)} />} */}
       
-      {/* BuyScoresModal */}
+      {/* BuyScoresModal - DISABLED */}
+      {/*
       <BuyScoresModal
         isOpen={showBuyScoresModal}
         onClose={() => setShowBuyScoresModal(false)}
@@ -1193,6 +1197,7 @@ const ContentLiveChat = ({ teamId, parentCastHash, parentUrl, hubUrl, eventId }:
         currentBalance={balance}
         onPurchaseSuccess={handlePurchaseSuccess}
       />
+      */}
     </div>
   );
 };

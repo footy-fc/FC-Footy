@@ -1,0 +1,57 @@
+ Bendystraw Permission Holders Query
+==================================================
+📊 Project ID: 53
+⛓️  Chain ID: 8453 (Base)
+📈 Limit: 100
+
+🔍 Fetching permission holders for project 53 on chain 8453...
+
+📋 Permission Holders for Project 53 (Chain 8453)
+================================================================================
+✅ Found 4 permission holders
+
+Account                                    | Operator                                   | Permissions
+-------------------------------------------+--------------------------------------------+---------------------
+0x027f1684c6d31066c3f2468117f2508e8134fdfc | 0x03de624feb08c0edeff779ca5702aef4b85d7f06 | 16
+0x027f1684c6d31066c3f2468117f2508e8134fdfc | 0xdf087b724174a3e4ed2338c0798193932e851f1b | 17, 25, 6, 18, 30, 20, 21, 22, 23
+0xaa23bb616192b9f596945a088ed4febfb2d71efe | 0x03de624feb08c0edeff779ca5702aef4b85d7f06 | 1
+0xdf087b724174a3e4ed2338c0798193932e851f1b | 0x03de624feb08c0edeff779ca5702aef4b85d7f06 | 1
+
+================================================================================
+
+📊 Summary:
+   • Total permission holders: 4
+   • Unique accounts: 3
+   • Unique operators: 2
+
+0.3% v3 weth/SCORES on base
+0xe3fbca95a921334a73dc523903d69189cb89e2cb
+
+Account should have permissions to set buyback delegate 0xdf087b724174a3e4ed2338c0798193932e851f1b
+
+   1. Create Uniswap V3 pool for SCORES/WETH pair
+   2. Configure JBBuybackHook with pool parameters
+   • Use JBBuybackHook: 0x47d1b88af8ee0ed0a772a7c98430894141b9ac8b
+   3. Update funding cycle with buyback delegate
+   4. Seed pool with initial liquidity
+
+
+📚 Technical Implementation Guide
+================================================================================
+🔧 Buyback Configuration Parameters:
+   • Pool Address: 0x3e06b10d12649b7f99543e0a7178003f0b53e988
+   • Fee Tier: 10000
+   • Token Order: WETH (0x4200000000000000000000000000000000000006) / SCORES (0xba1afff81a239c926446a67d73f73ec51c37c777)
+
+🔧 Juicebox Integration:
+   • JBBuybackHook: 0x47d1b88af8ee0ed0a772a7c98430894141b9ac8b
+   • Configure with pool address and parameters
+   • Update funding cycle to use buyback delegate
+
+🔧 Permission Requirements:
+   • Only accounts with permissions 17, 25, 6, 18, 30, 20, 21, 22, 23 can configure
+   • Primary account: 0x027f1684c6d31066c3f2468117f2508e8134fdfc
+
+================================================================================
+https://basescan.org/address/0xda86eedb67c6c9fb3e58fe83efa28674d7c89826#readContract
+latest rulesetId 1746995565  

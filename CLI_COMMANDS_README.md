@@ -40,6 +40,21 @@ Brief reference for all FEPL (Farcaster Fantasy Premier League) CLI commands.
 | `node scripts/fpl-scatterplot.mjs` | Generate FPL scatterplot analysis |
 | `node scripts/scoresquare-players-test.mjs` | Test ScoreSquare players data |
 
+## 🔐 Bendystraw Queries
+
+| Command | What it does |
+|---------|-------------|
+| `node scripts/bendystraw-permission-holders.mjs [projectId] [chainId] [limit]` | Query permission holders for a Juicebox project |
+| `node scripts/bendystraw-project-config.mjs [projectId] [chainId]` | Get detailed project configuration |
+| `node scripts/bendystraw-detailed-project.mjs [projectId] [chainId]` | Comprehensive project analysis with events |
+| `node scripts/check-buyback-config.mjs [projectId] [chainId]` | Check buyback configuration status |
+| `node scripts/uniswap-pool-check.mjs` | Check Uniswap V3 pools for SCORES token |
+| `node scripts/check-buyback-status.mjs [projectId] [chainId]` | Check if buyback delegate is configured |
+| `node scripts/basescan-buyback-config.mjs` | Get exact contract methods for manual buyback configuration on Basescan |
+| `node scripts/verify-buyback-deployment.mjs` | Verify if buyback hook was deployed and configured at project creation |
+| `node scripts/check-scores-balances-bendystraw.mjs` | Check SCORES token balances via Bendystraw |
+| `node scripts/bendystraw-pay-events.mjs` | Get pay events from Bendystraw |
+
 ## 🔧 Setup & Build
 
 | Command | What it does |
@@ -129,6 +144,11 @@ node scripts/populate-picks-cache.mjs 1 5
 
 # Using ngrok tunnel (when localhost not accessible)
 NEXT_PUBLIC_BASE_URL="https://f91db06e1b5e.ngrok.app" node scripts/populate-picks-cache.mjs 1 5
+
+# Bendystraw permission holders queries
+node scripts/bendystraw-permission-holders.mjs 140 8453 50    # Project 140 on Base, limit 50
+node scripts/bendystraw-permission-holders.mjs 53 8453        # Project 53 on Base, default limit
+node scripts/bendystraw-permission-holders.mjs 140            # Project 140 on Base, default limit
 
 ## ✅ Expected Cache Health
 
