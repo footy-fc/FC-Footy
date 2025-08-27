@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React from "react";
 import EventCard from "./MatchEventCard";
+import LeaguesDropdown from "./LeaguesDropdown";
 import useEventsData from "./utils/useEventsData";
 import useSortedSportsData from "./utils/useSortedSportsData";
 
@@ -27,7 +28,7 @@ const MatchesTab: React.FC<MatchesTabProps> = ({ setSelectedTab, league, setSele
     <div>
       <div className="flex items-center justify-between">
         <h2 className="ml-1 font-xl text-notWhite font-bold mb-4">
-          Select league
+          Leagues & Cups
         </h2>
         <button
           onClick={() => setSelectedTab("settings")}
@@ -36,26 +37,13 @@ const MatchesTab: React.FC<MatchesTabProps> = ({ setSelectedTab, league, setSele
           <span>Follow teams 🔔</span>
         </button>
       </div>
-      {/* Horizontal Scrollable Menu for Leagues */}
-      <div className="flex overflow-x-auto space-x-4 mb-4">
-        {sportsLoading ? (
-          <div>Loading leagues...</div>
-        ) : (
-          sortedSports.map((sport) => (
-            <button
-              key={sport.sportId}
-              onClick={() => handleLeagueClick(sport.sportId)}
-              className={`flex-shrink-0 py-1 px-6 text-sm font-semibold cursor-pointer rounded-full border-2 ${
-                league === sport.sportId
-                  ? "border-limeGreenOpacity text-lightPurple"
-                  : "border-gray-500 text-gray-500"
-              }`}
-            >
-              {sport.name}
-            </button>
-          ))
-        )}
-      </div>
+      {/* Leagues & Cups Dropdown */}
+      <LeaguesDropdown
+        sports={sortedSports}
+        selectedLeague={league}
+        onLeagueSelect={handleLeagueClick}
+        loading={sportsLoading}
+      />
       {/* Matches Content */}
       <div className="p-4 mt-2 bg-purplePanel text-lightPurple rounded-lg">
         {eventsLoading ? (
