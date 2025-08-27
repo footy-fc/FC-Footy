@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useEffect, useState } from 'react';
 import Image from 'next/image';
-// import { sdk as frameSdk } from "@farcaster/miniapp-sdk";
+import { sdk } from "@farcaster/miniapp-sdk";
 import { FantasyEntry } from './utils/fetchFantasyData';
 // import { BASE_URL } from '~/lib/config';
 
@@ -68,6 +68,21 @@ const FantasyRow: React.FC<FantasyRowProps> = ({ entry, onRowClick, currentUserE
   // Check if this is the user's own row
   const isUserRow = currentUserFid && entry.fid === currentUserFid;
   
+  // Handler for PFP click to open user profile
+  const handlePfpClick = async (e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent row click event
+    
+    if (!entry.fid) return;
+    
+    try {
+      await sdk.actions.ready();
+      await sdk.actions.viewProfile({ fid: entry.fid });
+    } catch (error) {
+      console.error('Failed to open profile:', error);
+      // Fail silently - no error logging or fallback
+    }
+  };
+  
   return (
     <tr
       className={`border-b border-limeGreenOpacity transition-colors text-lightPurple text-sm ${
@@ -86,10 +101,12 @@ const FantasyRow: React.FC<FantasyRowProps> = ({ entry, onRowClick, currentUserE
         <Image
           src={pfpUrl}
           alt="Manager Avatar"
-          className="rounded-full w-8 h-8"
+          className="rounded-full w-8 h-8 cursor-pointer hover:opacity-80 transition-opacity"
           width={32}
           height={32}
+          onClick={handlePfpClick}
           onError={() => setPfpUrl('/defifa_spinner.gif')}
+          title={`Click to view ${entryName}'s profile`}
         />
         {team?.logo && team.logo !== '/defifa_spinner.gif' && (
           <Image
