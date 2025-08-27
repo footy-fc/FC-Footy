@@ -271,8 +271,8 @@ export default function GameWeekSummaryStepByStep() {
     
     for (const manager of managersToAnalyze) {
       try {
-        // Fetch manager picks for gameweek 1
-        const response = await fetch(`/api/manager-picks?fid=${manager.fid}&gameweek=1`);
+        // Fetch manager picks for selected gameweek
+        const response = await fetch(`/api/manager-picks?fid=${manager.fid}&gameweek=${gameWeek}`);
         
         if (response.ok) {
           const picksData = await response.json();
