@@ -17,6 +17,19 @@ interface EntryHistoryResponse {
   }>;
 }
 
+// Minimal shape for the team entry root endpoint
+interface EntryRootResponse {
+  id?: number;
+  player_first_name?: string;
+  player_last_name?: string;
+  name?: string;
+  last_deadline_total_transfers?: number;
+  chips?: Array<{
+    name?: string;
+    played_by_event?: number | null;
+  }>;
+}
+
 const redis = new Redis({
   url: process.env.NEXT_PUBLIC_KV_REST_API_URL!,
   token: process.env.NEXT_PUBLIC_KV_REST_API_TOKEN!,
@@ -72,50 +85,62 @@ export async function GET(request: NextRequest) {
     // Fetch entry history for each manager and pick this GW's points/transfers
     const concurrency = 10;
     let idx = 0;
-    const results: Array<{ entry_id: number; fid: number; team_name: string; points: number; event_transfers: number; overall_rank: number | null }> = [];
+    const results: Array<{
+      entry_id: number;
+      fid: number;
+      team_name: string;
+      points: number;
+      event_transfers: number;
+      overall_rank: number | null;
+      prev_event_transfers: number | null;
+      transfersByEvent: Record<number, number>;
+    }> = [];
 
     async function fetchOne(m: ManagerLookup) {
       try {
-        // KV-first: try picks cache for this entry/gameweek
+        // Initialize from KV if possible
+        let points = 0;
+        let transfers = 0;
+        let overall_rank: number | null = null;
+        let prev_event_transfers: number | null = null;
+        const transfersByEvent: Record<number, number> = {};
         try {
           const cached = await getManagerPicks(m.entry_id, gameweek);
           const eh = cached?.entry_history;
           if (eh && typeof eh.points === 'number' && typeof eh.event_transfers === 'number') {
-            const pointsKv = eh.points ?? 0;
-            const transfersKv = eh.event_transfers ?? 0;
-            const overallKv = typeof eh.overall_rank === 'number' ? eh.overall_rank : null;
-            results.push({
-              entry_id: m.entry_id,
-              fid: m.fid,
-              team_name: m.team_name,
-              points: pointsKv,
-              event_transfers: transfersKv,
-              overall_rank: overallKv,
-            });
-            return; // served from KV
+            points = eh.points ?? 0;
+            transfers = eh.event_transfers ?? 0;
+            overall_rank = typeof eh.overall_rank === 'number' ? eh.overall_rank : null;
           }
         } catch {}
 
+        // Fetch full entry history to compute previous GW transfers precisely
         const res = await fetch(`https://fantasy.premierleague.com/api/entry/${m.entry_id}/history/`, {
           headers: { 'User-Agent': 'Mozilla/5.0 (compatible; fc-footy/1.0)' }
         });
         if (!res.ok) throw new Error(String(res.status));
         const data: EntryHistoryResponse = await res.json();
-        let points = 0;
-        let transfers = 0;
-        let overall_rank: number | null = null;
+        // Set current values if not from KV
         if (Array.isArray(data.current)) {
-          const row = data.current.find(r => r.event === gameweek)
-            || data.current.slice().reverse().find(r => typeof r.points === 'number');
+          const row = data.current.find(r => r.event === gameweek) || null;
+          const prev = data.current.find(r => r.event === gameweek - 1) || null;
+          for (const r of data.current) {
+            if (typeof r.event === 'number' && typeof r.event_transfers === 'number') {
+              transfersByEvent[r.event] = r.event_transfers;
+            }
+          }
           if (row) {
-            points = row.points ?? 0;
-            transfers = row.event_transfers ?? 0;
-            overall_rank = typeof row.overall_rank === 'number' ? row.overall_rank : null;
+            points = typeof row.points === 'number' ? row.points : points;
+            transfers = typeof row.event_transfers === 'number' ? row.event_transfers : transfers;
+            overall_rank = typeof row.overall_rank === 'number' ? row.overall_rank : overall_rank;
+          }
+          if (prev) {
+            prev_event_transfers = typeof prev.event_transfers === 'number' ? prev.event_transfers : null;
           }
         }
-        results.push({ entry_id: m.entry_id, fid: m.fid, team_name: m.team_name, points, event_transfers: transfers, overall_rank });
+        results.push({ entry_id: m.entry_id, fid: m.fid, team_name: m.team_name, points, event_transfers: transfers, overall_rank, prev_event_transfers, transfersByEvent });
       } catch {
-        results.push({ entry_id: m.entry_id, fid: m.fid, team_name: m.team_name, points: 0, event_transfers: 0, overall_rank: null });
+        results.push({ entry_id: m.entry_id, fid: m.fid, team_name: m.team_name, points: 0, event_transfers: 0, overall_rank: null, prev_event_transfers: null, transfersByEvent: {} });
       }
     }
 
@@ -126,6 +151,43 @@ export async function GET(request: NextRequest) {
       }
     }
     await Promise.all(Array.from({ length: concurrency }, () => worker()));
+
+    // Enrich with chip availability (triple captain remaining) via entry root
+    const entryExtras: Record<number, { has_3xc_remaining: boolean; chip_prev_reset: boolean; resetEvents: Set<number> }> = {};
+    try {
+      let j = 0;
+      const conc2 = 8;
+      const uniqEntries = results.map(r => r.entry_id).filter((v, i, a) => a.indexOf(v) === i);
+      async function fetchEntry(entryId: number) {
+        try {
+          const r = await fetch(`https://fantasy.premierleague.com/api/entry/${entryId}/`, {
+            headers: { 'User-Agent': 'Mozilla/5.0 (compatible; fc-footy/1.0)' }
+          });
+          if (!r.ok) throw new Error(`entry ${r.status}`);
+          const data: EntryRootResponse = await r.json();
+          const chips = Array.isArray(data.chips) ? data.chips : [];
+          const used3x = chips.some(c => (c?.name || '').toLowerCase() === '3xc' && typeof c?.played_by_event === 'number');
+          const resetEvents = new Set<number>();
+          const chipPrev = chips.some(c => {
+            const nm = (c?.name || '').toLowerCase();
+            const ev = c?.played_by_event;
+            const isReset = (nm === 'freehit' || nm === 'wildcard') && typeof ev === 'number';
+            if (isReset) resetEvents.add(ev as number);
+            return isReset && (ev === (gameweek - 1));
+          });
+          entryExtras[entryId] = { has_3xc_remaining: !used3x, chip_prev_reset: chipPrev, resetEvents };
+        } catch {
+          // Default conservative values
+          entryExtras[entryId] = { has_3xc_remaining: true, chip_prev_reset: false, resetEvents: new Set<number>() };
+        }
+      }
+      await Promise.all(Array.from({ length: conc2 }, async () => {
+        while (j < uniqEntries.length) {
+          const e = uniqEntries[j++];
+          await fetchEntry(e);
+        }
+      }));
+    } catch {}
 
     // Enrich with league rank using cached endpoint
     const entryToRank = new Map<number, number>();
@@ -196,7 +258,38 @@ export async function GET(request: NextRequest) {
       else if (rank && rank <= 100) bucket = '51-100';
       else if (rank && rank <= 150) bucket = '101-150';
       const fc = fidToUser[m.fid] || {};
-      return { ...m, rank, bucket, username: fc.username || null, pfp_url: fc.pfp_url || null };
+      // Exact starting FT calculation by simulating season up to (gameweek - 1)
+      const extra = entryExtras[m.entry_id] || { has_3xc_remaining: true, chip_prev_reset: false, resetEvents: new Set<number>() };
+      const transfersByEvent = m.transfersByEvent || {};
+      let starting_fts = 1; // GW1 starts at 1
+      for (let ev = 1; ev <= Math.max(1, gameweek - 1); ev++) {
+        if (ev === gameweek) break; // simulate up to previous GW
+        if (extra.resetEvents.has(ev)) {
+          // Wildcard/FreeHit played in GW ev → next GW starts at 1
+          starting_fts = 1;
+        } else {
+          const used = Math.max(0, Math.floor(transfersByEvent[ev] ?? 0));
+          const remainingAfter = Math.max(0, starting_fts - used);
+          starting_fts = Math.min(2, remainingAfter + 1);
+        }
+      }
+      const ft_bucket = starting_fts; // current GW starting FTs (1 or 2)
+      const ft_remaining = Math.max(0, starting_fts - (m.event_transfers || 0));
+      // Next GW starting FTs (for UI that cares about "going into next GW")
+      const usedThis = Math.max(0, Math.floor(m.event_transfers || 0));
+      const next_from_spend = Math.max(0, starting_fts - usedThis);
+      const ft_bucket_next = extra.resetEvents.has(gameweek) ? 1 : Math.min(2, next_from_spend + 1);
+      return {
+        ...m,
+        rank,
+        bucket,
+        username: fc.username || null,
+        pfp_url: fc.pfp_url || null,
+        ft_bucket,
+        ft_remaining,
+        has_3xc_remaining: extra.has_3xc_remaining,
+        ft_bucket_next,
+      };
     });
 
     const payload = {
