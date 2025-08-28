@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Redis } from '@upstash/redis';
+import { getManagerPicks } from '~/lib/kvPicksStorage';
 
 interface ManagerLookup {
   entry_id: number;
@@ -75,6 +76,26 @@ export async function GET(request: NextRequest) {
 
     async function fetchOne(m: ManagerLookup) {
       try {
+        // KV-first: try picks cache for this entry/gameweek
+        try {
+          const cached = await getManagerPicks(m.entry_id, gameweek);
+          const eh = cached?.entry_history;
+          if (eh && typeof eh.points === 'number' && typeof eh.event_transfers === 'number') {
+            const pointsKv = eh.points ?? 0;
+            const transfersKv = eh.event_transfers ?? 0;
+            const overallKv = typeof eh.overall_rank === 'number' ? eh.overall_rank : null;
+            results.push({
+              entry_id: m.entry_id,
+              fid: m.fid,
+              team_name: m.team_name,
+              points: pointsKv,
+              event_transfers: transfersKv,
+              overall_rank: overallKv,
+            });
+            return; // served from KV
+          }
+        } catch {}
+
         const res = await fetch(`https://fantasy.premierleague.com/api/entry/${m.entry_id}/history/`, {
           headers: { 'User-Agent': 'Mozilla/5.0 (compatible; fc-footy/1.0)' }
         });
@@ -184,7 +205,7 @@ export async function GET(request: NextRequest) {
       managers: finalManagers
     };
     try {
-      await redis.setex(cacheKey, 300, payload); // cache 5 minutes
+      await redis.setex(cacheKey, 1800, payload); // cache 30 minutes
     } catch {}
     return NextResponse.json(payload);
   } catch (err) {
