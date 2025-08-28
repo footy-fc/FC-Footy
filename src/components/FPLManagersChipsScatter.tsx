@@ -2,6 +2,7 @@
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Chart } from 'chart.js/auto';
+import type { ChartDataset, ScriptableContext } from 'chart.js';
 import { sdk } from '@farcaster/miniapp-sdk';
 import { isProduction } from '~/constants/points';
 
@@ -310,20 +311,20 @@ const FPLManagersChipsScatter: React.FC = () => {
       type: 'scatter',
       data: {
         datasets: [
-          {
+          ({
             label: 'Managers',
             data: filtered.map(p => ({ x: p.x, y: p.y, manager: p, _c: p.color } as RawPoint)),
-            backgroundColor: (ctx) => {
-              const raw = ctx.raw as RawPoint | undefined;
+            backgroundColor: (ctx: ScriptableContext<'scatter'>) => {
+              const raw = ctx.raw as unknown as RawPoint | undefined;
               return raw && raw._c ? raw._c : 'rgba(192,178,240,0.8)';
             },
-            borderColor: (ctx) => {
-              const raw = ctx.raw as RawPoint | undefined;
+            borderColor: (ctx: ScriptableContext<'scatter'>) => {
+              const raw = ctx.raw as unknown as RawPoint | undefined;
               return raw && raw._c ? raw._c : 'rgba(192,178,240,1)';
             },
             pointRadius: showPfps ? 0 : 4,
             pointHoverRadius: showPfps ? 0 : 6,
-          }
+          } as ChartDataset<'scatter', RawPoint[]>)
         ]
       },
       options: {
