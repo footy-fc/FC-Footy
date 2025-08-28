@@ -87,8 +87,7 @@ async function getCurrentGameweek(): Promise<number> {
 
     if (!response.ok) {
       console.error(`❌ FPL API error in getCurrentGameweek: ${response.status}`);
-      // Return a fallback gameweek instead of throwing
-      return 1;
+      throw new Error(`FPL API returned ${response.status}`);
     }
 
     const data: { events: Array<{ id: number; is_current?: boolean; finished?: boolean }> } = await response.json();
@@ -109,8 +108,8 @@ async function getCurrentGameweek(): Promise<number> {
         return latestEvent.id;
       }
       
-      console.error('❌ No current or latest gameweek found, returning fallback');
-      return 1; // Return fallback instead of throwing
+      console.error('❌ No current or latest gameweek found');
+      throw new Error('No current or latest gameweek found');
     }
 
     try {
@@ -121,7 +120,7 @@ async function getCurrentGameweek(): Promise<number> {
     return currentEvent.id;
   } catch (error) {
     console.error('❌ Error getting current gameweek:', error);
-    return 1; // Return fallback instead of throwing
+    throw error;
   }
 }
 
@@ -162,7 +161,7 @@ async function getBootstrapData(): Promise<BootstrapData> {
 }
 
 // Function to find the latest available gameweek for a manager
-async function findLatestGameweek(entryId: number): Promise<number> {
+/* async function findLatestGameweek(entryId: number): Promise<number> {
   // Try from current gameweek down to 1
   const currentGameweek = await getCurrentGameweek();
   
@@ -190,7 +189,7 @@ async function findLatestGameweek(entryId: number): Promise<number> {
   }
   
   throw new Error(`No available gameweek found for entry ${entryId}`);
-}
+} */
 
 interface FantasyManagerLookup {
   entry_id: number;
@@ -281,14 +280,14 @@ export async function GET(request: NextRequest) {
         );
       }
     } else {
-      // Find the latest available gameweek for this manager
+      // Use the current gameweek if no gameweek specified
       try {
-        targetGameweek = await findLatestGameweek(targetEntryId);
+        targetGameweek = await getCurrentGameweek();
       } catch (error) {
-        console.error(`❌ Error finding latest gameweek for entry ${targetEntryId}:`, error);
+        console.error(`❌ Error getting current gameweek:`, error);
         return NextResponse.json(
-          { error: 'Failed to determine available gameweek for this manager' },
-          { status: 500 }
+          { error: 'Failed to determine current gameweek' },
+          { status: 503 }
         );
       }
     }

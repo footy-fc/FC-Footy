@@ -151,8 +151,8 @@ const MatchEventCard: React.FC<EventCardProps> = ({ event, sportId, isOpen = fal
         if (fid) {
           // setUserFid(fid); // Removed as per edit hint
           
-          // Check if user is in fantasy league
-          const response = await fetch(`/api/manager-picks?fid=${fid}&gameweek=1`);
+                    // Check if user is in fantasy league (use current gameweek)
+          const response = await fetch(`/api/manager-picks?fid=${fid}`);
           
           if (response.ok) {
             setIsInFantasyLeague(true);
@@ -177,8 +177,10 @@ const MatchEventCard: React.FC<EventCardProps> = ({ event, sportId, isOpen = fal
               setRelevantPicks(relevantPicks);
             }
           } else {
-      setIsInFantasyLeague(false);
+            console.log(`Fantasy league check failed: ${response.status} - ${response.statusText}`);
+            setIsInFantasyLeague(false);
             setHasRelevantPlayers(false);
+            setRelevantPicks([]);
           }
         } else {
           setIsInFantasyLeague(false);
@@ -188,6 +190,7 @@ const MatchEventCard: React.FC<EventCardProps> = ({ event, sportId, isOpen = fal
         console.error('Error checking fantasy league:', error);
         setIsInFantasyLeague(false);
         setHasRelevantPlayers(false);
+        setRelevantPicks([]);
       }
     };
     
