@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { sdk } from "@farcaster/miniapp-sdk";
 import ContentFalseNine from "./ContentFalseNine";
-import FPLScatterplot from "./FPLScatterplot";
+import FPLAnalytics from "./FPLAnalytics";
 import TokenGatedContent from "./TokenGatedContent";
 // import ContentLiveChat from "./ContentLiveChat";
 
@@ -60,7 +60,7 @@ const ContentTab = () => {
         {selectedTab === "falseNine" && <ContentFalseNine />}
         {selectedTab === "fplScatterplot" && (
           <TokenGatedContent>
-            <FPLScatterplot />
+            <FPLAnalytics />
           </TokenGatedContent>
         )}
       </div>

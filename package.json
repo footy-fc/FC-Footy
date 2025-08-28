@@ -22,7 +22,9 @@
     "gameweek:summary": "node scripts/gameweek-summary.mjs",
     "gameweek:summary:test": "node scripts/gameweek-summary-test.mjs",
     "scoresquare:players": "node scripts/scoresquare-players-test.mjs",
-    "drury:test": "node scripts/peter-drury-test.mjs"
+    "drury:test": "node scripts/peter-drury-test.mjs",
+    "manager:picks:points": "node scripts/manager-picks-points.mjs",
+    "managers:chips": "node scripts/list-managers-chips.mjs"
   },
   "type": "module",
   "engines": {

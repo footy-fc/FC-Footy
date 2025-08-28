@@ -219,6 +219,20 @@ const FPLScatterplot: React.FC = () => {
     
     if (!chartContainer) return;
     
+    // Hide point dots when showing logos to put images in place of the dot
+    chart.data.datasets.forEach((dataset, index) => {
+      if (index % 2 === 0) { // scatter datasets
+        // @ts-expect-error Chart.js dataset typing doesn't expose pointRadius as writable here
+        dataset.pointRadius = showLogos ? 0 : (isMobile ? 3 : 4);
+        // @ts-expect-error Chart.js dataset typing doesn't expose pointHoverRadius as writable here
+        dataset.pointHoverRadius = showLogos ? 0 : (isMobile ? 5 : 6);
+      }
+    });
+    // Disable built-in tooltip when using logos; we'll render our own near the logo
+    // @ts-expect-error Chart.js options typing limitations
+    chart.options.plugins.tooltip.enabled = !showLogos;
+    chart.update('none');
+
     chart.data.datasets.forEach((dataset, index) => {
       if (index % 2 === 0 && !dataset.hidden) {
         dataset.data.forEach((point) => {
@@ -276,8 +290,9 @@ const FPLScatterplot: React.FC = () => {
                   position: absolute;
                   width: ${isMobile ? '12px' : '16px'};
                   height: ${isMobile ? '12px' : '16px'};
-                  pointer-events: none;
-                  z-index: 0;
+                  pointer-events: auto;
+                  cursor: default;
+                  z-index: 10;
                   border-radius: 2px;
                 `;
                 
@@ -285,8 +300,46 @@ const FPLScatterplot: React.FC = () => {
                 const x = chartArea.left + (chartPoint.x - chart.scales.x.min) / (chart.scales.x.max - chart.scales.x.min) * chartArea.width;
                 const y = chartArea.top + (chart.scales.y.max - chartPoint.y) / (chart.scales.y.max - chart.scales.y.min) * chartArea.height;
                 
-                logoElement.style.left = (x - 8) + 'px';
-                logoElement.style.top = (y - 8) + 'px';
+                logoElement.style.left = (x - (isMobile ? 6 : 8)) + 'px';
+                logoElement.style.top = (y - (isMobile ? 6 : 8)) + 'px';
+
+                // Custom tooltip element (external) to ensure it's near the logo and above overlays
+                const getTooltipEl = () => {
+                  let el = chartContainer.querySelector('.player-ext-tooltip') as HTMLDivElement | null;
+                  if (!el) {
+                    el = document.createElement('div');
+                    el.className = 'player-ext-tooltip';
+                    el.style.position = 'absolute';
+                    el.style.background = '#181424';
+                    el.style.border = '1px solid rgba(162,230,52,0.3)';
+                    el.style.borderRadius = '8px';
+                    el.style.color = '#C0B2F0';
+                    el.style.padding = '6px 8px';
+                    el.style.pointerEvents = 'none';
+                    el.style.whiteSpace = 'nowrap';
+                    el.style.zIndex = '9999';
+                    el.style.opacity = '0';
+                    chartContainer.appendChild(el);
+                  }
+                  return el;
+                };
+
+                logoElement.onmouseenter = () => {
+                  const el = getTooltipEl();
+                  const posName = positions[player.position as keyof typeof positions]?.name || '';
+                  el.innerHTML = `<div style="color:#FEA282;font-weight:600;margin-bottom:4px">${player.label}</div>` +
+                                 `<div>${player.teamName}</div>` +
+                                 `<div>£${player.x}m</div>` +
+                                 `<div>${player.y} points</div>` +
+                                 (posName ? `<div>${posName}</div>` : '');
+                  el.style.left = (x + 12) + 'px';
+                  el.style.top = (y + 12) + 'px';
+                  el.style.opacity = '1';
+                };
+                logoElement.onmouseleave = () => {
+                  const el = chartContainer.querySelector('.player-ext-tooltip') as HTMLDivElement | null;
+                  if (el) el.style.opacity = '0';
+                };
                 
                 logoElement.onerror = function() {
                   this.style.display = 'none';
@@ -301,7 +354,7 @@ const FPLScatterplot: React.FC = () => {
         });
       }
     });
-  }, [showNames, showLogos, isMobile, removeTextLabels]);
+  }, [showNames, showLogos, isMobile, removeTextLabels, positions]);
 
   useEffect(() => {
     const initChart = async () => {

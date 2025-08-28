@@ -39,6 +39,8 @@ Brief reference for all FEPL (Farcaster Fantasy Premier League) CLI commands.
 |---------|-------------|
 | `node scripts/fpl-scatterplot.mjs` | Generate FPL scatterplot analysis |
 | `node scripts/scoresquare-players-test.mjs` | Test ScoreSquare players data |
+| `node scripts/manager-picks-points.mjs --fid 4163 --gw1 1 --gw2 2` | List each picked player's GW1/GW2 and total points |
+| `node scripts/list-managers-chips.mjs` | List FEPL managers and chips they have left |
 
 ## 🔧 Setup & Build
 
