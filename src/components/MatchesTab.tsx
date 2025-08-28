@@ -18,10 +18,18 @@ const MatchesTab: React.FC<MatchesTabProps> = ({ setSelectedTab, league, setSele
   // Fetch events based on the currently selected league
   const { events, loading: eventsLoading, error } = useEventsData(league);
 
+  // State to track which match card is currently expanded
+  const [openCardId, setOpenCardId] = React.useState<string | null>(null);
+
   // When a league button is clicked, update the league via the parent
   const handleLeagueClick = (leagueId: string) => {
     console.log("Selected league:", leagueId);
     setSelectedLeague(leagueId);
+  };
+
+  // Handle opening/closing match cards - only one can be open at a time
+  const handleCardToggle = (cardId: string) => {
+    setOpenCardId(openCardId === cardId ? null : cardId);
   };
 
   return (
@@ -52,7 +60,13 @@ const MatchesTab: React.FC<MatchesTabProps> = ({ setSelectedTab, league, setSele
           <div className="text-red-500">{error}</div>
         ) : events && events.length > 0 ? (
           events.map((event: any) => (
-            <EventCard key={event.id} event={event} sportId={league} />
+            <EventCard 
+              key={event.id} 
+              event={event} 
+              sportId={league}
+              isOpen={openCardId === event.id}
+              onToggle={() => handleCardToggle(event.id)}
+            />
           ))
         ) : (
           <div>No events available for {league}</div>

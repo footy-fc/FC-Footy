@@ -141,6 +141,8 @@ export function WarpcastShareButton({ selectedMatch, compositeImage, leagueId, m
   // Use props from parent instead of local state
   const [localChatRoomExists, setLocalChatRoomExists] = useState<boolean | null>(chatRoomExists ?? null);
   const [localCheckingChatRoom, setLocalCheckingChatRoom] = useState<boolean>(checkingChatRoom ?? false);
+  const [isCreatingRoom, setIsCreatingRoom] = useState<boolean>(false);
+  const [messageIndex, setMessageIndex] = useState<number>(0);
 
   // Update local state when props change
   useEffect(() => {
@@ -166,9 +168,40 @@ export function WarpcastShareButton({ selectedMatch, compositeImage, leagueId, m
     };
     load();
     return () => { cancelled = true; };
-  }, [moneyGamesParams]);
+    }, [moneyGamesParams]);
 
-  const generateCommentaryForMatch = async (
+  // Cycle through 3 loading messages and stop
+  useEffect(() => {
+    if (!isCreatingRoom) {
+      setMessageIndex(0);
+      return;
+    }
+
+    const interval = setInterval(() => {
+      setMessageIndex(prev => {
+        if (prev >= 2) {
+          // Stop at the 3rd message (index 2)
+          clearInterval(interval);
+          return 2;
+        }
+        return prev + 1;
+      });
+    }, 1500); // Change message every 1.5 seconds
+
+    return () => clearInterval(interval);
+  }, [isCreatingRoom]);
+
+  // Fun soccer loading messages
+  const getLoadingMessage = () => {
+    const messages = [
+      "⚽ Creating cast embed...",
+      "🥅 Setting up the pitch...", 
+      "🏃‍♂️ Running down the wing..."
+    ];
+    return messages[messageIndex];
+  };
+
+const generateCommentaryForMatch = async (
     homeTeam: string,
     awayTeam: string,
     competition: string,
@@ -215,6 +248,9 @@ export function WarpcastShareButton({ selectedMatch, compositeImage, leagueId, m
   };
 
   const openWarpcastUrl = useCallback(async () => {
+    // Set creating room state for loading message
+    setIsCreatingRoom(true);
+    
     // Stronger and more noticeable haptic feedback
     try {
       const capabilities = await sdk.getCapabilities();
@@ -227,7 +263,8 @@ export function WarpcastShareButton({ selectedMatch, compositeImage, leagueId, m
       // Ignore haptics errors
     }
 
-    if (selectedMatch) {
+    try {
+      if (selectedMatch) {
       const frameUrlRaw = BASE_URL || 'https://fc-footy.vercel.app';
       const frameUrl = frameUrlRaw.startsWith('http') ? frameUrlRaw : `https://${frameUrlRaw}`;
       const {
@@ -382,16 +419,21 @@ export function WarpcastShareButton({ selectedMatch, compositeImage, leagueId, m
       } catch (e) {
         console.error('composeCast failed:', e);
       }
+      }
+    } finally {
+      // Reset creating room state
+      setIsCreatingRoom(false);
     }
   }, [selectedMatch, compositeImage, leagueId, moneyGamesParams, ticketPriceEth, prizePoolEth, ethUsdPrice, currentCommentator?.displayName, onRoomCreated]);
 
   return (
     <button
       onClick={openWarpcastUrl}
-      disabled={isGenerating}
+      disabled={isGenerating || isCreatingRoom}
       className="w-full sm:w-38 bg-deepPink text-white py-2 px-4 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-deepPink hover:bg-fontRed"
     >
       {isGenerating ? '🎤 Generating Commentary...' : 
+       isCreatingRoom ? getLoadingMessage() :
        localCheckingChatRoom ? 'Checking...' :
        isPremierLeague ? (
          localChatRoomExists ? 'Share Match' : 'Create Room'

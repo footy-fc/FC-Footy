@@ -5,7 +5,7 @@ import Image from 'next/image';
 // import { FaTrophy, FaTicketAlt } from 'react-icons/fa';
 // import RefereeIcon from '../components/ui/RefereeIcon';
 // import RAGameContext from './ai/RAGameContext';
-import AIResponseDisplay from './ui/AIResponseDisplay';
+import FantasyImpactCompact from './FantasyImpactCompact';
 import { WarpcastShareButton } from './ui/WarpcastShareButton';
 import { fetchTeamLogos } from './utils/fetchTeamLogos';
 //import { GET_SS_GAMES } from '../lib/graphql/queries';
@@ -74,6 +74,8 @@ interface EventCardProps {
       details: Detail[];
     }[];
   };
+  isOpen?: boolean;
+  onToggle?: () => void;
 }
 
 interface SelectedMatch {
@@ -102,18 +104,13 @@ interface Team {
 }
 
 // Types for formatted FPL picks enrichment
-
-type PicksData = { picks?: EnrichedPick[] };
-
-const MatchEventCard: React.FC<EventCardProps> = ({ event, sportId }) => {
+const MatchEventCard: React.FC<EventCardProps> = ({ event, sportId, isOpen = false, onToggle }) => {
   const [selectedMatch, setSelectedMatch] = useState<SelectedMatch | null>(null);
-  const [gameContext, setGameContext] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [showGameContext, setShowGameContext] = useState(false);
+
   const [isInFantasyLeague, setIsInFantasyLeague] = useState<boolean | null>(null);
   // const [isTempOff, setTempOff] = useState<boolean | null>(true);
   const [hasRelevantPlayers, setHasRelevantPlayers] = useState<boolean | null>(null);
-  const [showDetails, setShowDetails] = useState(false);
+  const [relevantPicks, setRelevantPicks] = useState<EnrichedPick[]>([]);
 
   const [teams, setTeams] = useState<Team[]>([]);
   //const [isLoadingFans, setIsLoadingFans] = useState(false);
@@ -177,6 +174,7 @@ const MatchEventCard: React.FC<EventCardProps> = ({ event, sportId }) => {
               }) || [];
               
               setHasRelevantPlayers(relevantPicks.length > 0);
+              setRelevantPicks(relevantPicks);
             }
           } else {
       setIsInFantasyLeague(false);
@@ -379,164 +377,23 @@ const MatchEventCard: React.FC<EventCardProps> = ({ event, sportId }) => {
       });
     
       // Finally toggle the dropdown
-      setShowDetails((prev) => !prev);
+      if (onToggle) {
+        onToggle();
+      }
     };
 
 
 
-  const fetchFantasyImpact = async () => {
-    if (selectedMatch) {
-      try {
-        if (!showGameContext && !gameContext) {
-          setLoading(true);
-          
-          // Get user's FID from SDK
-          const context = await sdk.context;
-          const fid = context?.user?.fid;
-          
-          if (fid) {
-            console.log('🔍 Checking fantasy league for FID:', fid);
-            
-            // Check if user is in fantasy league by looking up their entry_id
-            const response = await fetch(`/api/manager-picks?fid=${fid}&gameweek=1&refresh=true`);
-            
-            if (response.ok) {
-              const picksData = await response.json();
-              console.log('✅ User found in fantasy league, entry_id:', picksData.entry_id);
-              
-              // Check if there are relevant players for this match
-              const currentMatchTeams = [
-                selectedMatch.homeTeam.toLowerCase(),
-                selectedMatch.awayTeam.toLowerCase()
-              ];
-              
-              const relevantPicks = picksData.picks?.filter((pick: EnrichedPick) => {
-                const player = pick.player;
-                if (!player || !player.team) return false;
-                
-                const playerTeam = player.team.short_name?.toLowerCase() || '';
-                return currentMatchTeams.includes(playerTeam);
-              }) || [];
-              
-              setHasRelevantPlayers(relevantPicks.length > 0);
-              
-              // Show user's team picks (only relevant players)
-              const picksTable = formatUserTeamPicks(picksData);
-              setGameContext(picksTable);
-            } else {
-              console.log('❌ User not found in fantasy league');
-              setHasRelevantPlayers(false);
-              // Show no fantasy impact message
-              setGameContext('**FANTASY IMPACT**\n\nNo fantasy league impact to report.\n\nYou are not currently participating in the FC-Footy Fantasy League.');
-            }
-          } else {
-            console.log('❌ No FID found in SDK context');
-            setHasRelevantPlayers(false);
-            setGameContext('**FANTASY IMPACT**\n\nNo fantasy league impact to report.\n\nUnable to identify your Farcaster ID.');
-          }
-        }
-        setShowGameContext((prev) => !prev);
-      } catch (error) {
-        console.error('Failed to fetch fantasy impact:', error);
-        setHasRelevantPlayers(false);
-        setGameContext('Failed to fetch fantasy impact. Please check your connection and try again.');
-      } finally {
-        setLoading(false);
-      }
-    }
-  };
 
-  // Format user's team picks into a table - only show players from current match teams
-  const formatUserTeamPicks = (picksData: PicksData): string => {
-    if (!picksData.picks || picksData.picks.length === 0) {
-      return '**FANTASY IMPACT**\n\nNo team picks available.';
-    }
 
-    // Get current match teams for filtering
-    const currentMatchTeams = selectedMatch ? [
-      selectedMatch.homeTeam.toLowerCase(),
-      selectedMatch.awayTeam.toLowerCase()
-    ] : [];
 
-    // Filter picks to only include players from the current match teams
-    const relevantPicks = picksData.picks.filter((pick) => {
-      const player = pick.player;
-      if (!player || !player.team) return false;
-      
-      const playerTeam = player.team.short_name?.toLowerCase() || '';
-      return currentMatchTeams.includes(playerTeam);
-    });
-
-    // If no relevant players, return message
-    if (relevantPicks.length === 0) {
-      return '**FANTASY IMPACT**\n\nNo players from this match in your fantasy team.';
-    }
-
-    const headers = ['Player', 'Selected', 'Status'];
-    const rows = [headers];
-
-    relevantPicks.forEach((pick) => {
-      const player = pick.player;
-      if (player) {
-        // Convert position number to position name
-        const getPositionName = (elementType: number) => {
-          switch (elementType) {
-            case 1: return 'GK';
-            case 2: return 'DEF';
-            case 3: return 'MID';
-            case 4: return 'FWD';
-            default: return 'N/A';
-          }
-        };
-        
-        // Combine captain/bench status
-        let status = '';
-        if (pick.is_captain) {
-          status = 'C';
-        } else if (pick.is_vice_captain) {
-          status = 'VC';
-        } else if (pick.multiplier === 0) {
-          status = 'BENCH';
-        }
-        
-        // Get team logo from admin KV teams DB
-        const teamAbbr = player.team?.short_name?.toLowerCase();
-        const teamLogoUrl = teamAbbr
-          ? (teams.find((t) => t.abbreviation.toLowerCase() === teamAbbr)?.logoUrl || '/defifa_spinner.gif')
-          : '/defifa_spinner.gif';
-        
-        // Debug team logo lookup for MCI
-        if (player.team?.short_name === 'MCI') {
-          console.log('🔍 MCI Team Logo Debug:');
-          console.log('  - Player team short_name:', player.team.short_name);
-          console.log('  - Available teams:', teams.map(t => ({ abbr: t.abbreviation, logo: t.logoUrl })));
-          console.log('  - Found team:', teams.find(t => t.abbreviation.toLowerCase() === (player.team?.short_name || '').toLowerCase()));
-          console.log('  - Final logo URL:', teamLogoUrl);
-        }
-        
-        const row = [
-          `${teamLogoUrl} ${player.web_name} ${player.team?.short_name || 'N/A'} ${getPositionName(player.element_type)}`, // Team logo, player name, team abbreviation, and position
-          `${player.selected_by_percent?.toFixed(1) || '0.0'}%`,
-          status
-        ];
-        
-        rows.push(row);
-      }
-    });
-
-    // Format as markdown table
-    const headerLine = `| ${headers.join(' | ')} |`;
-    const dividerLine = `| ${headers.map(() => '---').join(' | ')} |`;
-    const dataLines = rows.slice(1).map((row) => `| ${row.join(' | ')} |`);
-
-    const summary = `${headerLine}\n${dividerLine}\n${dataLines.join('\n')}`;
-    return summary;
-  };
 
   // Removed unused readMatchSummary to satisfy linter
 
   const toggleDetails = () => {
-    setShowDetails(!showDetails);
+    if (onToggle) {
+      onToggle();
+    }
   };
 
 
@@ -546,17 +403,8 @@ const MatchEventCard: React.FC<EventCardProps> = ({ event, sportId }) => {
   return (
     <div key={event.id} className="sidebar">
       <div className="cursor-pointer border border-darkPurple">
-        <button
-          onClick={() => {
-            handleSelectMatch();
-            toggleDetails();
-          }}
-          className="dropdown-button cursor-pointer flex items-center mb-2 w-full"
-        >
-          <div className="cursor-pointer text-lightPurple mr-4">
-            {showDetails ? "▼" : "▷"}
-          </div>
-          {/* Chat Room Affordance - moved to left for perfect alignment */}
+        <div className="flex items-center mb-2 w-full">
+          {/* Chat Room Affordance - positioned outside button */}
           {(() => {
             try {
               // Use the sportId prop which contains the actual competition (e.g., eng.league_cup)
@@ -576,8 +424,8 @@ const MatchEventCard: React.FC<EventCardProps> = ({ event, sportId }) => {
               if (isChatPage) return null;
               if (checkingRoom) {
                 return (
-                  <div className="flex flex-col items-center w-8 opacity-80 mr-2">
-                    <div className="inline-flex items-center justify-center w-5 h-5 bg-yellow-500 rounded-full">
+                  <div className="flex flex-col items-center w-8 opacity-90 mr-2">
+                    <div className="inline-flex items-center justify-center w-5 h-5 bg-yellow-400 rounded-full">
                       <span className="text-sm">💬</span>
                     </div>
                   </div>
@@ -585,10 +433,10 @@ const MatchEventCard: React.FC<EventCardProps> = ({ event, sportId }) => {
               }
               if (chatRoomHash) {
                 return (
-                  <div className="flex flex-col items-center w-8 opacity-60 mr-2">
+                  <div className="flex flex-col items-center w-8 opacity-90 mr-2">
                   <a
                     href={chatUrl}
-                      className="inline-flex items-center justify-center w-5 h-5 bg-limeGreen hover:bg-limeGreen/80 rounded-full transition-colors"
+                      className="inline-flex items-center justify-center w-5 h-5 bg-limeGreen hover:bg-limeGreen/90 rounded-full transition-colors"
                       title="Join match chat"
                   >
                       💬
@@ -596,75 +444,52 @@ const MatchEventCard: React.FC<EventCardProps> = ({ event, sportId }) => {
                   </div>
                 );
               }
-              // No room exists - show share prompt
+                            // No room exists - show share prompt
               return (
-                <div className="flex flex-col items-center w-8 opacity-60 mr-2">
-                                    <button
-                  onClick={async () => {
-                    try {
-                      // Add haptic feedback for better UX during loading
-                      try {
-                        await sdk.haptics.impactOccurred('medium');
-                      } catch {
-                        // ignore haptics errors
-                      }
+                <div className="flex flex-col items-center w-8 opacity-90 mr-2">
+                  <button
+                    onClick={async (e) => {
+                      e.stopPropagation(); // Prevent triggering the dropdown toggle
                       
-                      console.log(`🎯 Auto-creating chat room for ${baseId}...`);
-                      setCheckingRoom(true);
-                      
-                      const autoCreateRes = await fetch('/api/match-rooms/auto-create', {
-                        method: 'POST',
-                        headers: {
-                          'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify({
-                          eventId: baseId,
-                          homeTeam,
-                          awayTeam,
-                          competition: leagueId,
-                          homeScore,
-                          awayScore,
-                          clock
-                        })
-                      });
-                      
-                      if (autoCreateRes.ok) {
-                        const autoCreateData = await autoCreateRes.json();
-                        if (autoCreateData.success && autoCreateData.castHash) {
-                          setChatRoomHash(autoCreateData.castHash);
-                          
-                          if (autoCreateData.source === 'new') {
-                            console.log(`✅ Created new chat room for ${baseId}:`, autoCreateData.castHash);
-                            // Only navigate to chat room if it was newly created
-                            const appUrlRaw = process.env.NEXT_PUBLIC_URL || 'https://fc-footy.vercel.app';
-                            const appUrl = appUrlRaw.startsWith('http') ? appUrlRaw : `https://${appUrlRaw}`;
-                            const chatUrl = `${appUrl}/chat?eventId=${encodeURIComponent(baseId)}`;
-                            window.open(chatUrl, '_blank');
-                          } else {
-                            console.log(`✅ Using existing chat room for ${baseId}:`, autoCreateData.castHash);
-                            // For existing rooms, just update the UI - no navigation
-                          }
+                      // If dropdown is closed, open it first
+                      if (!isOpen) {
+                        handleSelectMatch();
+                        if (onToggle) {
+                          onToggle();
                         }
-                      } else {
-                        console.error('Failed to auto-create chat room:', await autoCreateRes.text());
+                        return;
                       }
-                    } catch (autoCreateError) {
-                      console.error('Error auto-creating chat room:', autoCreateError);
-                    } finally {
-                      setCheckingRoom(false);
-                    }
-                  }}
-                  className="inline-flex items-center justify-center w-5 h-5 bg-fontRed/90 hover:bg-fontRed rounded-full transition-colors cursor-pointer"
-                  title="Share match to create chat room"
-                >
-                  <span className="text-sm">💬</span>
-                </button>
+                      
+                      // If dropdown is open, do nothing - user should use the create room button
+                      // This prevents the forever checking state
+                    }}
+                    className={`inline-flex items-center justify-center w-5 h-5 rounded-full transition-colors ${
+                      isOpen 
+                        ? 'bg-gray-500 cursor-not-allowed opacity-50' 
+                        : 'bg-fontRed hover:bg-fontRed/90 cursor-pointer'
+                    }`}
+                    title={isOpen ? "Use the 'Create room' button below" : "Tap to open match details"}
+                    disabled={isOpen}
+                  >
+                    <span className="text-sm">💬</span>
+                  </button>
                 </div>
               );
             } catch {
               return null;
             }
           })()}
+          
+          <button
+            onClick={() => {
+              handleSelectMatch();
+              toggleDetails();
+            }}
+            className="dropdown-button cursor-pointer flex items-center flex-1"
+          >
+            <div className="cursor-pointer text-lightPurple mr-4">
+              {isOpen ? "▼" : "▷"}
+            </div>
           <span className="flex justify-center items-center space-x-4 ml-2 mr-2">
             <div className="flex flex-col items-center space-y-1">
               <Image
@@ -712,10 +537,10 @@ const MatchEventCard: React.FC<EventCardProps> = ({ event, sportId }) => {
             </div>
           </span>
         </button>
-          </div>
+        </div>
 
        
-      {showDetails && selectedMatch && (
+      {isOpen && selectedMatch && (
         <div ref={elementRef} className="mt-2 bg-purplePanel p-2 rounded-lg">
           {keyMoments.length > 0 && (
             <>
@@ -737,6 +562,18 @@ const MatchEventCard: React.FC<EventCardProps> = ({ event, sportId }) => {
                 ))}
               </div>
             </>
+          )}
+          
+          {/* Fantasy Impact Section - Only show for Premier League matches with relevant players that have started */}
+          {sportId === 'eng.1' && isInFantasyLeague === true && hasRelevantPlayers === true && relevantPicks.length > 0 && selectedMatch.eventStarted && (
+            <div className="mt-4">
+              <FantasyImpactCompact
+                relevantPicks={relevantPicks}
+                homeTeam={selectedMatch.homeTeam}
+                awayTeam={selectedMatch.awayTeam}
+                teams={teams}
+              />
+            </div>
           )}
           
           {/* Combined Fan Avatars Section */}
@@ -808,49 +645,6 @@ const MatchEventCard: React.FC<EventCardProps> = ({ event, sportId }) => {
 
           {/* AI Summary Section */}
           <div className="mt-4 flex flex-row gap-4 justify-center items-center">
-            {sportId === 'eng.1' && isInFantasyLeague === true && hasRelevantPlayers === true && (
-              <button
-                className="w-full sm:w-38 bg-deepPink text-white py-2 px-4 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed hover:bg-fontRed"
-                onClick={async () => {
-                  try {
-                    await sdk.haptics.impactOccurred('medium');
-                  } catch {
-                    // ignore haptics errors
-                  }
-                  fetchFantasyImpact();
-                }}
-                disabled={loading}
-              >
-                {loading ? (
-                  <div className="flex items-center justify-center">
-                    <svg
-                      className="animate-spin h-5 w-5 mr-2 text-white"
-                      xmlns="http://www.w3.org/2000/svg"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                    >
-                      <circle
-                        className="opacity-25"
-                        cx="12"
-                        cy="12"
-                        r="10"
-                        stroke="currentColor"
-                        strokeWidth="4"
-                      ></circle>
-                      <path
-                        className="opacity-75"
-                        fill="currentColor"
-                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 2.577 1.03 4.91 2.709 6.709l1.291-1.418z"
-                      ></path>
-                    </svg>
-                    Waiting for VAR...
-                  </div>
-                ) : (
-                  showGameContext ? "Hide" : "Fantasy Impact"
-                )}
-              </button>
-            )}
-
             <WarpcastShareButton
               selectedMatch={selectedMatch}
               compositeImage={true}
@@ -876,12 +670,7 @@ const MatchEventCard: React.FC<EventCardProps> = ({ event, sportId }) => {
               }}
             />
           </div>
-          {showGameContext && gameContext && (
-            <AIResponseDisplay 
-              content={gameContext}
-              isPreview={false}
-            />
-          )}
+
 
 
           {/* {ssGames.length > 0 && (
@@ -1004,6 +793,7 @@ const MatchEventCard: React.FC<EventCardProps> = ({ event, sportId }) => {
 
         </div>
       )}
+      </div>
     </div>
   );
 };
