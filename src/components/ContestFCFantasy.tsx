@@ -11,6 +11,7 @@ import dayjs from 'dayjs';
 import { useWaitForTransactionReceipt, useReadContract } from 'wagmi';
 import { ethers } from 'ethers';
 import { useWriteContract } from 'wagmi';
+import { PRIVILEGED_FIDS } from '~/config/privileged';
 import { CONTRACT_ADDRESS_FEPL, CONTRACT_ABI_FEPL } from '../constants/contracts';
 
 // FantasyEntry type is now imported from fetchFantasyData
@@ -33,6 +34,7 @@ const ContestFCFantasy = () => {
   const [metadataCid, setMetadataCid] = useState<string | null>(null);
   const [currentUserFid, setCurrentUserFid] = useState<number | null>(null);
   const [cardPfpUrl, setCardPfpUrl] = useState<string>('/defifa_spinner.gif');
+  const [feplChat, setFeplChat] = useState<{ exists: boolean; invite?: string | null }>({ exists: false, invite: null });
   
   const cardRef = useRef<HTMLDivElement>(null);
   const { user } = usePrivy();
@@ -79,6 +81,18 @@ const ContestFCFantasy = () => {
         
         // Real FID from context
         setCurrentUserFid(ctx.user?.fid || null);
+        // FEPL group chat affordance
+        try {
+          const res = await fetch('/api/fanclub-chat?teamId=fepl');
+          if (res.ok) {
+            const j = await res.json();
+            setFeplChat({ exists: true, invite: j?.inviteLinkUrl || null });
+          } else {
+            setFeplChat({ exists: false, invite: null });
+          }
+        } catch {
+          setFeplChat({ exists: false, invite: null });
+        }
         
         //console.log('🔍 Farcaster context user:', ctx.user);
       } catch (error) {
@@ -457,6 +471,40 @@ const ContestFCFantasy = () => {
 
   return (
     <div>
+      {/* FEPL Group Chat affordance */}
+      <div className="flex items-center justify-end gap-2 mb-2">
+        {feplChat.exists ? (
+          <button
+            className="px-3 py-1 text-xs rounded border border-limeGreenOpacity text-lightPurple hover:bg-deepPink"
+            onClick={async () => { try { await sdk.actions.ready(); if (feplChat.invite) await sdk.actions.openUrl(feplChat.invite); } catch {} }}
+          >
+            Open Group Chat
+          </button>
+        ) : (currentUserFid && PRIVILEGED_FIDS.includes(currentUserFid) ? (
+          <button
+            className="px-3 py-1 text-xs rounded border border-deepPink text-deepPink hover:bg-deepPink hover:text-white"
+            onClick={async () => {
+              try {
+                const payload = {
+                  name: 'FEPL Fan Chat',
+                  generateInviteLink: true,
+                  settings: { messageTTLDays: 30, membersCanInvite: true },
+                  teamId: 'fepl',
+                  invitees: [{ fid: currentUserFid, role: 'admin' as const }],
+                };
+                const res = await fetch('/api/admin/create-group', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                const j = await res.json().catch(() => ({}));
+                if (res.ok) {
+                  setFeplChat({ exists: true, invite: j?.result?.inviteLinkUrl || j?.inviteLinkUrl || null });
+                  if (j?.result?.inviteLinkUrl || j?.inviteLinkUrl) { try { await sdk.actions.openUrl(j.result?.inviteLinkUrl || j.inviteLinkUrl); } catch {} }
+                }
+              } catch {}
+            }}
+          >
+            Create Group Chat
+          </button>
+        ) : null)}
+      </div>
       {/* League Status - Only show for non-members */}
       {!isUserInLeague() && (
         <div className="bg-gray-800 rounded-lg p-4 mb-4 border border-gray-700">
