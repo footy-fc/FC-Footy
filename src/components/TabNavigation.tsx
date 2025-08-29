@@ -1,5 +1,6 @@
 import React from 'react';
 import { sdk } from '@farcaster/miniapp-sdk';
+import { PRIVILEGED_FIDS } from '~/config/privileged';
 
 interface TabNavigationProps {
   selectedTab: string;
@@ -24,7 +25,7 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
     "rewards",
     "settings",
   ];
-  const adminFids = React.useMemo(() => new Set<number>([4163, 420564]), []);
+  const adminFids = React.useMemo(() => new Set<number>(PRIVILEGED_FIDS), []);
   const [includeAdmins, setIncludeAdmins] = React.useState(false);
 
   React.useEffect(() => {

@@ -9,6 +9,7 @@ import TeamsTab from "../../components/admin/TeamsTab";
 import LeaguesTab from "../../components/admin/LeaguesTab";
 import MatchRoomsTab from "../../components/admin/MatchRoomsTab";
 import GameWeekSummaryStepByStep from "../../components/admin/GameWeekSummaryStepByStep";
+import GroupChatsTab from "../../components/admin/GroupChatsTab";
 import useEventsData from "../../components/utils/useEventsData";
 // import { parseEventId } from "../../utils/eventIdParser";
 
@@ -598,6 +599,7 @@ export default function AdminPage() {
                 { id: "teams", label: "Teams" },
                 { id: "leagues", label: "Leagues" },
                 { id: "matchRooms", label: "Match Rooms" },
+                { id: "groupChats", label: "Group Chats" },
                 { id: "gameWeekSummary", label: "Game Week Casts" },
                 { id: "findEventId", label: "Find Event ID" },
               ].map((tab) => (
@@ -668,6 +670,10 @@ export default function AdminPage() {
 
           {activeTab === "matchRooms" && (
             <MatchRoomsTab />
+          )}
+
+          {activeTab === "groupChats" && (
+            <GroupChatsTab />
           )}
 
           {activeTab === "gameWeekSummary" && (

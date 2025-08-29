@@ -44,6 +44,17 @@ const MatchRoomsTab: React.FC = () => {
   const [editCastHash, setEditCastHash] = useState("");
   const [isUpdating, setIsUpdating] = useState(false);
 
+  // Create Group Chat (Rooms • Create Group)
+  const [groupName, setGroupName] = useState("");
+  const [groupDesc, setGroupDesc] = useState("");
+  const [groupImg, setGroupImg] = useState("");
+  const [genInvite, setGenInvite] = useState(true);
+  const [messageTTL, setMessageTTL] = useState(30);
+  const [membersCanInvite, setMembersCanInvite] = useState(true);
+  const [invitees, setInvitees] = useState([] as Array<{ fid: string; role: 'member' | 'admin' }>);
+  const [isCreatingGroup, setIsCreatingGroup] = useState(false);
+  const [groupResponse, setGroupResponse] = useState("");
+
   // Admin datasets
   const [leagues, setLeagues] = useState<League[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
@@ -437,10 +448,103 @@ const MatchRoomsTab: React.FC = () => {
           </ul>
         )}
       </div>
+      {/* Create Group Chat */}
+      <div className="mt-8 border-t border-limeGreenOpacity pt-4">
+        <h3 className="text-lg font-semibold text-notWhite mb-2">Rooms • Create Group</h3>
+        <div className="grid gap-2 md:grid-cols-2">
+          <div>
+            <label className="text-xs text-lightPurple">Group Name</label>
+            <input value={groupName} onChange={(e)=>setGroupName(e.target.value)} maxLength={32} className="w-full p-2 border border-limeGreenOpacity rounded bg-darkPurple text-lightPurple" />
+          </div>
+          <div>
+            <label className="text-xs text-lightPurple">Image URL</label>
+            <input value={groupImg} onChange={(e)=>setGroupImg(e.target.value)} className="w-full p-2 border border-limeGreenOpacity rounded bg-darkPurple text-lightPurple" />
+          </div>
+          <div className="md:col-span-2">
+            <label className="text-xs text-lightPurple">Description</label>
+            <input value={groupDesc} onChange={(e)=>setGroupDesc(e.target.value)} maxLength={128} className="w-full p-2 border border-limeGreenOpacity rounded bg-darkPurple text-lightPurple" />
+          </div>
+          <div>
+            <label className="text-xs text-lightPurple">Message TTL (days)</label>
+            <select value={messageTTL} onChange={(e)=>setMessageTTL(Number(e.target.value))} className="w-full p-2 border border-limeGreenOpacity rounded bg-darkPurple text-lightPurple">
+              <option value={1}>1</option>
+              <option value={7}>7</option>
+              <option value={30}>30</option>
+              <option value={365}>365</option>
+            </select>
+          </div>
+          <div className="flex items-end gap-4">
+            <label className="flex items-center gap-2 text-lightPurple text-sm">
+              <input type="checkbox" checked={genInvite} onChange={(e)=>setGenInvite(e.target.checked)} />
+              Generate Invite Link
+            </label>
+            <label className="flex items-center gap-2 text-lightPurple text-sm">
+              <input type="checkbox" checked={membersCanInvite} onChange={(e)=>setMembersCanInvite(e.target.checked)} />
+              Members Can Invite
+            </label>
+          </div>
+        </div>
+
+        <div className="mt-3">
+          <div className="text-xs text-lightPurple mb-1">Invitees (optional)</div>
+          {invitees.map((inv, idx) => (
+            <div key={idx} className="flex gap-2 mb-2">
+              <input placeholder="fid" value={inv.fid} onChange={(e)=>{
+                const v=[...invitees]; v[idx]={...v[idx], fid:e.target.value}; setInvitees(v);
+              }} className="w-40 p-2 border border-limeGreenOpacity rounded bg-darkPurple text-lightPurple" />
+              <select value={inv.role} onChange={(e)=>{ const v=[...invitees]; v[idx]={...v[idx], role:e.target.value as 'member'|'admin'}; setInvitees(v); }} className="w-32 p-2 border border-limeGreenOpacity rounded bg-darkPurple text-lightPurple">
+                <option value="member">member</option>
+                <option value="admin">admin</option>
+              </select>
+              <button className="px-2 border border-fontRed text-fontRed rounded" onClick={()=> setInvitees(invitees.filter((_,i)=>i!==idx))}>Remove</button>
+            </div>
+          ))}
+          <button className="px-3 py-1 border border-limeGreenOpacity text-lightPurple rounded" onClick={()=> setInvitees([...invitees, { fid: '', role: 'member'}])}>+ Add Invitee</button>
+        </div>
+
+        <div className="mt-4 flex items-center gap-3">
+          <button
+            disabled={isCreatingGroup || !groupName.trim()}
+            onClick={async ()=>{
+              setIsCreatingGroup(true);
+              setGroupResponse('');
+              try {
+                interface Invitee { fid: number; role: 'member'|'admin' }
+                interface CreatePayload { name: string; description?: string; imageUrl?: string; generateInviteLink: boolean; settings: { messageTTLDays: number; membersCanInvite: boolean }; invitees?: Invitee[] }
+                const payload: CreatePayload = {
+                  name: groupName.trim(),
+                  description: groupDesc.trim() || undefined,
+                  imageUrl: groupImg.trim() || undefined,
+                  generateInviteLink: genInvite,
+                  settings: { messageTTLDays: messageTTL, membersCanInvite },
+                };
+                const invs = invitees.filter(i=>i.fid && !Number.isNaN(Number(i.fid))).map(i=>({ fid: Number(i.fid), role: i.role }));
+                if (invs.length) payload.invitees = invs;
+                const res = await fetch('/api/admin/create-group', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
+                const json = await res.json();
+                if (res.ok) {
+                  const gid = json?.result?.groupId || json?.groupId;
+                  const invite = json?.result?.inviteLinkUrl || json?.inviteLinkUrl;
+                  setGroupResponse(`Created group ${gid || ''} ${invite ? '• Invite: '+invite : ''}`.trim());
+                } else {
+                  setGroupResponse(`Failed: ${json?.error || res.status}`);
+                }
+              } catch {
+                setGroupResponse('Error creating group');
+              } finally {
+                setIsCreatingGroup(false);
+              }
+            }}
+            className={`px-4 py-2 rounded ${isCreatingGroup || !groupName.trim() ? 'bg-purple-900 text-gray-500' : 'bg-deepPink text-white hover:bg-fontRed'}`}
+          >
+            {isCreatingGroup ? 'Creating…' : 'Create Group'}
+          </button>
+          {groupResponse && <div className="text-xs text-lightPurple">{groupResponse}</div>}
+        </div>
+      </div>
+
     </div>
   );
 };
 
 export default MatchRoomsTab;
-
-

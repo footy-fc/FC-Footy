@@ -244,7 +244,7 @@ const SettingsFollowClubs: React.FC<SettingsFollowClubsProps> = ({ onSave }) => 
                       />
                     )}
                   </td>
-                </tr>
+                  </tr>
               );
             })}
           </tbody>

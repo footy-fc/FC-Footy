@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import Image from 'next/image';
 import { Trash2 } from 'lucide-react';
 
 interface Team {
@@ -461,7 +462,7 @@ export default function LeaguesTab({
                               <div key={team.id} className="flex items-center justify-between p-2 bg-darkPurple border border-limeGreenOpacity rounded text-xs">
                                 <div className="flex items-center space-x-2">
                                   {team.logoUrl && (
-                                    <img src={team.logoUrl} alt={team.name} className="w-4 h-4" />
+                                    <Image src={team.logoUrl} alt={team.name} width={16} height={16} className="w-4 h-4" />
                                   )}
                                   <div>
                                     <span className="text-lightPurple font-medium">{team.name}</span>
