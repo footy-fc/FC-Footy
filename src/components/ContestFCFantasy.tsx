@@ -473,14 +473,19 @@ const ContestFCFantasy = () => {
     <div>
       {/* FEPL Group Chat affordance */}
       <div className="flex items-center justify-end gap-2 mb-2">
-        {feplChat.exists ? (
+        {feplChat.exists && isUserInLeague() ? (
           <button
             className="px-3 py-1 text-xs rounded border border-limeGreenOpacity text-lightPurple hover:bg-deepPink"
-            onClick={async () => { try { await sdk.actions.ready(); if (feplChat.invite) await sdk.actions.openUrl(feplChat.invite); } catch {} }}
+            onClick={async () => {
+              try {
+                await sdk.actions.ready();
+                if (feplChat.invite) await sdk.actions.openUrl(feplChat.invite);
+              } catch {}
+            }}
           >
             Open Group Chat
           </button>
-        ) : (currentUserFid && PRIVILEGED_FIDS.includes(currentUserFid) ? (
+        ) : (!feplChat.exists && currentUserFid && PRIVILEGED_FIDS.includes(currentUserFid) ? (
           <button
             className="px-3 py-1 text-xs rounded border border-deepPink text-deepPink hover:bg-deepPink hover:text-white"
             onClick={async () => {
