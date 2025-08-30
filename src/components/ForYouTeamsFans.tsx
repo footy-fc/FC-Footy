@@ -336,7 +336,7 @@ const ForYouTeamsFans: React.FC<Props> = ({ showLiveChat }) => {
             {!fanclubGroupLoading && fanclubGroup ? (
               <div className="mt-3 flex items-center gap-2 ml-1">
                 <button
-                  className="px-3 py-1 text-xs rounded border border-limeGreenOpacity text-lightPurple hover:bg-deepPink"
+                  className="px-3 py-1 text-xs rounded border border-limeGreenOpacity text-lightPurple hover:bg-deepPink hover:text-white transition-colors"
                   onClick={async () => {
                     try { await sdk.actions.ready(); } catch {}
                     try {
@@ -345,11 +345,11 @@ const ForYouTeamsFans: React.FC<Props> = ({ showLiveChat }) => {
                     } catch (err) { console.error('Open invite failed', err); }
                   }}
                 >
-                  Open Farcaster Group Chat
+                  Team Group Chat
                 </button>
                 {inviteCandidate && currentFid && PRIVILEGED_FIDS.includes(currentFid) && (
                   <button
-                    className="px-3 py-1 text-xs rounded border border-limeGreenOpacity text-lightPurple hover:bg-deepPink"
+                    className="px-3 py-1 text-xs rounded border border-limeGreenOpacity text-lightPurple hover:bg-deepPink hover:text-white transition-colors"
                     onClick={async () => {
                       try {
                         const res = await fetch('/api/admin/group-invite', {

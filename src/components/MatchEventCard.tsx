@@ -104,8 +104,11 @@ interface Team {
 }
 
 // Types for formatted FPL picks enrichment
-const MatchEventCard: React.FC<EventCardProps> = ({ event, sportId, isOpen = false, onToggle }) => {
+const MatchEventCard: React.FC<EventCardProps> = ({ event, sportId, isOpen: isOpenProp = false, onToggle }) => {
   const [selectedMatch, setSelectedMatch] = useState<SelectedMatch | null>(null);
+  // Local open state for uncontrolled usage (when onToggle/isOpen not provided)
+  const [localOpen, setLocalOpen] = useState<boolean>(false);
+  const isOpen = onToggle ? isOpenProp : localOpen;
 
   const [isInFantasyLeague, setIsInFantasyLeague] = useState<boolean | null>(null);
   // const [isTempOff, setTempOff] = useState<boolean | null>(true);
@@ -379,9 +382,11 @@ const MatchEventCard: React.FC<EventCardProps> = ({ event, sportId, isOpen = fal
         eventId: baseId,
       });
     
-      // Finally toggle the dropdown
+      // Finally toggle the dropdown (controlled vs uncontrolled)
       if (onToggle) {
         onToggle();
+      } else {
+        setLocalOpen((prev) => !prev);
       }
     };
 
@@ -392,12 +397,6 @@ const MatchEventCard: React.FC<EventCardProps> = ({ event, sportId, isOpen = fal
 
 
   // Removed unused readMatchSummary to satisfy linter
-
-  const toggleDetails = () => {
-    if (onToggle) {
-      onToggle();
-    }
-  };
 
 
 
@@ -457,9 +456,6 @@ const MatchEventCard: React.FC<EventCardProps> = ({ event, sportId, isOpen = fal
                       // If dropdown is closed, open it first
                       if (!isOpen) {
                         handleSelectMatch();
-                        if (onToggle) {
-                          onToggle();
-                        }
                         return;
                       }
                       
@@ -486,7 +482,6 @@ const MatchEventCard: React.FC<EventCardProps> = ({ event, sportId, isOpen = fal
           <button
             onClick={() => {
               handleSelectMatch();
-              toggleDetails();
             }}
             className="dropdown-button cursor-pointer flex items-center flex-1"
           >
