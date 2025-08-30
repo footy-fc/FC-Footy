@@ -262,7 +262,7 @@ const UserProfile: React.FC<ForYouProfileProps> = ({ profileFid, castHash }) => 
           <p className="text-sm text-lightPurple">
             {favoriteTeams.length > 0 
               ? `Passionate ${favoriteTeams[0].split('-')[1].toUpperCase()} supporter${favoriteTeams.length > 1 ? ` & ${favoriteTeams.length - 1} other team(s)` : ''}`
-              : 'Passionate football supporter'
+              : "No badge, no pride.🤦‍♂️ You’re moving slower than Maguire in quicksand."
             }
           </p>
         </div>
@@ -411,6 +411,9 @@ const UserProfile: React.FC<ForYouProfileProps> = ({ profileFid, castHash }) => 
                 <h4 className="text-notWhite font-medium mb-2">Trophy Case Coming Soon</h4>
                 <p className="text-sm text-lightPurple">
                   Collect exclusive Fantasy season passes, contest rewards, and Footy collectibles to showcase your achievements across FEPL and other games.
+                </p>
+                <p className="text-xs text-gray-400 mt-1 italic">
+                  No silverware yet — that shelf&apos;s as empty as a Big Ears spot for half the Prem. Keep grinding.
                 </p>
                 <div className="mt-3 grid grid-cols-3 gap-2 opacity-50">
                   {[1, 2, 3].map((i) => (
