@@ -32,14 +32,16 @@ const SettingsFollowClubs: React.FC<SettingsFollowClubsProps> = ({ onSave }) => 
   const [loadingTeamIds, setLoadingTeamIds] = useState<string[]>([]);
   const [transactionError, setTransactionError] = useState<string | null>(null);
   const [hasPromptedMiniApp, setHasPromptedMiniApp] = useState<boolean>(false);
-  
-  const { isMiniApp, isLoading: isMiniAppLoading } = useMiniAppDetection();
+  const [isInstalled, setIsInstalled] = useState<boolean>(false);
+  const { isLoading: isMiniAppLoading } = useMiniAppDetection();
 
   useEffect(() => {
     const fetchContext = async () => {
+      await sdk.actions.ready();
       const context = await sdk.context;
-      console.log("context now", context.user);
+      console.log("context now", context);
       const fid = context.user?.fid;
+      setIsInstalled(Boolean(context?.client?.added));
       if (fid) {
         getTeamPreferences(fid)
           .then((teamsFromRedis) => {
@@ -88,11 +90,11 @@ const SettingsFollowClubs: React.FC<SettingsFollowClubsProps> = ({ onSave }) => 
       onSave?.(updatedFavTeams);
       setTransactionError(null); // Clear error on success
 
-      // Prompt to add mini app if this is their first team and they're not already in a mini app
+      // Prompt to add mini app if this is their first team and the app isn't installed yet
       if (
         !hasPromptedMiniApp && 
         updatedFavTeams.length === 1 && 
-        !isMiniApp && 
+        !isInstalled && 
         !isMiniAppLoading
       ) {
         try {
@@ -174,6 +176,24 @@ const SettingsFollowClubs: React.FC<SettingsFollowClubsProps> = ({ onSave }) => 
           onChange={(e) => setSearchTerm(e.target.value)}
           className="w-full bg-darkPurple p-2 border rounded-md border-limeGreenOpacity focus:outline-none focus:ring-2 focus:ring-darkPurple"
         />
+        {/* Notification affordance when not installed */}
+        {favTeams.length > 0 && !isInstalled && (
+          <div className="mt-2 p-2 bg-gray-800/70 border border-gray-700 rounded">
+            <div className="text-xs text-gray-300">
+              Turn on match notifications by adding Footy to your Mini‑Apps.
+            </div>
+            <div className="mt-2">
+              <button
+                onClick={async () => {
+                  try { await sdk.actions.ready(); await sdk.actions.addMiniApp?.(); } catch (e) { console.warn('addMiniApp failed', e); }
+                }}
+                className="px-3 py-1 text-xs rounded border border-limeGreenOpacity text-lightPurple hover:bg-deepPink hover:text-white transition-colors"
+              >
+                Enable match notifications
+              </button>
+            </div>
+          </div>
+        )}
         {transactionError && (
           <div className="text-center text-red-500 text-sm mb-2">
             {transactionError}

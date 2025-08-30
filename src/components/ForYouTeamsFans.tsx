@@ -226,8 +226,15 @@ const ForYouTeamsFans: React.FC<Props> = ({ showLiveChat }) => {
   if (showSettings) {
     return (
       <div className="p-4">
-        <div className="flex items-center justify-between mb-2">
-          <h2 className="text-notWhite">Follow at least one team</h2>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-notWhite text-xl sm:text-2xl font-bold">Follow at least one team</h2>
+        </div>
+        <div className="mb-4">
+          <ul className="list-disc list-inside space-y-2 text-base text-lightPurple">
+            <li>⚽️ Live banter 💬 &amp; goal alerts 🔔</li>
+            <li>🤝 Connect with fans 💜 ⚽ </li>
+            <li>🎮 Fantasy leagues &amp; 💰 games</li>
+          </ul>
         </div>
         <SettingsFollowClubs onSave={(newFavorites: string[]) => {
           setFavoriteTeams(newFavorites);

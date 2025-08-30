@@ -172,15 +172,34 @@ const ForYouWhosPlaying: React.FC<Props> = ({ eventId }) => {
 
   // FTUE: if no favorite teams, show onboarding nudge
   const hasFavorites = favoriteTeams.length > 0;
+  // Precompute filtered events for user's teams
+  const filteredEvents = (matchData || [])
+    .filter((event) => {
+      const eventDate = new Date(event.date);
+      const now = new Date();
+      const twoDaysAgo = new Date();
+      twoDaysAgo.setDate(now.getDate() - 14);
+
+      if (eventDate < twoDaysAgo) return false;
+
+      // If eventId is provided, show the specific event regardless of favorites
+      if (eventId) return true;
+      const comps: Competitor[] = (event as unknown as EventLike)?.competitions?.[0]?.competitors || [];
+      const homeAbbr = comps.find((c: Competitor) => c.homeAway === 'home')?.team?.abbreviation?.toLowerCase();
+      const awayAbbr = comps.find((c: Competitor) => c.homeAway === 'away')?.team?.abbreviation?.toLowerCase();
+      const favAbbrs = favoriteTeams.map((t) => t.split('-')[1]?.toLowerCase()).filter(Boolean);
+      return (homeAbbr && favAbbrs.includes(homeAbbr)) || (awayAbbr && favAbbrs.includes(awayAbbr));
+    })
+    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
   return (
     <div className="bg-purplePanel text-lightPurple rounded-lg p-2 overflow-hidden">
       {!hasFavorites ? (
         <div className="p-4 border border-dashed border-limeGreenOpacity rounded-lg text-center">
           <h3 className="text-notWhite font-semibold mb-1">Who&apos;s Playing</h3>
-          <p className="text-sm text-lightPurple mb-3">Follow your clubs to see today&apos;s matches here and get real-time goal alerts.</p>
+          <p className="text-sm text-lightPurple mb-3">Follow your favorite teams to see scores here and get match notifications.</p>
           <div className="flex items-center justify-center gap-2 mb-3 text-xs">
-            <span className="px-2 py-0.5 rounded bg-gray-800 text-gray-300">1. Add Footy Mini‑App</span>
+            <span className="px-2 py-0.5 rounded bg-gray-800 text-gray-300">1. Add Footy App</span>
             <span className="px-2 py-0.5 rounded bg-gray-800 text-gray-300">2. Enable Notifications</span>
             <span className="px-2 py-0.5 rounded bg-gray-800 text-gray-300">3. Follow Teams</span>
           </div>
@@ -205,25 +224,30 @@ const ForYouWhosPlaying: React.FC<Props> = ({ eventId }) => {
         </div>
       ) : null}
 
+      {/* Empty state when user has favorites but no fixtures today */}
+      {hasFavorites && filteredEvents.length === 0 && (
+        <div className="p-4 border border-dashed border-limeGreenOpacity rounded-lg text-center mb-3">
+          <h3 className="text-notWhite font-semibold mb-1">No matches for your teams today</h3>
+          <p className="text-sm text-lightPurple mb-3">Fixtures refresh daily. You’ll see your clubs here on matchdays. In the meantime, explore clubs or turn on notifications so you don’t miss kickoff.</p>
+          <div className="flex items-center justify-center gap-2">
+            <button
+              className="px-3 py-1 text-xs rounded border border-limeGreenOpacity text-lightPurple hover:bg-deepPink hover:text-white transition-colors"
+              onClick={() => { try { window.location.href = '/?tab=forYou&forYouSub=fellowFollowers'; } catch {} }}
+            >
+              Explore Clubs
+            </button>
+            <button
+              className="px-3 py-1 text-xs rounded border border-limeGreenOpacity text-lightPurple hover:bg-deepPink hover:text-white transition-colors"
+              onClick={async () => { try { await sdk.actions.addMiniApp?.(); } catch (e) { console.warn('addMiniApp failed:', e); } }}
+            >
+              Enable Notifications
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* <h2 className='text-notWhite mb-2'>Matches for Teams You Follow</h2> */}
-      {matchData
-        .filter((event) => {
-          const eventDate = new Date(event.date);
-          const now = new Date();
-          const twoDaysAgo = new Date();
-          twoDaysAgo.setDate(now.getDate() - 14);
-
-          if (eventDate < twoDaysAgo) return false;
-
-          // If eventId is provided, show the specific event regardless of favorites
-          if (eventId) return true;
-          const comps: Competitor[] = (event as unknown as EventLike)?.competitions?.[0]?.competitors || [];
-          const homeAbbr = comps.find((c: Competitor) => c.homeAway === 'home')?.team?.abbreviation?.toLowerCase();
-          const awayAbbr = comps.find((c: Competitor) => c.homeAway === 'away')?.team?.abbreviation?.toLowerCase();
-          const favAbbrs = favoriteTeams.map((t) => t.split('-')[1]?.toLowerCase()).filter(Boolean);
-          return (homeAbbr && favAbbrs.includes(homeAbbr)) || (awayAbbr && favAbbrs.includes(awayAbbr));
-        })
-        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+      {filteredEvents
         .map(event => (
           // @ts-expect-error: Ignoring type issues for the event prop for now
           <EventCard key={event.id} event={event} sportId={event.league|| ''} />
