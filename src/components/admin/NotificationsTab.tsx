@@ -67,7 +67,7 @@ export default function NotificationsTab({
 
   const categories = [
     { value: "matches", label: "Matches" },
-    // { value: "contests", label: "Contests" },
+    { value: "contests", label: "FC Fantasy" },
     { value: "rewards", label: "Rewards" },
     { value: "moneyGames", label: "ScoreSquare" },
     { value: "forYou", label: "For You" },

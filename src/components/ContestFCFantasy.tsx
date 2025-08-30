@@ -471,45 +471,6 @@ const ContestFCFantasy = () => {
 
   return (
     <div>
-      {/* FEPL Group Chat affordance */}
-      <div className="flex items-center justify-end gap-2 mb-2">
-        {feplChat.exists && isUserInLeague() ? (
-          <button
-            className="px-3 py-1 text-xs rounded border border-limeGreenOpacity text-lightPurple hover:bg-deepPink"
-            onClick={async () => {
-              try {
-                await sdk.actions.ready();
-                if (feplChat.invite) await sdk.actions.openUrl(feplChat.invite);
-              } catch {}
-            }}
-          >
-            Open Group Chat
-          </button>
-        ) : (!feplChat.exists && currentUserFid && PRIVILEGED_FIDS.includes(currentUserFid) ? (
-          <button
-            className="px-3 py-1 text-xs rounded border border-deepPink text-deepPink hover:bg-deepPink hover:text-white"
-            onClick={async () => {
-              try {
-                const payload = {
-                  name: 'FEPL Fan Chat',
-                  generateInviteLink: true,
-                  settings: { messageTTLDays: 30, membersCanInvite: true },
-                  teamId: 'fepl',
-                  invitees: [{ fid: currentUserFid, role: 'admin' as const }],
-                };
-                const res = await fetch('/api/admin/create-group', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-                const j = await res.json().catch(() => ({}));
-                if (res.ok) {
-                  setFeplChat({ exists: true, invite: j?.result?.inviteLinkUrl || j?.inviteLinkUrl || null });
-                  if (j?.result?.inviteLinkUrl || j?.inviteLinkUrl) { try { await sdk.actions.openUrl(j.result?.inviteLinkUrl || j.inviteLinkUrl); } catch {} }
-                }
-              } catch {}
-            }}
-          >
-            Create Group Chat
-          </button>
-        ) : null)}
-      </div>
       {/* League Status - Only show for non-members */}
       {!isUserInLeague() && (
         <div className="bg-gray-800 rounded-lg p-4 mb-4 border border-gray-700">
