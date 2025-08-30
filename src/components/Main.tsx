@@ -120,8 +120,9 @@ export default function Main() {
         
         if (context?.location?.type === 'cast_share') {
           const cast = context.location.cast as SharedCast;
-          // Redirect to ForYou profile tab with cast author's FID
-          router.push(`/?tab=forYou&profileFid=${cast.author.fid}`);
+          // Redirect to ForYou profile tab with cast author's FID and cast hash
+          const hashParam = cast?.hash ? `&castHash=${encodeURIComponent(cast.hash)}` : '';
+          router.push(`/?tab=forYou&profileFid=${cast.author.fid}${hashParam}`);
           shareHandledRef.current = true;
         }
       } catch (error) {

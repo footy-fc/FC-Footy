@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import ForYouTeamsFans from "./ForYouTeamsFans";
+import ForYouProfile from "./ForYouProfile";
 import ForYouWhosPlaying from "./ForYouWhosPlaying";
 // import ForYouProfile from "./ForYouProfile";
 import BuyPoints from "./BuyPoints";
@@ -16,6 +17,7 @@ const ForYou = () => {
   
   // Get profileFid from URL params (for shared cast context)
   const profileFid = searchParams?.get("profileFid");
+  const castHash = searchParams?.get("castHash") || undefined;
 
   useEffect(() => {
     const checkPreferences = async () => {
@@ -120,10 +122,14 @@ const ForYou = () => {
       <div className="bg-purplePanel text-lightPurple rounded-lg p-2 overflow-hidden">        
       {selectedTab === "fellowFollowers" && (
         <>
-          <ForYouTeamsFans
+          {profileFid ? (
+            <ForYouProfile profileFid={Number(profileFid)} castHash={castHash} />
+          ) : (
+            <ForYouTeamsFans
               showLiveChat={showLiveChat}
               setShowLiveChat={setShowLiveChat}
-          />
+            />
+          )}
         </>
       )}
       {selectedTab === "matches" && (

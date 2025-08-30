@@ -41,6 +41,7 @@ const UserProfile: React.FC<ForYouProfileProps> = ({ profileFid, castHash }) => 
   const [currentProfileFid, setCurrentProfileFid] = useState<number | undefined>(profileFid);
   const [hasPromptedMiniApp, setHasPromptedMiniApp] = useState<boolean>(false);
   const { isMiniApp, isLoading: isMiniAppLoading } = useMiniAppDetection();
+  const appUrl = process.env.NEXT_PUBLIC_URL || 'https://fc-footy.vercel.app';
 
   // Initialize SDK and fetch user context
   useEffect(() => {
@@ -343,6 +344,31 @@ const UserProfile: React.FC<ForYouProfileProps> = ({ profileFid, castHash }) => 
           <h2 className="text-notWhite text-lg font-semibold mb-2">
             {favoriteTeams.length === 0 ? 'Select Team' : 'Follows'}
           </h2>
+          {/* Share profile affordance */}
+          {currentProfileFid && favoriteTeams.length > 0 && (
+            <div className="mb-3">
+              <button
+                className="px-3 py-1 text-xs rounded border border-limeGreenOpacity text-lightPurple hover:bg-deepPink hover:text-white transition-colors"
+                onClick={async () => {
+                  try {
+                    const firstTeam = favoriteTeams[0];
+                    const clubCode = firstTeam.split('-')[1]?.toUpperCase();
+                    const shareText = `@${userData.username} is a baller — supports ${clubCode}. Check their Footy profile!`;
+                    const profileLink = `${appUrl}?tab=forYou&profileFid=${currentProfileFid}`;
+                    await sdk.actions.composeCast({
+                      text: shareText,
+                      embeds: [profileLink],
+                      parent: castHash ? { type: 'cast', hash: castHash } : undefined,
+                    });
+                  } catch (err) {
+                    console.error('composeCast failed', err);
+                  }
+                }}
+              >
+                Share @{userData.username}&apos;s profile
+              </button>
+            </div>
+          )}
           <div className="flex overflow-x-auto gap-4 mb-4">
             {favoriteTeams.map(teamId => (
               <div
