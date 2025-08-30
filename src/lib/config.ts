@@ -3,6 +3,11 @@ export const BASE_URL = process.env.NEXT_PUBLIC_URL
 // Testing environment flag - set to true to bypass conditional rendering
 export const IS_TESTING = false
 
+// Mock first-time user experience toggle. When true, For You will
+// treat the viewer as a first-time user (FTUE) and default to the
+// Fan Clubs subview regardless of install status or preferences.
+export const MOCK_FIRST_TIME_USER = false
+
 // Contract addresses for different networks
 export const CONTRACTS = {
   // Base network contract address

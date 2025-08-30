@@ -170,8 +170,41 @@ const ForYouWhosPlaying: React.FC<Props> = ({ eventId }) => {
   if (loading) return <div>For you today</div>;
   if (error) return <div>{error}</div>;
 
+  // FTUE: if no favorite teams, show onboarding nudge
+  const hasFavorites = favoriteTeams.length > 0;
+
   return (
     <div className="bg-purplePanel text-lightPurple rounded-lg p-2 overflow-hidden">
+      {!hasFavorites ? (
+        <div className="p-4 border border-dashed border-limeGreenOpacity rounded-lg text-center">
+          <h3 className="text-notWhite font-semibold mb-1">Who&apos;s Playing</h3>
+          <p className="text-sm text-lightPurple mb-3">Follow your clubs to see today&apos;s matches here and get real-time goal alerts.</p>
+          <div className="flex items-center justify-center gap-2 mb-3 text-xs">
+            <span className="px-2 py-0.5 rounded bg-gray-800 text-gray-300">1. Add Footy Mini‑App</span>
+            <span className="px-2 py-0.5 rounded bg-gray-800 text-gray-300">2. Enable Notifications</span>
+            <span className="px-2 py-0.5 rounded bg-gray-800 text-gray-300">3. Follow Teams</span>
+          </div>
+          <div className="flex items-center justify-center gap-2">
+            <button
+              className="px-3 py-1 text-xs rounded border border-limeGreenOpacity text-lightPurple hover:bg-deepPink hover:text-white transition-colors"
+              onClick={async () => {
+                try { await sdk.actions.addMiniApp?.(); } catch (e) { console.warn('addMiniApp failed:', e); }
+              }}
+            >
+              Add Mini‑App
+            </button>
+            <button
+              className="px-3 py-1 text-xs rounded border border-limeGreenOpacity text-lightPurple hover:bg-deepPink hover:text-white transition-colors"
+              onClick={() => {
+                try { window.location.href = '/?tab=forYou&forYouSub=fellowFollowers'; } catch {}
+              }}
+            >
+              Follow Teams
+            </button>
+          </div>
+        </div>
+      ) : null}
+
       {/* <h2 className='text-notWhite mb-2'>Matches for Teams You Follow</h2> */}
       {matchData
         .filter((event) => {

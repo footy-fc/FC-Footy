@@ -7,6 +7,8 @@ import BuyPoints from "./BuyPoints";
 import { usePrivy } from "@privy-io/react-auth";
 import { getTeamPreferences } from "../lib/kvPerferences";
 import { useSearchParams } from "next/navigation";
+import { sdk } from "@farcaster/miniapp-sdk";
+import { MOCK_FIRST_TIME_USER } from "../lib/config";
 
 const ForYou = () => {
   const { user } = usePrivy();
@@ -18,11 +20,19 @@ const ForYou = () => {
   // Get profileFid from URL params (for shared cast context)
   const profileFid = searchParams?.get("profileFid");
   const castHash = searchParams?.get("castHash") || undefined;
+  const forYouSub = searchParams?.get("forYouSub");
 
   useEffect(() => {
     const checkPreferences = async () => {
       setIsLoading(true);
       
+      // Direct subtab override (used by FTUE CTA buttons)
+      if (forYouSub && ["matches", "fellowFollowers", "buyPoints"].includes(forYouSub)) {
+        setSelectedTab(forYouSub);
+        setIsLoading(false);
+        return;
+      }
+
       // Check if we should show Buy Points section
       const showBuyPoints = searchParams?.get("showBuyPoints");
       if (showBuyPoints === "true") {
@@ -37,16 +47,44 @@ const ForYou = () => {
         setIsLoading(false);
         return;
       }
+
+      // Mock FTUE: force Fan Clubs for testing regardless of context
+      if (MOCK_FIRST_TIME_USER) {
+        console.log('ForYou mock: forcing FTUE Fan Clubs');
+        setSelectedTab("fellowFollowers");
+        setIsLoading(false);
+        return;
+      }
       
-      const fid = user?.linkedAccounts.find((a) => a.type === "farcaster")?.fid;
+      // Prefer SDK context for fid and install status
+      type MiniContext = { client?: { added?: boolean }; user?: { fid?: number } } | null;
+      let ctx: MiniContext = null;
+      let isAdded = false;
+      let fid: number | undefined = undefined;
+      try {
+        await sdk.actions.ready();
+        ctx = await sdk.context;
+        // Debug log for context as requested
+        console.log('ForYou sdk.context:', ctx);
+        fid = ctx?.user?.fid;
+        isAdded = Boolean(ctx?.client?.added);
+      } catch (e) {
+        console.warn('sdk.context unavailable, falling back to Privy user', e);
+      }
+
+      // Fallback to Privy-linked Farcaster fid if SDK context missing
+      if (!fid) {
+        const privyFid = user?.linkedAccounts.find((a) => a.type === "farcaster")?.fid;
+        fid = privyFid ? Number(privyFid) : undefined;
+      }
+
       if (fid) {
         try {
-          const prefs = await getTeamPreferences(fid);
-          if (!prefs || prefs.length === 0) {
-            setSelectedTab("fellowFollowers"); // Show Fan Clubs for users with no teams
-          } else {
-            setSelectedTab("matches"); // Show Who's Playing for users with teams
-          }
+          const prefs = await getTeamPreferences(Number(fid));
+          const hasTeams = Array.isArray(prefs) && prefs.length > 0;
+          console.log('ForYou routing debug:', { fid, isAdded, hasTeams, prefsCount: hasTeams ? prefs.length : 0 });
+          // Always route to Who's Playing if the user has favorite teams; otherwise Fan Clubs
+          setSelectedTab(hasTeams ? "matches" : "fellowFollowers");
         } catch (error) {
           console.error("Error checking team preferences:", error);
           setSelectedTab("fellowFollowers"); // Default to Fan Clubs on error
