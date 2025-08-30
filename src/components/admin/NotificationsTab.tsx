@@ -63,7 +63,18 @@ export default function NotificationsTab({
   const [selectedTeam, setSelectedTeam] = useState<string>('');
   const [loadingLeagues, setLoadingLeagues] = useState(false);
   const [loadingTeams, setLoadingTeams] = useState(false);
-  const [notificationMode, setNotificationMode] = useState<'all' | 'team' | 'fepl'>('all');
+  const [notificationMode, setNotificationMode] = useState<'all' | 'team' | 'fepl' | 'nonFepl' | 'custom'>('all');
+  // Quick audience size estimator (does not require preview table)
+  const [audienceCount, setAudienceCount] = useState<number | null>(null);
+  const [audienceLoading, setAudienceLoading] = useState<boolean>(false);
+  const [allUsersTotal, setAllUsersTotal] = useState<number | null>(null);
+  const [feplTotal, setFeplTotal] = useState<number | null>(null);
+  const [showCountDetails, setShowCountDetails] = useState<boolean>(false);
+  // Audience builder: custom lists
+  const [customFidsText, setCustomFidsText] = useState<string>("");
+  const [savedLists, setSavedLists] = useState<Record<string, number[]>>({});
+  const [selectedSavedList, setSelectedSavedList] = useState<string>("");
+  const [newListName, setNewListName] = useState<string>("");
 
   const categories = [
     { value: "matches", label: "Matches" },
@@ -157,6 +168,8 @@ export default function NotificationsTab({
     if (adminOnly) return "Admins";
     if (notificationMode === 'team' && selectedTeam) return "Team Followers";
     if (notificationMode === 'fepl') return "FC FEPL Managers";
+    if (notificationMode === 'nonFepl') return "Non-FEPL Users";
+    if (notificationMode === 'custom') return "Custom List";
     return "All Users";
   };
 
@@ -176,6 +189,31 @@ export default function NotificationsTab({
       } else if (notificationMode === 'fepl') {
         // Get FEPL manager FIDs
         userFids = await getFEPLManagerFIDs();
+      } else if (notificationMode === 'nonFepl') {
+        // All app users excluding FEPL managers
+        const response = await fetch("/api/notification-users", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-api-key": process.env.NEXT_PUBLIC_NOTIFICATION_API_KEY || "",
+          },
+          body: JSON.stringify({ adminOnly: false }),
+        });
+        if (response.ok) {
+          const data = await response.json();
+          const allFids: number[] = data.userFids || [];
+          const fepl = new Set(await getFEPLManagerFIDs());
+          userFids = allFids.filter((fid: number) => !fepl.has(fid));
+        }
+      } else if (notificationMode === 'custom') {
+        // Build from saved list or textarea
+        const fromSaved = selectedSavedList && savedLists[selectedSavedList] ? savedLists[selectedSavedList] : [];
+        const fromText = customFidsText
+          .split(/[^0-9]+/)
+          .map((s) => Number(s))
+          .filter((n) => Number.isFinite(n) && n > 0);
+        const merged = [...fromSaved, ...fromText];
+        userFids = Array.from(new Set(merged));
       } else {
         // Fetch all users or admin users
         const response = await fetch("/api/notification-users", {
@@ -246,7 +284,22 @@ export default function NotificationsTab({
     } finally {
       setLoadingUsers(false);
     }
-  }, [adminOnly, notificationMode, selectedTeam, teams]);
+  }, [adminOnly, notificationMode, selectedTeam, teams, customFidsText, savedLists, selectedSavedList]);
+
+  // Load saved lists from localStorage
+  useEffect(() => {
+    try {
+      const raw = typeof window !== 'undefined' ? localStorage.getItem('notifSavedLists') : null;
+      if (raw) setSavedLists(JSON.parse(raw));
+    } catch {}
+  }, []);
+
+  const persistSavedLists = (lists: Record<string, number[]>) => {
+    try {
+      setSavedLists(lists);
+      if (typeof window !== 'undefined') localStorage.setItem('notifSavedLists', JSON.stringify(lists));
+    } catch {}
+  };
 
   // Fetch leagues and teams on component mount
   useEffect(() => {
@@ -259,6 +312,106 @@ export default function NotificationsTab({
       fetchNotificationUsers();
     }
   }, [showUserTable, fetchNotificationUsers]);
+
+  // Compute audience size for current mode (without fetching profiles)
+  useEffect(() => {
+    let cancelled = false;
+    const run = async () => {
+      setAudienceLoading(true);
+      try {
+        let count = 0;
+        if (notificationMode === 'team' && selectedTeam) {
+          const selectedTeamData = teams.find(t => t.id === selectedTeam);
+          if (selectedTeamData) {
+            const fids = await getFansForTeamAbbr(selectedTeamData.abbreviation);
+            count = (fids || []).length;
+          }
+        } else if (notificationMode === 'fepl') {
+          const fids = await getFEPLManagerFIDs();
+          count = fids.length;
+        } else if (notificationMode === 'nonFepl') {
+          const allResp = await fetch("/api/notification-users", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "x-api-key": process.env.NEXT_PUBLIC_NOTIFICATION_API_KEY || "",
+            },
+            body: JSON.stringify({ adminOnly: false }),
+          });
+          if (allResp.ok) {
+            const allData = await allResp.json();
+            const allFids: number[] = allData.userFids || [];
+            const fepl = new Set(await getFEPLManagerFIDs());
+            count = allFids.filter((fid: number) => !fepl.has(fid)).length;
+          } else {
+            count = 0;
+          }
+        } else if (notificationMode === 'custom') {
+          const fromSaved = selectedSavedList && savedLists[selectedSavedList] ? savedLists[selectedSavedList] : [];
+          const fromText = customFidsText
+            .split(/[^0-9]+/)
+            .map((s) => Number(s))
+            .filter((n) => Number.isFinite(n) && n > 0);
+          count = Array.from(new Set([...fromSaved, ...fromText])).length;
+        } else {
+          // all/admins
+          const resp = await fetch("/api/notification-users", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "x-api-key": process.env.NEXT_PUBLIC_NOTIFICATION_API_KEY || "",
+            },
+            body: JSON.stringify({ adminOnly }),
+          });
+          if (resp.ok) {
+            const data = await resp.json();
+            count = (data.userFids || []).length;
+          }
+        }
+        if (!cancelled) setAudienceCount(count);
+      } catch {
+        if (!cancelled) setAudienceCount(null);
+      } finally {
+        if (!cancelled) setAudienceLoading(false);
+      }
+    };
+    run();
+    return () => { cancelled = true; };
+  }, [notificationMode, selectedTeam, teams, adminOnly, customFidsText, savedLists, selectedSavedList]);
+
+  // Fetch global counts for detail math (all users and FEPL)
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      try {
+        // All app users (not admins only)
+        const allResp = await fetch("/api/notification-users", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-api-key": process.env.NEXT_PUBLIC_NOTIFICATION_API_KEY || "",
+          },
+          body: JSON.stringify({ adminOnly: false }),
+        });
+        if (allResp.ok) {
+          const allData = await allResp.json();
+          if (!cancelled) setAllUsersTotal((allData.userFids || []).length);
+        } else {
+          if (!cancelled) setAllUsersTotal(null);
+        }
+
+        const feplFids = await getFEPLManagerFIDs();
+        if (!cancelled) setFeplTotal(feplFids.length);
+      } catch {
+        if (!cancelled) {
+          setAllUsersTotal(null);
+          setFeplTotal(null);
+        }
+      }
+    };
+    load();
+    return () => { cancelled = true; };
+  }, []);
 
   // Reset team selection when league changes
   useEffect(() => {
@@ -318,6 +471,57 @@ export default function NotificationsTab({
             customFids: feplFids
           }),
         });
+      } else if (notificationMode === 'nonFepl') {
+        // Send to all non-FEPL users
+        let customFids: number[] = [];
+        const allResp = await fetch("/api/notification-users", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-api-key": process.env.NEXT_PUBLIC_NOTIFICATION_API_KEY || "",
+          },
+          body: JSON.stringify({ adminOnly: false }),
+        });
+        if (allResp.ok) {
+          const allData = await allResp.json();
+          const allFids: number[] = allData.userFids || [];
+          const fepl = new Set(await getFEPLManagerFIDs());
+          customFids = allFids.filter((fid: number) => !fepl.has(fid));
+        }
+        response = await fetch("/api/notify-all", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-api-key": process.env.NEXT_PUBLIC_NOTIFICATION_API_KEY || "",
+          },
+          body: JSON.stringify({ 
+            title, 
+            body,
+            targetURL,
+            customFids
+          }),
+        });
+      } else if (notificationMode === 'custom') {
+        // Send to custom list
+        const fromSaved = selectedSavedList && savedLists[selectedSavedList] ? savedLists[selectedSavedList] : [];
+        const fromText = customFidsText
+          .split(/[^0-9]+/)
+          .map((s) => Number(s))
+          .filter((n) => Number.isFinite(n) && n > 0);
+        const customFids = Array.from(new Set([...fromSaved, ...fromText]));
+        response = await fetch("/api/notify-all", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-api-key": process.env.NEXT_PUBLIC_NOTIFICATION_API_KEY || "",
+          },
+          body: JSON.stringify({ 
+            title, 
+            body,
+            targetURL,
+            customFids
+          }),
+        });
       } else {
         // Send to all users or admins
         response = await fetch("/api/notify-all", {
@@ -341,6 +545,10 @@ export default function NotificationsTab({
           ? `team followers (${selectedTeamData?.name})` 
           : notificationMode === 'fepl'
           ? "FC FEPL managers"
+          : notificationMode === 'nonFepl'
+          ? 'non-FEPL users'
+          : notificationMode === 'custom'
+          ? 'custom list'
           : adminOnly ? "admins only" : "all users";
         setResponseMessage(`Notification sent successfully to ${targetText}! (${data.totalSent} users)`);
         setTitle("");
@@ -572,6 +780,26 @@ export default function NotificationsTab({
                   >
                     FC FEPL Managers
                   </button>
+                  <button
+                    onClick={() => setNotificationMode('nonFepl')}
+                    className={`px-3 py-1 rounded text-sm transition-colors ${
+                      notificationMode === 'nonFepl'
+                        ? 'bg-deepPink text-white'
+                        : 'bg-gray-600 text-lightPurple hover:bg-gray-500'
+                    }`}
+                  >
+                    Non-FEPL Users
+                  </button>
+                  <button
+                    onClick={() => setNotificationMode('custom')}
+                    className={`px-3 py-1 rounded text-sm transition-colors ${
+                      notificationMode === 'custom'
+                        ? 'bg-deepPink text-white'
+                        : 'bg-gray-600 text-lightPurple hover:bg-gray-500'
+                    }`}
+                  >
+                    Custom List
+                  </button>
                 </div>
               </div>
 
@@ -635,11 +863,117 @@ export default function NotificationsTab({
               {notificationMode === 'fepl' && (
                 <div className="p-3 bg-blue-900/30 border border-blue-600 rounded-lg">
                   <p className="text-sm text-blue-300">
-                    📊 Sending to all FC FEPL Fantasy League managers ({users.length} users)
+                    📊 Sending to all FC FEPL Fantasy League managers ({audienceLoading ? '…' : (audienceCount ?? 0)} users)
                   </p>
                   <p className="text-xs text-blue-400 mt-1">
                     Based on the fantasy-managers-lookup.json data
                   </p>
+                </div>
+              )}
+
+              {/* Non-FEPL Users Info */}
+              {notificationMode === 'nonFepl' && (
+                <div className="p-3 bg-amber-900/30 border border-amber-600 rounded-lg">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <p className="text-sm text-amber-300">
+                        🧭 Sending to all app users excluding FEPL managers
+                        {feplTotal !== null ? ` (${feplTotal} FEPL managers excluded)` : ''}
+                      </p>
+                      <p className="text-xs text-amber-400 mt-1">
+                        Dynamically computed from all users minus FEPL list
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      className="text-xs text-amber-300 underline underline-offset-4 hover:text-amber-200"
+                      onClick={() => setShowCountDetails(v => !v)}
+                    >
+                      {showCountDetails ? 'Hide count details' : 'Show count details'}
+                    </button>
+                  </div>
+                  {showCountDetails && (
+                    <div className="mt-2 text-xs text-amber-200">
+                      <p>All users: {allUsersTotal ?? '…'}</p>
+                      <p>FEPL managers: {feplTotal ?? '…'}</p>
+                      <p>
+                        Non‑FEPL = All users − FEPL managers = {
+                          allUsersTotal !== null && feplTotal !== null ? (allUsersTotal - feplTotal) : '…'
+                        }
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Custom List Builder */}
+              {notificationMode === 'custom' && (
+                <div className="p-3 bg-gray-800/50 border border-gray-600 rounded-lg space-y-3">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-sm font-medium text-lightPurple mb-1">Paste FIDs (comma, space, or newline separated)</label>
+                      <textarea
+                        value={customFidsText}
+                        onChange={(e) => setCustomFidsText(e.target.value)}
+                        rows={5}
+                        className="w-full p-2 border border-limeGreenOpacity rounded bg-darkPurple text-lightPurple"
+                        placeholder="123, 456 789\n101112"
+                      />
+                      <p className="text-xs text-gray-400 mt-1">We dedupe and ignore invalid entries.</p>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-lightPurple mb-1">Saved Lists</label>
+                      <div className="flex items-center gap-2">
+                        <select
+                          value={selectedSavedList}
+                          onChange={(e) => setSelectedSavedList(e.target.value)}
+                          className="flex-1 p-2 border border-limeGreenOpacity rounded bg-darkPurple text-lightPurple"
+                        >
+                          <option value="">Select a saved list…</option>
+                          {Object.keys(savedLists).sort().map((name) => (
+                            <option key={name} value={name}>{name} ({savedLists[name].length})</option>
+                          ))}
+                        </select>
+                        <button
+                          type="button"
+                          className="px-3 py-1 rounded text-sm bg-gray-600 text-lightPurple hover:bg-gray-500"
+                          onClick={() => {
+                            const list = selectedSavedList ? savedLists[selectedSavedList] : [];
+                            const asText = list.join(', ');
+                            setCustomFidsText(asText);
+                          }}
+                        >
+                          Load →
+                        </button>
+                      </div>
+                      <div className="mt-3 flex items-center gap-2">
+                        <input
+                          type="text"
+                          value={newListName}
+                          onChange={(e) => setNewListName(e.target.value)}
+                          placeholder="New list name"
+                          className="flex-1 p-2 border border-limeGreenOpacity rounded bg-darkPurple text-lightPurple"
+                        />
+                        <button
+                          type="button"
+                          className="px-3 py-1 rounded text-sm bg-deepPink text-white hover:bg-fontRed"
+                          onClick={() => {
+                            const fids = customFidsText
+                              .split(/[^0-9]+/)
+                              .map((s) => Number(s))
+                              .filter((n) => Number.isFinite(n) && n > 0);
+                            if (!newListName || fids.length === 0) return;
+                            const next = { ...savedLists, [newListName]: Array.from(new Set(fids)) };
+                            persistSavedLists(next);
+                            setSelectedSavedList(newListName);
+                            setNewListName("");
+                          }}
+                        >
+                          Save List
+                        </button>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
@@ -705,6 +1039,16 @@ export default function NotificationsTab({
                   {notificationMode === 'fepl' && (
                     <span className="ml-2 text-blue-400">
                       (FC FEPL managers)
+                    </span>
+                  )}
+                  {notificationMode === 'nonFepl' && (
+                    <span className="ml-2 text-amber-400">
+                      (Non-FEPL users)
+                    </span>
+                  )}
+                  {notificationMode === 'custom' && (
+                    <span className="ml-2 text-gray-400">
+                      (Custom list)
                     </span>
                   )}
                 </div>
