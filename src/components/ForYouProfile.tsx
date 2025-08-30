@@ -400,17 +400,17 @@ const UserProfile: React.FC<ForYouProfileProps> = ({ profileFid, castHash }) => 
             )}
           </div>
 
-          {/* Team Trophy Case Section */}
+          {/* Trophy Case Section */}
           {selectedTeam && (
             <div className="mt-6">
               <h3 className="text-notWhite font-semibold mb-3">
-                {viewingOwnProfile ? 'Your' : `${userData.username}'s`} {selectedTeam.split('-')[1].toUpperCase()} Trophy Case
+                {viewingOwnProfile ? 'Your' : `${userData.username}'s`} Trophy Case
               </h3>
               <div className="p-4 border border-dashed border-limeGreenOpacity rounded-lg text-center">
                 <div className="text-4xl mb-2">🏆</div>
                 <h4 className="text-notWhite font-medium mb-2">Trophy Case Coming Soon</h4>
                 <p className="text-sm text-lightPurple">
-                  Collect exclusive {selectedTeam.split('-')[1].toUpperCase()} NFTs and showcase your fandom with unique digital memorabilia.
+                  Collect exclusive Fantasy season passes, contest rewards, and Footy collectibles to showcase your achievements across FEPL and other games.
                 </p>
                 <div className="mt-3 grid grid-cols-3 gap-2 opacity-50">
                   {[1, 2, 3].map((i) => (
