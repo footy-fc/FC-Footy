@@ -71,8 +71,8 @@ const Scout: React.FC = () => {
           {/* Tab Buttons */}
           <button
             onClick={() => handleTabSelect('forwards')}
-            className={`flex-shrink-0 py-1 px-6 text-sm font-semibold cursor-pointer rounded-full border-2 ${
-              selectedTab === 'forwards' ? 'border-limeGreenOpacity text-lightPurple' : 'border-gray-500 text-gray-500'
+            className={`flex-shrink-0 py-1 px-2 text-sm font-semibold cursor-pointer underline-offset-4 ${
+              selectedTab === 'forwards' ? 'text-lightPurple underline' : 'text-gray-500 hover:text-lightPurple hover:underline'
             }`}
           >
             Forwards
@@ -80,8 +80,8 @@ const Scout: React.FC = () => {
           
           <button
             onClick={() => handleTabSelect('midfielders')}
-            className={`flex-shrink-0 py-1 px-6 text-sm font-semibold cursor-pointer rounded-full border-2 ${
-              selectedTab === 'midfielders' ? 'border-limeGreenOpacity text-lightPurple' : 'border-gray-500 text-gray-500'
+            className={`flex-shrink-0 py-1 px-2 text-sm font-semibold cursor-pointer underline-offset-4 ${
+              selectedTab === 'midfielders' ? 'text-lightPurple underline' : 'text-gray-500 hover:text-lightPurple hover:underline'
             }`}
           >
             Midfielders
@@ -89,8 +89,8 @@ const Scout: React.FC = () => {
 
           <button
             onClick={() => handleTabSelect('defenders')}
-            className={`flex-shrink-0 py-1 px-6 text-sm font-semibold cursor-pointer rounded-full border-2 ${
-              selectedTab === 'defenders' ? 'border-limeGreenOpacity text-lightPurple' : 'border-gray-500 text-gray-500'
+            className={`flex-shrink-0 py-1 px-2 text-sm font-semibold cursor-pointer underline-offset-4 ${
+              selectedTab === 'defenders' ? 'text-lightPurple underline' : 'text-gray-500 hover:text-lightPurple hover:underline'
             }`}
           >
             Defending
@@ -98,8 +98,8 @@ const Scout: React.FC = () => {
 
           <button
             onClick={() => handleTabSelect('goalkeepers')}
-            className={`flex-shrink-0 py-1 px-6 text-sm font-semibold cursor-pointer rounded-full border-2 ${
-              selectedTab === 'goalkeepers' ? 'border-limeGreenOpacity text-lightPurple' : 'border-gray-500 text-gray-500'
+            className={`flex-shrink-0 py-1 px-2 text-sm font-semibold cursor-pointer underline-offset-4 ${
+              selectedTab === 'goalkeepers' ? 'text-lightPurple underline' : 'text-gray-500 hover:text-lightPurple hover:underline'
             }`}
           >
             Keepers

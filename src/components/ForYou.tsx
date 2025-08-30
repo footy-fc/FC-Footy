@@ -83,7 +83,7 @@ const ForYou = () => {
         {showLiveChat ? (
             <button
             onClick={() => setShowLiveChat(false)}
-            className="flex-shrink-0 py-1 px-6 text-sm font-semibold cursor-pointer rounded-full border-2 border-limeGreenOpacity text-lightPurple"
+            className="flex-shrink-0 py-1 px-2 text-sm font-semibold cursor-pointer text-lightPurple underline underline-offset-4"
             >
             ← Back
             </button>
@@ -91,30 +91,24 @@ const ForYou = () => {
             <>
             <button
               onClick={() => setSelectedTab("matches")}
-              className={`flex-shrink-0 py-1 px-6 text-sm font-semibold cursor-pointer rounded-full border-2 ${
-                selectedTab === "matches"
-                  ? "border-limeGreenOpacity text-lightPurple"
-                  : "border-gray-500 text-gray-500"
+              className={`flex-shrink-0 py-1 px-2 text-sm font-semibold cursor-pointer underline-offset-4 ${
+                selectedTab === "matches" ? "text-lightPurple underline" : "text-gray-500 hover:text-lightPurple hover:underline"
               }`}
             >
               Who&apos;s Playing
             </button>
             <button
             onClick={() => setSelectedTab("fellowFollowers")}
-            className={`flex-shrink-0 py-1 px-6 text-sm font-semibold cursor-pointer rounded-full border-2 ${
-                selectedTab === "fellowFollowers"
-                ? "border-limeGreenOpacity text-lightPurple"
-                : "border-gray-500 text-gray-500"
+            className={`flex-shrink-0 py-1 px-2 text-sm font-semibold cursor-pointer underline-offset-4 ${
+                selectedTab === "fellowFollowers" ? "text-lightPurple underline" : "text-gray-500 hover:text-lightPurple hover:underline"
             }`}
             >
             Fan Clubs
             </button>
             <button
               onClick={() => setSelectedTab("buyPoints")}
-              className={`flex-shrink-0 py-1 px-6 text-sm font-semibold cursor-pointer rounded-full border-2 ${
-                selectedTab === "buyPoints"
-                  ? "border-limeGreenOpacity text-lightPurple"
-                  : "border-gray-500 text-gray-500"
+              className={`flex-shrink-0 py-1 px-2 text-sm font-semibold cursor-pointer underline-offset-4 ${
+                selectedTab === "buyPoints" ? "text-lightPurple underline" : "text-gray-500 hover:text-lightPurple hover:underline"
               }`}
             >
               Buy $SCORES

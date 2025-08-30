@@ -23,20 +23,16 @@ const Rewards = () => {
       <div className="flex overflow-x-auto space-x-4 mb-4">
         <button
           onClick={() => setSelectedTab("feplWeekly")}
-          className={`flex-shrink-0 py-1 px-6 text-sm font-semibold cursor-pointer rounded-full border-2 ${
-            selectedTab === "feplWeekly"
-              ? "border-limeGreenOpacity text-lightPurple"
-              : "border-gray-500 text-gray-500"
+          className={`flex-shrink-0 py-1 px-2 text-sm font-semibold cursor-pointer underline-offset-4 ${
+            selectedTab === "feplWeekly" ? "text-lightPurple underline" : "text-gray-500 hover:text-lightPurple hover:underline"
           }`}
         >
           FEPL Weekly Rewards
         </button>
         <button
           onClick={() => setSelectedTab("ogRewards")}
-          className={`flex-shrink-0 py-1 px-6 text-sm font-semibold cursor-pointer rounded-full border-2 ${
-            selectedTab === "ogRewards"
-              ? "border-limeGreenOpacity text-lightPurple"
-              : "border-gray-500 text-gray-500"
+          className={`flex-shrink-0 py-1 px-2 text-sm font-semibold cursor-pointer underline-offset-4 ${
+            selectedTab === "ogRewards" ? "text-lightPurple underline" : "text-gray-500 hover:text-lightPurple hover:underline"
           }`}
         >
           OG Rewards
