@@ -34,15 +34,17 @@ const MatchesTab: React.FC<MatchesTabProps> = ({ setSelectedTab, league, setSele
 
   return (
     <div>
-      <div className="flex items-center justify-between">
-        <h2 className="ml-1 font-xl text-notWhite font-bold mb-4">
+      <div className="flex items-end justify-between mb-4">
+        <h2 className="ml-1 font-xl text-notWhite font-bold">
           Leagues & Cups
         </h2>
         <button
           onClick={() => setSelectedTab("settings")}
-          className="mb-3 flex items-center text-sm text-fontRed hover:underline focus:outline-none"
+          title="Follow teams to personalize Scores"
+          aria-label="Follow teams"
+          className="self-end px-3 py-1 text-xs rounded text-lightPurple hover:bg-deepPink hover:text-white transition-colors"
         >
-          <span>Follow teams 🔔</span>
+          Follow teams 🔔
         </button>
       </div>
       {/* Leagues & Cups Dropdown */}

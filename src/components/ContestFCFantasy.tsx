@@ -12,7 +12,8 @@ import { useWaitForTransactionReceipt, useReadContract } from 'wagmi';
 import { ethers } from 'ethers';
 import { useWriteContract } from 'wagmi';
 import { PRIVILEGED_FIDS } from '~/config/privileged';
-import { CONTRACT_ADDRESS_FEPL, CONTRACT_ABI_FEPL } from '../constants/contracts';
+import { CONTRACT_ADDRESS_FEPL, CONTRACT_ABI_FEPL, FEPL_MINT_PRICE } from '../constants/contracts';
+import { fetchNativeTokenPrice } from '~/utils/fetchUsdPrice';
 
 // FantasyEntry type is now imported from fetchFantasyData
 
@@ -35,6 +36,7 @@ const ContestFCFantasy = () => {
   const [currentUserFid, setCurrentUserFid] = useState<number | null>(null);
   const [cardPfpUrl, setCardPfpUrl] = useState<string>('/defifa_spinner.gif');
   const [feplChat, setFeplChat] = useState<{ exists: boolean; invite?: string | null }>({ exists: false, invite: null });
+  const [ethUsd, setEthUsd] = useState<number | null>(null);
   
   const cardRef = useRef<HTMLDivElement>(null);
   const { user } = usePrivy();
@@ -103,6 +105,20 @@ const ContestFCFantasy = () => {
       loadContext();
     }
   }, [isContextLoaded]);
+
+  // Fetch current ETH/USD price (Base uses ETH) for approx USD display
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const price = await fetchNativeTokenPrice('base');
+        if (!cancelled) setEthUsd(price);
+      } catch (e) {
+        if (!cancelled) setEthUsd(null);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
@@ -420,7 +436,7 @@ const ContestFCFantasy = () => {
         abi: CONTRACT_ABI_FEPL,
         functionName: 'mintAsWhitelisted',
         args: [`ipfs://${localMetadataCid}`],
-        value: ethers.parseEther('0.0007'),
+        value: ethers.parseEther(FEPL_MINT_PRICE),
       });
   
       if (!tx) throw new Error('No valid transaction hash received');
@@ -619,15 +635,20 @@ const ContestFCFantasy = () => {
         <div className="flex justify-center mt-4 w-full">
           {currentUserEntry ? (
             // User is in the fantasy league - show mint button
-            <button
-              onClick={handleMintImage}
-              disabled={mintingInProgress || !cardEntry}
-              className={`py-3 px-8 bg-deepPink text-white rounded-lg hover:bg-fontRed transition shadow-lg text-lg font-bold ${
-                mintingInProgress ? 'opacity-50' : ''
-              }`}
-            >
-              {mintingInProgress ? 'Minting...' : 'Collect Season Pass'}
-            </button>
+            <div className="w-full max-w-xs text-center">
+              <button
+                onClick={handleMintImage}
+                disabled={mintingInProgress || !cardEntry}
+                className={`w-full py-2 px-4 rounded transition-colors ${
+                  mintingInProgress ? 'bg-gray-400 text-gray-200 cursor-not-allowed' : 'bg-deepPink text-white hover:bg-fontRed'
+                }`}
+              >
+                {mintingInProgress ? 'Processing…' : 'Collect Season Pass'}
+              </button>
+              <div className="mt-1 text-xs text-gray-400">
+                {FEPL_MINT_PRICE} ETH{ethUsd ? ` ≈ $${(Number(FEPL_MINT_PRICE) * ethUsd).toFixed(2)}` : ''}
+              </div>
+            </div>
           ) : (
             // User is not in the fantasy league - show registration prompt
             <div className="text-center">
