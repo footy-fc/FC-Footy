@@ -1048,7 +1048,9 @@ const ContentLiveChat = ({ teamId, parentCastHash, parentUrl, hubUrl, eventId }:
           </div>
             ) : (
               <div className="bg-darkPurple/60 rounded-lg p-2 border border-limeGreenOpacity/50">
-                {!isConnected ? (
+                {tokenLoading ? (
+                  <div className="h-12 flex items-center justify-center text-xs text-gray-500">Loading…</div>
+                ) : !isConnected ? (
                   <div className="text-center">
                     <p className="text-xs text-lightPurple mb-2">
                       Connect wallet for AI commentary
@@ -1074,7 +1076,7 @@ const ContentLiveChat = ({ teamId, parentCastHash, parentUrl, hubUrl, eventId }:
           </div>
           
           <div className="border border-limeGreenOpacity/50 rounded-lg bg-darkPurple/60">
-            <ForYouWhosPlaying eventId={eventId} suppressFtue />
+            <ForYouWhosPlaying eventId={eventId} suppressFtue suppressAffordances />
           </div>
           
           {/* AI Commentary Display */}

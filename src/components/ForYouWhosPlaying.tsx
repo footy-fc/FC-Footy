@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import Image from 'next/image';
 import { getTeamPreferences } from "../lib/kvPerferences";
 import EventCard from "./MatchEventCard";
 import { MatchEvent } from "../types/gameTypes";
@@ -11,14 +12,21 @@ type EventLike = { id?: string; date: string; competitions?: Competition[]; leag
 interface Props {
   eventId?: string;
   suppressFtue?: boolean;
+  suppressAffordances?: boolean; // hides both FTUE and no-matches CTA panels
 }
 
-const ForYouWhosPlaying: React.FC<Props> = ({ eventId, suppressFtue = false }) => {
+const ForYouWhosPlaying: React.FC<Props> = ({ eventId, suppressFtue = false, suppressAffordances = false }) => {
   const [favoriteTeams, setFavoriteTeams] = useState<string[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [matchData, setMatchData] = useState<MatchEvent[]>([]);
   const [refreshTick, setRefreshTick] = useState<number>(0);
+  // Defer showing CTA affordances briefly to avoid flash while state settles
+  const [affordancesReady, setAffordancesReady] = useState(false);
+  useEffect(() => {
+    const t = setTimeout(() => setAffordancesReady(true), 250);
+    return () => clearTimeout(t);
+  }, []);
 
   const fetchFavoriteTeams = async () => {
     try {
@@ -195,7 +203,13 @@ const ForYouWhosPlaying: React.FC<Props> = ({ eventId, suppressFtue = false }) =
 
   return (
     <div className="bg-purplePanel text-lightPurple rounded-lg p-2 overflow-hidden">
-      {!hasFavorites && !suppressFtue ? (
+      {/* Spinner placeholder to avoid CTA flash while settling */}
+      {!hasFavorites && !suppressFtue && !suppressAffordances && !affordancesReady && (
+        <div className="p-4 border border-dashed border-limeGreenOpacity rounded-lg text-center">
+          <Image src="/defifa_spinner.gif" alt="loading" width={30} height={30} className="mx-auto" />
+        </div>
+      )}
+      {!hasFavorites && !suppressFtue && !suppressAffordances && affordancesReady ? (
         <div className="p-4 border border-dashed border-limeGreenOpacity rounded-lg text-center">
           <h3 className="text-notWhite font-semibold mb-1">Who&apos;s Playing</h3>
           <p className="text-sm text-lightPurple mb-3">Follow your favorite teams to see scores here and get match notifications.</p>
@@ -226,7 +240,14 @@ const ForYouWhosPlaying: React.FC<Props> = ({ eventId, suppressFtue = false }) =
       ) : null}
 
       {/* Empty state when user has favorites but no fixtures today */}
-      {hasFavorites && filteredEvents.length === 0 && (
+      {/* Spinner for no-matches CTA while settling */}
+      {hasFavorites && filteredEvents.length === 0 && !suppressAffordances && !affordancesReady && (
+        <div className="p-4 border border-dashed border-limeGreenOpacity rounded-lg text-center mb-3">
+          <Image src="/defifa_spinner.gif" alt="loading" width={30} height={30} className="mx-auto" />
+        </div>
+      )}
+
+      {hasFavorites && filteredEvents.length === 0 && !suppressAffordances && affordancesReady && (
         <div className="p-4 border border-dashed border-limeGreenOpacity rounded-lg text-center mb-3">
           <h3 className="text-notWhite font-semibold mb-1">No matches for your teams today</h3>
           <p className="text-sm text-lightPurple mb-3">Fixtures refresh daily. You’ll see your clubs here on matchdays. In the meantime, explore clubs or turn on notifications so you don’t miss kickoff.</p>
