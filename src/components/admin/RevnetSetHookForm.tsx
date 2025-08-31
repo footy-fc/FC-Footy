@@ -38,7 +38,7 @@ const controllerAbi = [
     ],
   },
   {
-    // setSplitGroupsOf(uint256 projectId, uint256 rulesetId, (uint256 group, (bool,bool,uint256,uint256,address,uint256,address,address,bytes32)[] splits)[] splitGroups)
+    // setSplitGroupsOf(uint256 projectId, uint256 rulesetId, (uint256 groupId, (uint32,uint64,address,bool,uint48,address)[] splits)[] splitGroups)
     name: 'setSplitGroupsOf',
     type: 'function',
     stateMutability: 'nonpayable',
@@ -49,20 +49,17 @@ const controllerAbi = [
         name: 'splitGroups',
         type: 'tuple[]',
         components: [
-          { name: 'group', type: 'uint256' },
+          { name: 'groupId', type: 'uint256' },
           {
             name: 'splits',
             type: 'tuple[]',
             components: [
-              { name: 'preferClaimed', type: 'bool' },
-              { name: 'preferAddToBalance', type: 'bool' },
-              { name: 'percent', type: 'uint256' },
-              { name: 'projectId', type: 'uint256' },
+              { name: 'percent', type: 'uint32' },
+              { name: 'projectId', type: 'uint64' },
               { name: 'beneficiary', type: 'address' },
-              { name: 'lockedUntil', type: 'uint256' },
+              { name: 'preferAddToBalance', type: 'bool' },
+              { name: 'lockedUntil', type: 'uint48' },
               { name: 'hook', type: 'address' },
-              { name: 'allocator', type: 'address' },
-              { name: 'metadata', type: 'bytes32' },
             ],
           },
         ],
@@ -83,12 +80,7 @@ const RevnetSetHookForm: React.FC = () => {
   ]);
   // Split hook not used in this simplified flow
   const hook = '0x0000000000000000000000000000000000000000';
-  // Advanced fields fixed to defaults in simplified flow
-  const preferAddToBalance = false;
-  const preferClaimed = false;
-  const lockedUntil = '0';
-  const allocator = '0x0000000000000000000000000000000000000000';
-  const metadataHex = '0x0000000000000000000000000000000000000000000000000000000000000000';
+  // Advanced fields fixed to defaults in simplified flow (inlined below to avoid unused vars)
 
   const { data: current } = useReadContract({
     address: CONTROLLER,
@@ -132,50 +124,26 @@ const RevnetSetHookForm: React.FC = () => {
     try {
       // Convert to JB SPLITS_TOTAL_PERCENT (1e9)
       // Each recipient gets share% of the ruleset's reserved max (SPLITS_TOTAL_PERCENT = 1e9)
+      // Minimal JBSplit tuple per docs: [percent(uint32), projectId(uint64), beneficiary, preferAddToBalance(bool), lockedUntil(uint48), hook]
       const splits = recipients.map((r) => {
         const share = Math.max(0, Math.min(100, Number(r.sharePct || '0')));
-        const scaled = BigInt(Math.round((share / 100) * 1_000_000_000));
-        return {
-          preferClaimed,
-          preferAddToBalance,
-          percent: scaled,
-          projectId: 0n,
-          beneficiary: (r.beneficiary || '0x0000000000000000000000000000000000000000') as `0x${string}`,
-          lockedUntil: BigInt(lockedUntil || '0'),
-          hook: hook as `0x${string}`,
-          allocator: allocator as `0x${string}`,
-          metadata: metadataHex as `0x${string}`,
-        };
+        const scaled = Math.round((share / 100) * 1_000_000_000); // number fits uint32
+        return [
+          scaled, // percent (uint32)
+          0,      // projectId (uint64)
+          (r.beneficiary || '0x0000000000000000000000000000000000000000') as `0x${string}`,
+          false,  // preferAddToBalance (bool)
+          0,      // lockedUntil (uint48)
+          hook as `0x${string}`,
+        ] as const;
       });
       // Debug: log the raw splits tuple
-      console.log('[Revnet] splits tuple:', splits.map(s => ({
-        preferClaimed: s.preferClaimed,
-        preferAddToBalance: s.preferAddToBalance,
-        percent: s.percent.toString(),
-        projectId: s.projectId.toString(),
-        beneficiary: s.beneficiary,
-        lockedUntil: s.lockedUntil.toString(),
-        hook: s.hook,
-        allocator: s.allocator,
-        metadata: s.metadata,
-      })));
+      console.log('[Revnet] splits tuple (minimal):', splits);
 
-      const groups = [{ group: 2n, splits }];
-      // Debug: log the full splitGroups tuple (group + splits)
-      console.log('[Revnet] splitGroups tuple:', groups.map(g => ({
-        group: g.group.toString(),
-        splits: g.splits.map(s => ({
-          percent: s.percent.toString(),
-          beneficiary: s.beneficiary,
-          projectId: s.projectId.toString(),
-          preferAddToBalance: s.preferAddToBalance,
-          preferClaimed: s.preferClaimed,
-          lockedUntil: s.lockedUntil.toString(),
-          hook: s.hook,
-          allocator: s.allocator,
-          metadata: s.metadata,
-        })),
-      })));
+      // Per docs, reserved groupId is 1
+      const groups = [{ groupId: 1n, splits }];
+      // Debug: log the full splitGroups tuple (groupId + splits)
+      console.log('[Revnet] splitGroups tuple (minimal):', groups);
 
       // Log the args and encoded calldata for auditing
       // Using three-arg controller signature: (projectId, rulesetId, splitGroups)
@@ -186,7 +154,7 @@ const RevnetSetHookForm: React.FC = () => {
         functionName: 'setSplitGroupsOf',
         args: callArgs as unknown as any,
       });
-      console.log('[Revnet] setSplitGroupsOf args:', {
+      console.log('[Revnet] setSplitGroupsOf args (3-arg):', {
         controller: CONTROLLER,
         projectId: projectId.toString(),
         rulesetId: computedRulesetId.toString(),
