@@ -1,7 +1,7 @@
 export const tabDisplayMap: Record<string, string> = {
     forYou: "For You",
     matches: "Scores",
-    contests: "FC Fantasy",
+    contests: "Fantasy",
     rewards: "Rewards",
     scoutPlayers: "Scout Players",
     // moneyGames: "ScoreSquare", // Temporarily disabled

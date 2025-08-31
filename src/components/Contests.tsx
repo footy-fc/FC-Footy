@@ -40,7 +40,7 @@ const Contests = () => {
     <div className="mb-4">
       {/* Header row with support affordance */}
       <div className="flex items-center justify-between mb-4">
-        <h2 className="font-2xl text-notWhite font-bold">Leaderboards</h2>
+        <h2 className="font-2xl text-notWhite font-bold">Standings and Analytics</h2>
         {feplInvite && (
           <button
             title="Need help? Ask other managers in the league chat"
@@ -65,7 +65,7 @@ const Contests = () => {
             selectedTab === "fCFantasy" ? "text-lightPurple underline" : "text-gray-500 hover:text-lightPurple hover:underline"
           }`}
         >
-          FEPL
+          FC FEPL
         </button>
 
         <button

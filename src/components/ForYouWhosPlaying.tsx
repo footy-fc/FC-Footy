@@ -10,9 +10,10 @@ type EventLike = { id?: string; date: string; competitions?: Competition[]; leag
 
 interface Props {
   eventId?: string;
+  suppressFtue?: boolean;
 }
 
-const ForYouWhosPlaying: React.FC<Props> = ({ eventId }) => {
+const ForYouWhosPlaying: React.FC<Props> = ({ eventId, suppressFtue = false }) => {
   const [favoriteTeams, setFavoriteTeams] = useState<string[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -194,7 +195,7 @@ const ForYouWhosPlaying: React.FC<Props> = ({ eventId }) => {
 
   return (
     <div className="bg-purplePanel text-lightPurple rounded-lg p-2 overflow-hidden">
-      {!hasFavorites ? (
+      {!hasFavorites && !suppressFtue ? (
         <div className="p-4 border border-dashed border-limeGreenOpacity rounded-lg text-center">
           <h3 className="text-notWhite font-semibold mb-1">Who&apos;s Playing</h3>
           <p className="text-sm text-lightPurple mb-3">Follow your favorite teams to see scores here and get match notifications.</p>

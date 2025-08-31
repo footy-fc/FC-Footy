@@ -1074,7 +1074,7 @@ const ContentLiveChat = ({ teamId, parentCastHash, parentUrl, hubUrl, eventId }:
           </div>
           
           <div className="border border-limeGreenOpacity/50 rounded-lg bg-darkPurple/60">
-            <ForYouWhosPlaying eventId={eventId} />
+            <ForYouWhosPlaying eventId={eventId} suppressFtue />
           </div>
           
           {/* AI Commentary Display */}

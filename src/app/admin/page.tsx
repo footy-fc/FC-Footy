@@ -10,6 +10,8 @@ import LeaguesTab from "../../components/admin/LeaguesTab";
 import MatchRoomsTab from "../../components/admin/MatchRoomsTab";
 import GameWeekSummaryStepByStep from "../../components/admin/GameWeekSummaryStepByStep";
 import GroupChatsTab from "../../components/admin/GroupChatsTab";
+import RevnetInspector from "../../components/admin/RevnetInspector";
+import RevnetSetHookForm from "../../components/admin/RevnetSetHookForm";
 import useEventsData from "../../components/utils/useEventsData";
 // import { parseEventId } from "../../utils/eventIdParser";
 
@@ -602,6 +604,7 @@ export default function AdminPage() {
                 { id: "groupChats", label: "Group Chats" },
                 { id: "gameWeekSummary", label: "Game Week Casts" },
                 { id: "findEventId", label: "Find Event ID" },
+                { id: "revnet", label: "Revnet" },
               ].map((tab) => (
                 <button
                   key={tab.id}
@@ -682,6 +685,21 @@ export default function AdminPage() {
 
           {activeTab === "findEventId" && (
             <FindEventIdPanel />
+          )}
+
+          {activeTab === "revnet" && (
+            <div className="space-y-6">
+              <div className="p-4 rounded border border-limeGreenOpacity bg-gray-900/40">
+                <h4 className="text-notWhite font-semibold mb-2">Project & Token Inspector</h4>
+                <p className="text-xs text-gray-400 mb-3">View current/upcoming ruleset IDs and ERC‑20 token metadata (Base).</p>
+                <RevnetInspector />
+              </div>
+              <div className="p-4 rounded border border-limeGreenOpacity bg-gray-900/40">
+                <h4 className="text-notWhite font-semibold mb-2">Set Split With Hook</h4>
+                <p className="text-xs text-gray-400 mb-3">Calls JBController4_1.setSplitGroupsOf. Connect a wallet with permission to configure splits.</p>
+                <RevnetSetHookForm />
+              </div>
+            </div>
           )}
           </div>
       </div>
