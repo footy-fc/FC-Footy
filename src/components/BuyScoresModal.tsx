@@ -161,7 +161,7 @@ const BuyScoresModal: React.FC<BuyScoresModalProps> = ({
                   onClick={async () => {
                     try {
                       await sdk.actions.viewToken({
-                        token: 'eip155:8453/erc20:0xba1afff81a239c926446a67d73f73ec51c37c777',
+                        token: 'eip155:8453/erc20:0xAC264447a1D86a3c775a05a60e768cF4120cB3Ec',
                       });
                     } catch (err) {
                       console.error('viewToken error:', err);

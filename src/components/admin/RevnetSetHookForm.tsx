@@ -7,7 +7,7 @@ import { etherscanLink } from "~/lib/utils";
 import { useReadContract, useWriteContract } from "wagmi";
 
 // Base mainnet addresses
-const CONTROLLER = '0xd1c436eb62e1d23e66842701b09e3d65aa8522e8' as const; // JBController4_1
+const CONTROLLER = '0x27da30646502e2f642be5281322ae8c394f7668a' as const; // JBController4_1
 
 // Minimal ABI fragments needed
 const controllerAbi = [
@@ -70,7 +70,7 @@ const controllerAbi = [
 ] as const;
 
 const RevnetSetHookForm: React.FC = () => {
-  const [projectId, setProjectId] = useState<bigint>(53n);
+  const [projectId, setProjectId] = useState<bigint>(10n);
   const [useCurrent, setUseCurrent] = useState(true);
   const [rulesetIdOverride, setRulesetIdOverride] = useState<string>("");
   // Only support Reserved Token splits (group 2)

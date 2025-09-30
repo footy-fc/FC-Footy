@@ -35,7 +35,7 @@ export function Providers({
       <QueryClientProvider client={queryClient}>
         <ApolloProvider client={apolloClient}>
           <JBProjectProvider
-              projectId={53n}
+              projectId={10n}
               chainId={8453 as JBChainId}
               ctxProps={{ metadata: { ipfsGatewayHostname: OPEN_IPFS_GATEWAY_HOSTNAME } }}
             >

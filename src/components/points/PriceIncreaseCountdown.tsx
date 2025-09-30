@@ -9,7 +9,7 @@ import {
 import { useJBRuleset } from "juice-sdk-react";
 
 export function PriceIncreaseCountdown() {
-  const projectId = 53n;
+  const projectId = 10n;
   const chainId = 8453;
 
   const { data: rulesetData } = useJBRuleset({ projectId, chainId });

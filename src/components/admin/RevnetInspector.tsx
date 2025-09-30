@@ -3,8 +3,8 @@
 import React, { useMemo, useState } from "react";
 import { useReadContract } from "wagmi";
 
-const CONTROLLER = '0xd1c436eb62e1d23e66842701b09e3d65aa8522e8' as const; // JBController4_1 on Base
-const DEFAULT_PROJECT_ID = 53n;
+const CONTROLLER = '0x27da30646502e2f642be5281322ae8c394f7668a' as const; // JBController4_1 on Base
+const DEFAULT_PROJECT_ID = 10n;
 
 const controllerAbi = [
   {
@@ -70,7 +70,7 @@ const erc20Abi = [
 
 const RevnetInspector: React.FC = () => {
   const [projectId, setProjectId] = useState<bigint>(DEFAULT_PROJECT_ID);
-  const [tokenAddress, setTokenAddress] = useState<string>('0xBa1aFff81A239C926446a67D73F73eC51C37c777');
+  const [tokenAddress, setTokenAddress] = useState<string>('0xAC264447a1D86a3c775a05a60e768cF4120cB3Ec');
 
   const { data: current } = useReadContract({
     address: CONTROLLER,

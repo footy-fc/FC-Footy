@@ -1,7 +1,7 @@
 import { useAccount, useReadContract } from 'wagmi';
 
 // $SCORES token contract address on Base
-const SCORES_TOKEN_ADDRESS = '0xba1afff81a239c926446a67d73f73ec51c37c777' as `0x${string}`;
+const SCORES_TOKEN_ADDRESS = '0xAC264447a1D86a3c775a05a60e768cF4120cB3Ec' as `0x${string}`;
 
 // ERC20 ABI for balanceOf function
 const ERC20_ABI = [
