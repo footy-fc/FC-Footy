@@ -5,6 +5,7 @@ import { Redis } from "@upstash/redis";
 import axios from "axios";
 import { sendFrameNotification } from "~/lib/notifications";
 import { getFansForTeams } from "~/lib/kvPerferences";
+import { scanKeys } from "../../lib/redisScan";
 import { fetchJSONWithRetry, errorAsOk, okJson } from "../../lib/http";
 
 // Ensure that your environment variables are correctly set.
@@ -153,9 +154,9 @@ export async function POST(request: NextRequest) {
     // Get all subscribed user keys from Redis
     let userKeys: string[] = [];
     try {
-      userKeys = await redis.keys("fc-footy:user:*");
+      userKeys = await scanKeys(redis as any, "fc-footy:user:*", { count: 1000, limit: 50000 });
     } catch (err) {
-      console.error("Error fetching user keys from Redis", err);
+      console.error("Error scanning user keys from Redis", err);
     }
     // Filter fans to notify based on user key patterns
     const fidsToNotify = Array.from(uniqueFansToNotify).filter((fid) =>

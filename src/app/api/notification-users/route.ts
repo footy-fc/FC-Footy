@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { Redis } from "@upstash/redis";
+import { scanKeys } from "../lib/redisScan";
 
 const redis = new Redis({
   url: process.env.NEXT_PUBLIC_KV_REST_API_URL,
@@ -18,16 +19,19 @@ export async function POST(request: NextRequest) {
     );
   }
   
-  const { adminOnly = false } = await request.json();
+  const { adminOnly = false, countOnly = false } = await request.json();
 
   let targetFids: number[];
   
   if (adminOnly) {
     targetFids = ADMIN_FIDS;
+  } else if (countOnly) {
+    const total = (await scanKeys(redis as any, "fc-footy:user:*", { count: 1000, limit: 1_000_000 })).length;
+    return Response.json({ success: true, userFids: [], totalUsers: total, targetType: "countOnly" });
   } else {
-    // Scan Redis to fetch all user notification keys
-    const userKeys = await redis.keys("fc-footy:user:*");
-    targetFids = userKeys.map(key => parseInt(key.split(":").pop()!));
+    // Use SCAN to fetch all user notification keys
+    const userKeys = await scanKeys(redis as any, "fc-footy:user:*", { count: 1000 });
+    targetFids = userKeys.map((key) => parseInt(key.split(":").pop()!));
   }
 
   return Response.json({

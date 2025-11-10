@@ -12,6 +12,7 @@ import GameWeekSummaryStepByStep from "../../components/admin/GameWeekSummarySte
 import GroupChatsTab from "../../components/admin/GroupChatsTab";
 import RevnetInspector from "../../components/admin/RevnetInspector";
 import RevnetSetHookForm from "../../components/admin/RevnetSetHookForm";
+import HealthTab from "../../components/admin/HealthTab";
 import useEventsData from "../../components/utils/useEventsData";
 // import { parseEventId } from "../../utils/eventIdParser";
 
@@ -96,14 +97,18 @@ export default function AdminPage() {
     startDate: new Date().toISOString().split('T')[0]
   });
 
-  async function getTotalNumberOfUsers(): Promise<number> {
-    const keys = await redis.keys("fc-footy:user:*");
-    return keys.length;
-  }
-
   const fetchTotalNumberOfUsers = async () => {
-    const totalNumber = await getTotalNumberOfUsers();
-    setTotalNumberOfUsers(totalNumber);
+    try {
+      const res = await fetch('/api/notification-users', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'x-api-key': process.env.NEXT_PUBLIC_NOTIFICATION_API_KEY || '' },
+        body: JSON.stringify({ adminOnly: false, countOnly: true })
+      });
+      const json = await res.json();
+      setTotalNumberOfUsers(json.totalUsers || 0);
+    } catch {
+      setTotalNumberOfUsers(0);
+    }
   };
 
   // Team management functions
@@ -605,6 +610,7 @@ export default function AdminPage() {
                 { id: "gameWeekSummary", label: "Game Week Casts" },
                 { id: "findEventId", label: "Find Event ID" },
                 { id: "revnet", label: "Revnet" },
+                { id: "health", label: "Health" },
               ].map((tab) => (
                 <button
                   key={tab.id}
@@ -651,6 +657,9 @@ export default function AdminPage() {
               refreshAllData={refreshAllData}
             />
           )}
+
+          {/* Health Tab */}
+          {activeTab === "health" && <HealthTab />}
 
           {/* Leagues Tab */}
           {activeTab === "leagues" && (

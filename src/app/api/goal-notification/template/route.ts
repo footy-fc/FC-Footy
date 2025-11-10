@@ -4,6 +4,7 @@ import { NextRequest } from "next/server";
 import { Redis } from "@upstash/redis";
 import axios from "axios";
 import { sendFrameNotification } from "~/lib/notifications";
+import { scanKeys } from "../../lib/redisScan";
 import { fetchJSONWithRetry, errorAsOk, okJson } from "../../lib/http";
 
 const redis = new Redis({
@@ -92,7 +93,7 @@ export async function POST(request: NextRequest) {
         goalNotifications.push(message);
 
         // Send notifications to all subscribed footies
-        const userKeys = await redis.keys("fc-footy:user:*");
+        const userKeys = await scanKeys(redis as any, "fc-footy:user:*", { count: 1000, limit: 50000 });
         const batchSize = 40;
         for (let i = 0; i < userKeys.length; i += batchSize) {
           const batch = userKeys.slice(i, i + batchSize);
