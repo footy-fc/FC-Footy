@@ -5,6 +5,7 @@ import axios from "axios";
 import { sendFrameNotification } from "~/lib/notifications";
 import { getFansForTeamAbbr } from "~/lib/kvPerferences";
 import { ApiResponse, Competition, Competitor, MatchDetail, MatchEvent } from "../../lib/types";
+import { fetchJSONWithRetry, errorAsOk, okJson } from "../../lib/http";
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const redis = new Redis({
@@ -18,12 +19,16 @@ export async function POST(request: NextRequest) {
 
   let liveEvents: MatchEvent[];
   try {
-    const response = await axios.get<ApiResponse>(scoreboardUrl);
-    if (!response.data.events) {
+    const data = await fetchJSONWithRetry<ApiResponse>(scoreboardUrl, {
+      retries: 3,
+      timeoutMs: 8000,
+      backoffMs: 600,
+    });
+    if (!data.events) {
       throw new Error("No events data returned from API");
     }
     // Include both "in" and "post" matches to catch full-time events
-    liveEvents = response.data.events.filter(
+    liveEvents = data.events.filter(
       (event) =>
         event.competitions?.[0]?.status?.type?.state === "in" ||
         event.competitions?.[0]?.status?.type?.state === "post"
@@ -31,10 +36,7 @@ export async function POST(request: NextRequest) {
     console.log(`Found ${liveEvents.length} live or completed event(s) in CWC.`);
   } catch (error) {
     console.error("Error fetching CWC scoreboard:", error);
-    return new NextResponse(
-      JSON.stringify({ success: false, error: "Failed to fetch scoreboard" }),
-      { status: 500 }
-    );
+    return errorAsOk("Failed to fetch scoreboard", { league: "cwc" });
   }
 
   const goalNotifications: string[] = [];
@@ -130,9 +132,13 @@ export async function POST(request: NextRequest) {
         await Promise.all(notificationPromises);
       }
 
-      await redis.hset(`fc-footy:cwc:notifications:${matchId}`, {
-        kickoff_notified: "true",
-      });
+      try {
+        await redis.hset(`fc-footy:cwc:notifications:${matchId}`, {
+          kickoff_notified: "true",
+        });
+      } catch (err) {
+        console.error(`Failed to hset kickoff flag for ${matchId}`, err);
+      }
     }
 
     // Halftime Notification
@@ -161,9 +167,13 @@ export async function POST(request: NextRequest) {
         await Promise.all(notificationPromises);
       }
 
-      await redis.hset(`fc-footy:cwc:notifications:${matchId}`, {
-        halftime_notified: "true",
-      });
+      try {
+        await redis.hset(`fc-footy:cwc:notifications:${matchId}`, {
+          halftime_notified: "true",
+        });
+      } catch (err) {
+        console.error(`Failed to hset halftime flag for ${matchId}`, err);
+      }
     }
 
     // Full-Time Notification
@@ -193,9 +203,13 @@ export async function POST(request: NextRequest) {
         await Promise.all(notificationPromises);
       }
 
-      await redis.hset(`fc-footy:cwc:notifications:${matchId}`, {
-        fulltime_notified: "true",
-      });
+      try {
+        await redis.hset(`fc-footy:cwc:notifications:${matchId}`, {
+          fulltime_notified: "true",
+        });
+      } catch (err) {
+        console.error(`Failed to hset fulltime flag for ${matchId}`, err);
+      }
     }
     // --- End New Logic ---
 
@@ -212,7 +226,11 @@ export async function POST(request: NextRequest) {
       console.log(
         `Initializing Redis for cwc match ${matchId} with scores: ${homeScore}-${awayScore}`
       );
-      await redis.hset(`fc-footy:cwc:match:${matchId}`, { homeScore, awayScore });
+      try {
+        await redis.hset(`fc-footy:cwc:match:${matchId}`, { homeScore, awayScore });
+      } catch (err) {
+        console.error(`Failed to initialize match hash for ${matchId}`, err);
+      }
       continue;
     }
 
@@ -278,19 +296,20 @@ export async function POST(request: NextRequest) {
       await Promise.all(notificationPromises);
     }
 
-    await redis.hset(`fc-footy:cwc:match:${matchId}`, { homeScore, awayScore });
+    try {
+      await redis.hset(`fc-footy:cwc:match:${matchId}`, { homeScore, awayScore });
+    } catch (err) {
+      console.error(`Failed to persist scores for ${matchId}`, err);
+    }
     // --- End Existing Goal Notification Logic ---
   }
 
-  return new NextResponse(
-    JSON.stringify({
-      success: true,
-      notificationsSent: goalNotifications.length + otherNotifications.length,
-      goalNotifications,
-      otherNotifications, // Include for debugging or logging
-    }),
-    { status: 200 }
-  );
+  return okJson({
+    success: true,
+    notificationsSent: goalNotifications.length + otherNotifications.length,
+    goalNotifications,
+    otherNotifications,
+  });
 }
 
 export const runtime = "edge";

@@ -4,6 +4,7 @@ import { NextRequest } from "next/server";
 import { Redis } from "@upstash/redis";
 import axios from "axios";
 import { sendFrameNotification } from "~/lib/notifications";
+import { fetchJSONWithRetry, errorAsOk, okJson } from "../../lib/http";
 
 const redis = new Redis({
   url: process.env.NEXT_PUBLIC_KV_REST_API_URL,
@@ -17,16 +18,17 @@ export async function POST(request: NextRequest) {
 
   let liveEvents;
   try {
-    const response = await axios.get(scoreboardUrl);
-    liveEvents = response.data.events.filter(
-      (event: any) => event.competitions[0].status.type.state === "in"
-    ); // Only process live matches
+    const data = await fetchJSONWithRetry<any>(scoreboardUrl, {
+      retries: 3,
+      timeoutMs: 8000,
+      backoffMs: 600,
+    });
+    liveEvents = data.events?.filter(
+      (event: any) => event.competitions?.[0]?.status?.type?.state === "in"
+    ) ?? [];
   } catch (error) {
     console.error("Error fetching scoreboard:", error);
-    return new Response(
-      JSON.stringify({ success: false, error: "Failed to fetch scoreboard" }),
-      { status: 500 }
-    );
+    return errorAsOk("Failed to fetch scoreboard", { league: "template" });
   }
 
   // Process live events to detect goal changes
@@ -110,19 +112,20 @@ export async function POST(request: NextRequest) {
         }
 
         // Update Redis with the new scores
-        await redis.hset(`fc-footy:match:${matchId}`, { homeScore, awayScore });
+        try {
+          await redis.hset(`fc-footy:match:${matchId}`, { homeScore, awayScore });
+        } catch (err) {
+          console.error(`Failed to persist scores for ${matchId}`, err);
+        }
       }
     }
   }
 
-  return new Response(
-    JSON.stringify({
-      success: true,
-      notificationsSent: goalNotifications.length,
-      goalNotifications,
-    }),
-    { status: 200 }
-  );
+  return okJson({
+    success: true,
+    notificationsSent: goalNotifications.length,
+    goalNotifications,
+  });
 }
 
 export const runtime = "edge";

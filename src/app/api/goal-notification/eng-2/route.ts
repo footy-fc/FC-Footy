@@ -5,6 +5,7 @@ import { Redis } from "@upstash/redis";
 import axios from "axios";
 import { sendFrameNotification } from "~/lib/notifications";
 import { getFansForTeams } from "~/lib/kvPerferences";
+import { fetchJSONWithRetry, errorAsOk, okJson } from "../../lib/http";
 
 // Ensure that your environment variables are correctly set.
 // Consider renaming them if they are meant for server-only usage.
@@ -21,22 +22,23 @@ export async function POST(request: NextRequest) {
   let liveEvents;
   const leagueId = "eng.2";
   try {
-    const response = await axios.get(scoreboardUrl);
-    if (!response.data.events) {
+    const data = await fetchJSONWithRetry<any>(scoreboardUrl, {
+      retries: 3,
+      timeoutMs: 8000,
+      backoffMs: 600,
+    });
+    if (!data.events) {
       throw new Error("No events data returned from API");
     }
     // Filter events for live matches (state === "in")
-    liveEvents = response.data.events.filter(
+    liveEvents = data.events.filter(
       (event: any) =>
         event.competitions?.[0]?.status?.type?.state === "in"
     );
     console.log(`Found ${liveEvents.length} live event(s).`);
   } catch (error) {
     console.error("Error fetching scoreboard:", error);
-    return new NextResponse(
-      JSON.stringify({ success: false, error: "Failed to fetch scoreboard" }),
-      { status: 500 }
-    );
+    return errorAsOk("Failed to fetch scoreboard", { league: "eng-2" });
   }
 
   const goalNotifications: string[] = [];
@@ -180,17 +182,18 @@ export async function POST(request: NextRequest) {
     }
 
     // Update Redis with the new scores after sending notifications
-    await redis.hset(`fc-footy:match:${matchId}`, { homeScore, awayScore });
+    try {
+      await redis.hset(`fc-footy:match:${matchId}`, { homeScore, awayScore });
+    } catch (err) {
+      console.error(`Failed to persist scores for ${matchId}`, err);
+    }
   }
 
-  return new NextResponse(
-    JSON.stringify({
-      success: true,
-      notificationsSent: goalNotifications.length,
-      goalNotifications,
-    }),
-    { status: 200 }
-  );
+  return okJson({
+    success: true,
+    notificationsSent: goalNotifications.length,
+    goalNotifications,
+  });
 }
 
 export const runtime = "edge";

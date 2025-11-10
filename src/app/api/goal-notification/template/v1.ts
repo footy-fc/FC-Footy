@@ -176,6 +176,7 @@ import { Redis } from "@upstash/redis";
 import axios from "axios";
 import { sendFrameNotification } from "~/lib/notifications";
 import { getFansForTeamAbbr } from "~/lib/kvPerferences";
+import { fetchJSONWithRetry, errorAsOk, okJson } from "../../lib/http";
 
 const redis = new Redis({
   url: process.env.NEXT_PUBLIC_KV_REST_API_URL,
@@ -195,18 +196,17 @@ export async function POST(request: NextRequest) {
 
   let liveEvents;
   try {
-    const response = await axios.get(scoreboardUrl);
-    if (!response.data.events) {
-      throw new Error("No events data returned from API");
-    }
-    liveEvents = response.data.events;
+    const data = await fetchJSONWithRetry<any>(scoreboardUrl, {
+      retries: 3,
+      timeoutMs: 8000,
+      backoffMs: 600,
+    });
+    if (!data.events) throw new Error("No events data returned from API");
+    liveEvents = data.events;
     console.log(`Found ${liveEvents.length} event(s) in UCL.`);
   } catch (error) {
     console.error("Error fetching UCL scoreboard:", error);
-    return new NextResponse(
-      JSON.stringify({ success: false, error: "Failed to fetch scoreboard" }),
-      { status: 500 }
-    );
+    return errorAsOk("Failed to fetch scoreboard", { league: "template-v1" });
   }
 
   const notifications: { type: string; message: string }[] = [];
@@ -256,7 +256,11 @@ export async function POST(request: NextRequest) {
     // Initialize match in Redis if not found
     if (!previousState || Object.keys(previousState).length === 0) {
       console.log(`Initializing Redis for match ${matchId} with state:`, currentState);
-      await redis.hset(`fc-footy:ucl:match:${matchId}`, currentState);
+      try {
+        await redis.hset(`fc-footy:ucl:match:${matchId}`, currentState);
+      } catch (err) {
+        console.error(`Failed to initialize state for ${matchId}`, err);
+      }
       // Send kickoff notification if match is starting
       if (status === "STATUS_IN_PROGRESS") {
         const message = `${matchName} has kicked off!`;
@@ -381,17 +385,18 @@ export async function POST(request: NextRequest) {
     }
 
     // Update Redis with the current state
-    await redis.hset(`fc-footy:ucl:match:${matchId}`, currentState);
+    try {
+      await redis.hset(`fc-footy:ucl:match:${matchId}`, currentState);
+    } catch (err) {
+      console.error(`Failed to persist state for ${matchId}`, err);
+    }
   }
 
-  return new NextResponse(
-    JSON.stringify({
-      success: true,
-      notificationsSent: notifications.length,
-      notifications,
-    }),
-    { status: 200 }
-  );
+  return okJson({
+    success: true,
+    notificationsSent: notifications.length,
+    notifications,
+  });
 }
 
 export const runtime = "edge";
