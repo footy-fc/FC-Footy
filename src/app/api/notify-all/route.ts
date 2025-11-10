@@ -3,6 +3,7 @@ import { NextRequest } from "next/server";
 import { getUserNotificationDetails } from "~/lib/kv";
 import { sendFrameNotification } from "~/lib/notifications";
 import { Redis } from "@upstash/redis";
+import { scanKeys } from "../lib/redisScan";
 
 const redis = new Redis({
   url: process.env.NEXT_PUBLIC_KV_REST_API_URL,
@@ -31,9 +32,8 @@ export async function POST(request: NextRequest) {
   } else if (adminOnly) {
     targetFids = ADMIN_FIDS;
   } else {
-    // Scan Redis to fetch all user notification keys
-    const userKeys = await redis.keys("fc-footy:user:*");
-    targetFids = userKeys.map(key => parseInt(key.split(":").pop()!));
+    const userKeys = await scanKeys(redis as any, "fc-footy:user:*", { count: 1000 });
+    targetFids = userKeys.map((key) => parseInt(key.split(":").pop()!));
   }
 
   const notificationResults: Array<{ fid: number; result: any }> = [];

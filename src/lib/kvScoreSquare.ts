@@ -1,5 +1,6 @@
 // lib/gameApi.ts
 import { Redis } from "@upstash/redis";
+import { scanKeys } from "../app/api/lib/redisScan";
 
 const redis = new Redis({
   url: process.env.NEXT_PUBLIC_KV_REST_API_URL!,
@@ -46,7 +47,7 @@ export async function createGame(gameData: GameData): Promise<void> {
 
 export async function getGamesByPrefix(prefix: string): Promise<GameData[]> {
   const pattern = `score-square:game:${prefix}*`;
-  const keys: string[] = await redis.keys(pattern);
+  const keys: string[] = await scanKeys(redis as any, pattern, { count: 1000, limit: 100000 });
   const games: GameData[] = [];
 
   for (const key of keys) {

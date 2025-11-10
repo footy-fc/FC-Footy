@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { Redis } from "@upstash/redis";
+import { scanKeys } from "../lib/redisScan";
 
 const redis = new Redis({
   url: process.env.NEXT_PUBLIC_KV_REST_API_URL,
@@ -28,7 +29,7 @@ export async function GET(req: NextRequest) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const keys = await redis.keys(`${MATCH_ROOM_PREFIX}*`);
+  const keys = await scanKeys(redis as any, `${MATCH_ROOM_PREFIX}*`, { count: 1000, limit: 50000 });
   if (!keys || keys.length === 0) {
     return Response.json({ rooms: [] });
   }
@@ -164,5 +165,4 @@ export async function PUT(req: NextRequest) {
 }
 
 export const runtime = 'nodejs';
-
 

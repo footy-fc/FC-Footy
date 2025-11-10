@@ -191,10 +191,17 @@ export class TeamService {
   async getAllTeams(): Promise<Team[]> {
     try {
       // Scan for all team keys (excluding lookup keys and league sets)
-      const allTeamKeys = await this.redis.keys('team:team_*');
-      
-      // Filter out keys that end with ':leagues' (these are sets, not team data)
-      const teamKeys = allTeamKeys.filter(key => !key.endsWith(':leagues'));
+      let cursor = "0";
+      const teamKeys: string[] = [];
+      do {
+        const [next, keys] = await (this.redis as any).scan(cursor, { match: 'team:team_*', count: 1000 });
+        if (Array.isArray(keys)) {
+          for (const k of keys) {
+            if (!k.endsWith(':leagues')) teamKeys.push(k);
+          }
+        }
+        cursor = next;
+      } while (cursor !== "0");
             
       // Fetch all team data in parallel
       const teamDataPromises = teamKeys.map(async (key) => {

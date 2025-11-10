@@ -1,12 +1,19 @@
 {
-    "crons": [
-      {
-        "path": "/api/goal-notification",
-        "schedule": "*/0.5 * * * *"
-      },
-      {
-        "path": "/api/cron",
-        "schedule": "0 10 * * *"
-      }
-    ]
-  }
+  "crons": [
+    { "path": "/api/goal-notification", "schedule": "*/1 * * * *" },
+    { "path": "/api/goal-notification/ucl", "schedule": "*/1 * * * *" },
+    { "path": "/api/goal-notification/laliga", "schedule": "*/1 * * * *" },
+    { "path": "/api/goal-notification/bund", "schedule": "*/1 * * * *" },
+    { "path": "/api/goal-notification/eng-2", "schedule": "*/1 * * * *" },
+    { "path": "/api/goal-notification/mls", "schedule": "*/1 * * * *" },
+    { "path": "/api/goal-notification/eflcup", "schedule": "*/1 * * * *" },
+    { "path": "/api/goal-notification/uel", "schedule": "*/1 * * * *" },
+    { "path": "/api/goal-notification/cwc", "schedule": "*/1 * * * *" },
+    { "path": "/api/goal-notification/worldcup/europe", "schedule": "*/1 * * * *" },
+    { "path": "/api/goal-notification/worldcup/asia", "schedule": "*/1 * * * *" },
+    { "path": "/api/goal-notification/worldcup/america/n-america", "schedule": "*/1 * * * *" },
+    { "path": "/api/goal-notification/worldcup/america/s-america", "schedule": "*/1 * * * *" },
+    { "path": "/api/goal-notification/health", "schedule": "*/2 * * * *" },
+    { "path": "/api/cron", "schedule": "0 10 * * *" }
+  ]
+}
