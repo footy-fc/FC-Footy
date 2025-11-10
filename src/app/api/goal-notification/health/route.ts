@@ -29,7 +29,9 @@ const leagues: LeagueHealth[] = [
   { id: "worldcup-conmebol", label: "WCQ CONMEBOL", scoreboardUrl: "https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.worldq.conmebol/scoreboard" },
 ];
 
-export async function GET() {
+export async function GET(request: Request) {
+  const url = new URL(request.url);
+  const includeHistory = url.searchParams.get("includeHistory") === "1";
   const timestamp = new Date().toISOString();
 
   // Verify Redis read access without mutating state
@@ -63,23 +65,44 @@ export async function GET() {
           preCount,
         };
       } catch (err: any) {
-        return {
+        const failure = {
           id: lg.id,
           label: lg.label,
           ok: false,
           error: String(err?.message || err),
+          ts: timestamp,
         };
+        // Push failure to rolling log, keep last 200
+        try {
+          await redis.lpush("fc-footy:health:failures", JSON.stringify(failure));
+          await redis.ltrim("fc-footy:health:failures", 0, 199);
+        } catch {}
+        return failure;
       }
     })
   );
+
+  let recentFailures: Array<{ id: string; label: string; error: string; ts: string }> | undefined;
+  if (includeHistory) {
+    try {
+      const raw = (await (redis as any).lrange("fc-footy:health:failures", 0, 49)) as string[];
+      recentFailures = raw
+        .map((s) => {
+          try { return JSON.parse(s); } catch { return null; }
+        })
+        .filter(Boolean);
+    } catch {
+      recentFailures = [];
+    }
+  }
 
   return okJson({
     success: true,
     timestamp,
     redisOk,
     leagues: results,
+    recentFailures,
   });
 }
 
 export const runtime = "edge";
-

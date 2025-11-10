@@ -17,6 +17,7 @@ type HealthResponse = {
   timestamp: string;
   redisOk: boolean;
   leagues: LeagueHealth[];
+  recentFailures?: { id: string; label: string; error: string; ts: string }[];
 };
 
 export default function HealthTab() {
@@ -28,7 +29,7 @@ export default function HealthTab() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch("/api/goal-notification/health", { cache: "no-store" });
+      const res = await fetch("/api/goal-notification/health?includeHistory=1", { cache: "no-store" });
       const json = await res.json();
       setData(json);
     } catch (err: any) {
@@ -98,9 +99,25 @@ export default function HealthTab() {
               </div>
             ))}
           </div>
+
+          {Array.isArray(data.recentFailures) && data.recentFailures.length > 0 && (
+            <div className="mt-8">
+              <h3 className="text-lg font-semibold text-notWhite mb-3">Recent Failures</h3>
+              <div className="space-y-2">
+                {data.recentFailures.map((f, idx) => (
+                  <div key={idx} className="p-3 rounded border border-fontRed/40 bg-fontRed/10 text-sm">
+                    <div className="flex flex-wrap justify-between">
+                      <span className="font-medium text-notWhite">{f.label}</span>
+                      <span className="text-lightPurple">{new Date(f.ts).toLocaleString()}</span>
+                    </div>
+                    <div className="mt-1 text-fontRed break-words">{f.error}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
   );
 }
-

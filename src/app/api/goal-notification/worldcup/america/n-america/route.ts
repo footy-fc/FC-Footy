@@ -313,3 +313,8 @@ export async function POST(request: NextRequest) {
 }
 
 export const runtime = "edge";
+
+// Allow Vercel Cron (GET) to trigger same logic
+export async function GET(request: NextRequest) {
+  return POST(request);
+}
