@@ -47,23 +47,26 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
   const tabs = includeAdmins ? [...tabsBase, 'admins'] : tabsBase;
 
   return (
-    <div className="flex overflow-x-auto overflow-y-hidden space-x-4 mb-1 sticky top-0 z-50 bg-darkPurple py-2 shadow-md w-full">
-      {tabs.map((tab) => (
-        <div
-          key={tab}
-          onClick={() => {
-            window.scrollTo(0, 0);
-            setSelectedTab(tab);
-          }}
-          className={`flex-shrink-0 py-1 px-6 text-sm font-semibold cursor-pointer rounded-full border-2 ${
-            selectedTab === tab
-              ? "border-limeGreenOpacity text-lightPurple"
-              : "border-gray-500 text-gray-500"
-          }`}
-        >
-          {tabDisplayMap[tab] || (tab.charAt(0).toUpperCase() + tab.slice(1))}
-        </div>
-      ))}
+    <div className="flex flex-wrap gap-3 justify-center mb-3 sticky top-0 z-50 bg-midnight/80 backdrop-blur py-2 px-2 rounded-2xl shadow-[0_12px_30px_rgba(0,0,0,0.35)]">
+      {tabs.map((tab) => {
+        const isActive = selectedTab === tab;
+        return (
+          <button
+            key={tab}
+            onClick={() => {
+              window.scrollTo(0, 0);
+              setSelectedTab(tab);
+            }}
+            className={`flex-shrink-0 py-2 px-5 text-sm font-semibold cursor-pointer rounded-full border transition-all duration-200 shadow-[0_0_0_2px_rgba(231,46,119,0.08)] ${
+              isActive
+                ? "bg-brightPink text-white border-brightPink shadow-[0_6px_18px_rgba(231,46,119,0.35)]"
+                : "bg-slateViolet border-brightPink/40 text-lightPurple hover:border-brightPink hover:text-white"
+            }`}
+          >
+            {tabDisplayMap[tab] || (tab.charAt(0).toUpperCase() + tab.slice(1))}
+          </button>
+        );
+      })}
     </div>
   );
 };

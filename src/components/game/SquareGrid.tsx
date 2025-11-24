@@ -154,30 +154,30 @@ const SquareGrid: React.FC<SquareGridProps> = ({
 
   const getSquareClasses = (index: number) => {
     const status = getSquareStatus(index);
-    const baseClasses = "w-12 h-12 flex flex-col items-center justify-center rounded-lg border transition-all duration-300 transform hover:scale-105";
-    
+    const baseClasses = "w-16 h-16 flex flex-col items-center justify-center rounded-lg border transition-all duration-300 transform hover:scale-105 bg-midnight text-lightPurple font-semibold";
+
     if (status.isWinningSquare) {
-      return `${baseClasses} bg-green-600 border-green-400 shadow-lg shadow-green-500/50 animate-pulse`;
+      return `${baseClasses} bg-limeGreen border-limeGreenOpacity shadow-lg shadow-limeGreen/50 animate-pulse text-black`;
     }
     if (status.isHalftimeWinner) {
-      return `${baseClasses} bg-blue-600 border-blue-400 shadow-lg shadow-blue-500/50`;
+      return `${baseClasses} bg-blue-600/80 border-blue-300 shadow-lg shadow-blue-500/40 text-white`;
     }
     if (status.isFinalWinner) {
-      return `${baseClasses} bg-yellow-600 border-yellow-400 shadow-lg shadow-yellow-500/50`;
+      return `${baseClasses} bg-yellow-500/80 border-yellow-300 shadow-lg shadow-yellow-400/40 text-black`;
     }
     if (status.isCurrentWinning && ticketsSold >= 25) {
-      return `${baseClasses} bg-limeGreen border-limeGreenOpacity shadow-lg shadow-limeGreen/50 animate-pulse`;
+      return `${baseClasses} bg-brightPink/80 border-brightPink shadow-lg shadow-brightPink/40 animate-pulse text-white`;
     }
     if (status.isSelected) {
-      return `${baseClasses} bg-gray-700 border-gray-600 shadow-lg`;
+      return `${baseClasses} bg-brightPink/20 border-brightPink text-white shadow-[0_0_0_3px_rgba(231,46,119,0.25)]`;
     }
     if (status.isOwned) {
-      return `${baseClasses} bg-gray-800 border-gray-700 hover:border-gray-600`;
+      return `${baseClasses} bg-slateViolet border-brightPink/40 hover:border-brightPink text-white`;
     }
     if (status.isRecentlyPurchased) {
-      return `${baseClasses} bg-gray-800 border-gray-700 animate-bounce`;
+      return `${baseClasses} bg-slateViolet border-brightPink/35 animate-bounce text-white`;
     }
-    return `${baseClasses} bg-gray-900 border-gray-800 hover:border-gray-700 hover:bg-gray-800`;
+    return `${baseClasses} bg-midnight border-brightPink/25 hover:border-brightPink hover:bg-slateViolet`;
   };
 
   const getSquareContent = (index: number) => {

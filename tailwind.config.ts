@@ -16,6 +16,9 @@ export default {
         background: '#181424',
         foreground: '#FEA282',
         deepPink: '#BD195D',
+        brightPink: '#E72E77',
+        midnight: '#0B0B14',
+        slateViolet: '#101020',
         purplePanel: '#010513',
         darkPurple: '#181424',
         limeGreen: '#32CD32', //'#A2E634', // defifa '#32CD32', #8cc929
