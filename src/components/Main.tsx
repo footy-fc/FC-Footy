@@ -186,11 +186,11 @@ export default function Main() {
 
   // Render main app UI
   return (
-    <div className="w-[400px] mx-auto py-2">
+    <div className="w-[420px] max-w-full mx-auto py-2 px-3">
       {IS_TESTING || !isConnected ? (
         IS_TESTING ? (
-          <div className="w-[400px] mx-auto py-1 px-2">
-            <div className="text-center text-sm text-gray-400 mb-2">
+          <div className="w-full mx-auto py-1">
+            <div className="text-center text-sm text-gray-300 mb-2">
               Testing Mode - Bypassing Connection Check
             </div>
             <TabNavigation
@@ -198,7 +198,7 @@ export default function Main() {
               setSelectedTab={handleTabChange}
               tabDisplayMap={tabDisplayMap}
             />
-            <div className="bg-darkPurple p-2 rounded-md text-white">
+            <div className="bg-slateViolet/80 border border-brightPink/30 p-3 rounded-2xl text-white shadow-[0_12px_30px_rgba(0,0,0,0.45)]">
               {selectedTab === "matches" && (
                 <MatchesTab
                   league={selectedLeague}
@@ -224,7 +224,7 @@ export default function Main() {
         ) : (
           <div className="text-center text-lg text-fontRed">
             <button
-              className="flex-1 sm:flex-none w-full sm:w-48 bg-deepPink text-white py-2 px-4 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-deepPink hover:bg-fontRed"
+              className="flex-1 sm:flex-none w-full sm:w-48 bg-brightPink text-white py-2 px-4 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-brightPink hover:bg-deepPink shadow-[0_0_0_4px_rgba(231,46,119,0.2)]"
               onClick={() => {
                 window.location.href = "https://farcaster.xyz/miniapps/vRlFDfogkgrw/footy-app";
               }}
@@ -234,13 +234,13 @@ export default function Main() {
           </div>
         )
       ) : (
-        <div className="w-[400px] mx-auto py-1 px-2">
+        <div className="w-full mx-auto py-1">
           <TabNavigation
             selectedTab={selectedTab}
             setSelectedTab={handleTabChange}
             tabDisplayMap={tabDisplayMap}
           />
-            <div className="bg-darkPurple p-2 rounded-md text-white">
+            <div className="bg-slateViolet/80 border border-brightPink/30 p-3 rounded-2xl text-white shadow-[0_12px_30px_rgba(0,0,0,0.45)]">
             {selectedTab === "matches" && (
               <MatchesTab
                 league={selectedLeague}
