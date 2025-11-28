@@ -42,9 +42,12 @@ const CartSection: React.FC<CartSectionProps> = ({
   const usdTotal = ethUsdPrice ? totalEth * ethUsdPrice : null;
 
   return (
-    <div className="bg-gray-800/70 rounded-lg shadow-lg p-4 border border-gray-700 mt-2">
-      <h3 className="text-xl font-bold text-notWhite mb-3 flex justify-between items-center">
-        <span>Your Cart</span>
+    <div className="bg-midnight/85 rounded-2xl shadow-[0_16px_34px_rgba(0,0,0,0.45)] p-4 border border-brightPink/35 mt-3">
+      <h3 className="text-xl font-bold text-white mb-3 flex justify-between items-center">
+        <span className="flex items-center gap-2">
+          <span className="h-[3px] w-8 bg-brightPink rounded-full" />
+          Your Cart
+        </span>
         <span className="text-sm font-normal text-lightPurple">
           {cart.length} {cart.length === 1 ? 'square' : 'squares'}
         </span>
@@ -55,14 +58,14 @@ const CartSection: React.FC<CartSectionProps> = ({
           <div className="max-h-40 overflow-y-auto mb-4">
             <div className="grid grid-cols-4 gap-2">
               {cart.map((squareIndex) => (
-                <div 
-                  key={squareIndex} 
-                  className="bg-blue-500 text-white p-2 rounded flex items-center justify-between"
+                <div
+                  key={squareIndex}
+                  className="bg-brightPink/20 text-white p-2 rounded-lg flex items-center justify-between border border-brightPink/35"
                 >
-                  <span>{squareIndex}</span>
-                  <button 
+                  <span className="font-semibold">{squareIndex}</span>
+                  <button
                     onClick={() => removeFromCart(squareIndex)}
-                    className="text-white hover:text-red-200"
+                    className="text-white hover:text-deepPink"
                   >
                     ×
                   </button>
@@ -73,32 +76,32 @@ const CartSection: React.FC<CartSectionProps> = ({
           
           <div className="mb-4">
             <div className="flex justify-between items-center">
-              <span className="text-notWhite">Total:</span>
-              <span className="text-limeGreenOpacity font-bold">
+              <span className="text-lightPurple uppercase text-xs tracking-wide">Total</span>
+              <span className="text-white font-bold text-lg">
                 {formatEther(totalPrice)} ETH
               </span>
             </div>
             {usdTotal !== null && (
-              <div className="flex justify-end text-xs text-gray-400 mt-1">
+              <div className="flex justify-end text-xs text-gray-300 mt-1">
                 ≈ ${usdTotal.toFixed(2)} USD
               </div>
             )}
           </div>
-          
+
           <div className="flex space-x-2">
             <button
               onClick={clearCart}
-              className="flex-1 bg-gray-600 text-white py-2 px-4 rounded hover:bg-gray-700 transition-colors"
+              className="flex-1 bg-slateViolet text-white py-2 px-4 rounded-full border border-brightPink/35 hover:border-brightPink transition-colors"
             >
               Clear
             </button>
             <button
               onClick={handleBuyTickets}
               disabled={isBuying}
-              className={`flex-1 py-2 px-4 rounded transition-colors ${
+              className={`flex-1 py-2 px-4 rounded-full transition-colors ${
                 isBuying
-                  ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
-                  : 'bg-deepPink text-white hover:bg-fontRed'
+                  ? 'bg-gray-500 text-gray-200 cursor-not-allowed'
+                  : 'bg-brightPink text-white shadow-[0_8px_20px_rgba(231,46,119,0.3)] hover:bg-deepPink'
               }`}
             >
               {isBuying ? 'Buying...' : 'Buy Squares'}
@@ -107,7 +110,7 @@ const CartSection: React.FC<CartSectionProps> = ({
         </>
       ) : (
         <div className="text-center text-lightPurple py-4">
-          <p>Your cart is empty</p>
+          <p className="font-semibold text-white">Your cart is empty</p>
           <p className="text-sm mt-2">
             🎟️ Pick your squares by tapping any open spot. Each square maps to a final score in the match. Once all 25 are claimed, the board shuffles and locks in — may the goals land in your favor!
           </p>

@@ -31,15 +31,15 @@ const GameStateNavigation: React.FC<GameStateNavigationProps> = ({
   return (
     <>
       {/* Desktop version - shown above content */}
-      <div className="hidden md:block mb-6 w-full">
-        <div className="flex border-b border-limeGreenOpacity w-full">
+      <div className="hidden md:block mb-5 w-full">
+        <div className="flex bg-slateViolet/70 border border-brightPink/30 rounded-2xl overflow-hidden shadow-[0_10px_30px_rgba(0,0,0,0.35)]">
           {tabs.map((tab) => (
             <button
               key={tab.id}
-              className={`px-4 py-2 flex-1 ${
+              className={`px-4 py-3 flex-1 text-sm font-semibold transition-all duration-200 ${
                 selectedState === tab.id
-                  ? 'bg-darkPurple text-lightPurple border-t border-l border-r border-limeGreenOpacity rounded-t'
-                  : 'text-gray-500'
+                  ? 'bg-brightPink text-white shadow-[0_8px_24px_rgba(231,46,119,0.35)]'
+                  : 'text-lightPurple hover:text-white hover:bg-midnight/60'
               }`}
               onClick={() => onStateChange(tab.id)}
             >
@@ -50,15 +50,15 @@ const GameStateNavigation: React.FC<GameStateNavigationProps> = ({
       </div>
       
       {/* Mobile version - fixed to bottom of screen */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 bg-darkPurple border-t border-limeGreenOpacity z-20">
+      <div className="md:hidden fixed bottom-0 left-0 right-0 bg-midnight/95 border-t border-brightPink/40 z-20 backdrop-blur">
         <div className="flex justify-around">
           {tabs.map((tab) => (
             <button
               key={tab.id}
               className={`flex-1 py-3 px-2 text-center ${
                 selectedState === tab.id
-                  ? 'text-lightPurple border-t-2 border-limeGreenOpacity'
-                  : 'text-gray-500'
+                  ? 'text-white border-t-2 border-brightPink'
+                  : 'text-gray-400'
               }`}
               onClick={() => onStateChange(tab.id)}
             >

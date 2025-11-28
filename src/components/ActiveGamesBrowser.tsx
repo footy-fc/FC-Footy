@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Info, ChevronDown, Users, Trophy, Flame } from "lucide-react";
+import { Info, ChevronDown, Users, Trophy, Flame, Share2 } from "lucide-react";
 import { useGames } from '../hooks/useSubgraphData';
 import { formatEther } from 'viem';
 import BlockchainScoreSquareDisplay from './BlockchainScoreSquareDisplay';
@@ -68,6 +68,7 @@ const ActiveGamesBrowser: React.FC<ActiveGamesBrowserProps> = ({ initialGameId }
   );
   const [isLoadingGame, setIsLoadingGame] = useState<boolean>(false);
   const [showInstructions, setShowInstructions] = useState(false);
+  const [shareFeedback, setShareFeedback] = useState<string | null>(null);
   // Hide sort/filter affordances for now; keep defaults internally
   const [sortBy] = useState<'recent' | 'popular' | 'ending'>('recent');
   const [filterLeague] = useState<string>('all');
@@ -178,6 +179,24 @@ const ActiveGamesBrowser: React.FC<ActiveGamesBrowserProps> = ({ initialGameId }
     setTimeout(() => setIsLoadingGame(false), 300);
   };
 
+  const handleShare = async () => {
+    const shareUrl = typeof window !== 'undefined' ? window.location.href : '';
+    try {
+      if (typeof navigator !== 'undefined' && navigator.share && shareUrl) {
+        await navigator.share({ title: 'FC Footy - Active Games', url: shareUrl });
+        setShareFeedback('Shared!');
+      } else if (typeof navigator !== 'undefined' && navigator.clipboard && shareUrl) {
+        await navigator.clipboard.writeText(shareUrl);
+        setShareFeedback('Link copied to clipboard');
+      }
+    } catch (err) {
+      console.error('Share failed', err);
+      setShareFeedback('Unable to share right now');
+    }
+
+    setTimeout(() => setShareFeedback(null), 2000);
+  };
+
   if (loading) {
     return (
       <div className="p-4">
@@ -205,34 +224,83 @@ const ActiveGamesBrowser: React.FC<ActiveGamesBrowserProps> = ({ initialGameId }
   if (selectedGame) {
     const game = activeGames.find((g: { gameId: string; }) => g.gameId === selectedGame);
     return (
-      <div className="p-2">
-        {isLoadingGame && <p className="text-center mt-2">Loading game...</p>}
-        <div className="flex justify-between items-center mb-2">
-          <button onClick={handleBack} className="px-4 py-2 text-notWhite">
-            ← Active Games
+      <div className="p-3 bg-midnight/80 border border-brightPink/35 rounded-2xl shadow-[0_16px_34px_rgba(0,0,0,0.45)]">
+        {isLoadingGame && <p className="text-center mt-2 text-lightPurple">Loading game...</p>}
+        <div className="flex justify-between items-center mb-3">
+          <button
+            onClick={handleBack}
+            className="flex items-center gap-2 text-white font-semibold px-3 py-2 rounded-full bg-slateViolet border border-brightPink/40 hover:border-brightPink transition-all"
+          >
+            <span className="text-brightPink">←</span>
+            Active Games
           </button>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setShowInstructions(!showInstructions)}
+              className="px-4 py-2 rounded-full bg-brightPink text-white text-sm shadow-[0_8px_20px_rgba(231,46,119,0.3)] hover:bg-deepPink transition-colors"
+            >
+              {showInstructions ? 'Hide Instructions' : 'Show Instructions'}
+            </button>
+            <button
+              onClick={handleShare}
+              className="px-4 py-2 rounded-full bg-slateViolet text-lightPurple text-sm border border-brightPink/40 hover:text-white hover:border-brightPink transition-colors"
+            >
+              Share this game
+            </button>
+          </div>
         </div>
+        {showInstructions && (
+          <div className="mb-3">
+            <UserInstructions />
+          </div>
+        )}
+        {shareFeedback && (
+          <div className="text-xs text-lightPurple mb-3">{shareFeedback}</div>
+        )}
         {game && <BlockchainScoreSquareDisplay eventId={game.eventId} />}
       </div>
     );
   }
 
   return (
-    <div className="p-4 overflow-x-hidden w-full">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl text-notWhite font-bold">Active Games</h1>
+    <div className="p-4 overflow-x-hidden w-full bg-midnight/80 border border-brightPink/30 rounded-2xl shadow-[0_18px_38px_rgba(0,0,0,0.45)]">
+      <div className="flex items-start justify-between gap-3 mb-4">
+        <div>
+          <p className="text-xs uppercase tracking-[0.15em] text-brightPink mb-1">Score Square</p>
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl text-white font-bold">Active Games</h1>
+            <span className="h-[3px] w-12 bg-brightPink rounded-full"></span>
+          </div>
+          <p className="text-sm text-lightPurple mt-1">Pick your squares before they fill up.</p>
+        </div>
+      </div>
+
+      <div className="flex flex-wrap gap-3 mb-4">
         <button
           onClick={() => setShowInstructions(!showInstructions)}
-          className="flex items-center text-deepPink hover:text-fontRed focus:outline-none transition"
+          className="flex items-center gap-2 px-4 py-2 rounded-full bg-brightPink text-white text-sm shadow-[0_8px_20px_rgba(231,46,119,0.35)] hover:bg-deepPink transition-colors"
         >
-          <Info className="w-5 h-5" />
+          <Info className="w-4 h-4" />
+          {showInstructions ? 'Hide instructions' : 'Show instructions'}
         </button>
+        <button
+          onClick={handleShare}
+          className="flex items-center gap-2 px-4 py-2 rounded-full bg-slateViolet text-lightPurple text-sm border border-brightPink/40 hover:text-white hover:border-brightPink transition-colors"
+        >
+          <Share2 className="w-4 h-4" />
+          Share this view
+        </button>
+        {shareFeedback && (
+          <span className="text-xs text-lightPurple self-center">{shareFeedback}</span>
+        )}
       </div>
-  
-      {showInstructions && <UserInstructions />}
 
-      {/* Filters and Sorting hidden for now (limited referees/games) */}
-  
+      {showInstructions && (
+        <div className="mb-4">
+          <UserInstructions />
+        </div>
+      )}
+
       <div className="grid grid-cols-1 gap-4">
         {activeGames.map((game: SubgraphGame, idx: number) => {
           const eventDetails = parseEventId(game.eventId) || { homeTeam: "", awayTeam: "", leagueId: "" };
@@ -251,77 +319,74 @@ const ActiveGamesBrowser: React.FC<ActiveGamesBrowserProps> = ({ initialGameId }
           return (
             <div
               key={`${game.id}-${idx}`}
-              className="bg-gray-800 rounded-lg p-4 border border-gray-700 hover:border-limeGreenOpacity transition-all duration-300 cursor-pointer flex flex-col justify-between shadow-lg hover:shadow-xl"
+              className="relative bg-slateViolet/80 rounded-2xl p-4 border border-brightPink/35 hover:border-brightPink transition-all duration-300 cursor-pointer flex flex-col justify-between shadow-[0_16px_32px_rgba(0,0,0,0.4)] hover:shadow-[0_18px_36px_rgba(231,46,119,0.25)] overflow-hidden"
               onClick={() => handleGameSelect(game.gameId)}
             >
+              <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-brightPink/60 to-transparent" />
               {/* Compact Header */}
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
+              <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   {isNew && (
-                    <div className="px-2 py-1 bg-green-600 text-white text-[10px] rounded-full flex items-center gap-1">
-                      <span className="w-1 h-1 bg-white rounded-full animate-pulse"></span>
-                      NEW
+                    <div className="px-3 py-1 bg-brightPink/20 text-brightPink text-[11px] rounded-full flex items-center gap-1 border border-brightPink/40">
+                      <span className="w-1.5 h-1.5 bg-brightPink rounded-full animate-pulse"></span>
+                      New
                     </div>
                   )}
                   {isHot && (
-                    <div className="px-2 py-1 bg-red-600 text-white text-[10px] rounded-full flex items-center gap-1">
+                    <div className="px-3 py-1 bg-orange-500/20 text-orange-200 text-[11px] rounded-full flex items-center gap-1 border border-orange-400/40">
                       <Flame className="w-3 h-3" />
-                      HOT
+                      Hot
                     </div>
                   )}
-                  <div className={`px-2 py-1 text-[10px] rounded-full ${gameStatus.bgColor} ${gameStatus.color}`}>
+                  <div className="px-3 py-1 bg-midnight/70 text-brightPink text-[11px] rounded-full border border-brightPink/30">
                     {gameStatus.status}
                   </div>
-                  <span className="px-2 py-0.5 bg-blue-900 text-blue-200 rounded-full text-[10px]">
+                  <span className="px-3 py-1 bg-midnight/80 text-lightPurple rounded-full text-[11px] border border-brightPink/20">
                     {getLeagueDisplayName(eventDetails.leagueId)}
                   </span>
                 </div>
+                <span className="text-xs text-lightPurple">Tickets available • {ticketsLeft > 0 ? `${ticketsLeft} left` : 'Sold out'}</span>
               </div>
 
               {/* Teams */}
-              <div className="grid grid-cols-3 items-center gap-2 mb-3">
+              <div className="grid grid-cols-3 items-center gap-2 mb-4">
                 <div className="flex items-center gap-2">
                   <Image
                     src={getTeamLogo(eventDetails?.homeTeam, getLeagueCode(eventDetails?.leagueId))}
                     alt={eventDetails?.homeTeam}
-                    width={36}
-                    height={36}
+                    width={44}
+                    height={44}
                     className="object-contain"
                   />
-                  <span className="font-semibold text-notWhite text-sm">{eventDetails?.homeTeam}</span>
+                  <span className="font-semibold text-white text-base uppercase tracking-wide">{eventDetails?.homeTeam}</span>
                 </div>
-                <div className="text-center text-lightPurple text-xs">vs</div>
+                <div className="text-center text-brightPink text-sm font-semibold">vs</div>
                 <div className="flex items-center gap-2 justify-end">
-                  <span className="font-semibold text-notWhite text-sm">{eventDetails?.awayTeam}</span>
+                  <span className="font-semibold text-white text-base uppercase tracking-wide">{eventDetails?.awayTeam}</span>
                   <Image
                     src={getTeamLogo(eventDetails?.awayTeam, getLeagueCode(eventDetails?.leagueId))}
                     alt={eventDetails?.awayTeam}
-                    width={36}
-                    height={36}
+                    width={44}
+                    height={44}
                     className="object-contain"
                   />
                 </div>
               </div>
 
               {/* Progress */}
-              <div className="mb-3">
+              <div className="mb-4">
                 <div className="flex justify-between text-xs mb-1">
                   <span className="text-lightPurple flex items-center gap-1">
                     <Users className="w-3 h-3" />
                     {ticketsLeft > 0 ? `${ticketsLeft} tickets left` : "Tickets Sold Out"}
                   </span>
-                  <span className={`font-semibold ${ticketsLeft > 0 ? "text-yellow-400" : "text-deepPink"}`}>
+                  <span className={`font-semibold ${ticketsLeft > 0 ? "text-brightPink" : "text-deepPink"}`}>
                     {game.ticketsSold}/25 sold
                   </span>
                 </div>
-                <div className="w-full bg-gray-700 rounded-full h-2.5">
-                  <div 
-                    className={`h-2.5 rounded-full transition-all duration-500 ${
-                      ticketsLeft === 0 ? "bg-deepPink" : 
-                      ticketsLeft <= 5 ? "bg-orange-500" : 
-                      progressPercentage >= 50 ? "bg-yellow-500" : 
-                      progressPercentage >= 25 ? "bg-blue-500" : "bg-limeGreenOpacity"
-                    }`} 
+                <div className="w-full bg-midnight rounded-full h-2.5 border border-brightPink/30">
+                  <div
+                    className="h-2 rounded-full transition-all duration-500 bg-gradient-to-r from-brightPink via-deepPink to-limeGreenOpacity"
                     style={{ width: `${progressPercentage}%` }}
                   />
                 </div>
@@ -329,28 +394,28 @@ const ActiveGamesBrowser: React.FC<ActiveGamesBrowserProps> = ({ initialGameId }
 
               {/* Stats */}
               <div className="grid grid-cols-2 gap-3 items-start">
-                <div>
-                  <div className="text-lightPurple text-xs flex items-center gap-1">
+                <div className="bg-midnight/70 border border-brightPink/25 rounded-xl p-3">
+                  <div className="text-lightPurple text-xs flex items-center gap-1 uppercase tracking-wide">
                     <Trophy className="w-3 h-3" />
                     Prize pool
                   </div>
-                  <div className="text-base font-bold text-limeGreenOpacity">{finalPrizePool.toFixed(4)} ETH</div>
+                  <div className="text-base font-bold text-white">{finalPrizePool.toFixed(4)} ETH</div>
                   <PrizeUsdHint ethAmount={finalPrizePool} />
                 </div>
-                <div>
-                  <div className="text-lightPurple text-xs">Ticket price</div>
-                  <div className="text-base text-notWhite">{squarePriceEth.toFixed(4)} ETH</div>
+                <div className="bg-midnight/70 border border-brightPink/25 rounded-xl p-3">
+                  <div className="text-lightPurple text-xs uppercase tracking-wide">Ticket price</div>
+                  <div className="text-base text-white">{squarePriceEth.toFixed(4)} ETH</div>
                   <PrizeUsdHint ethAmount={squarePriceEth} />
                 </div>
               </div>
 
               {/* Footer: Referee + Game ID */}
-              <div className="mt-3 flex items-center justify-between">
-                <div className="text-lightPurple text-xs flex items-center gap-1">
-                    Referee: 
-                  <FarcasterAvatar address={game.deployer} showName size={20} className="rounded-full" />
+              <div className="mt-3 flex items-center justify-between flex-wrap gap-2">
+                <div className="text-lightPurple text-xs flex items-center gap-2">
+                    Referee:
+                  <FarcasterAvatar address={game.deployer} showName size={22} className="rounded-full" />
                 </div>
-                <span className="text-xs text-gray-500">Game ID: {game.gameId}</span>
+                <span className="px-3 py-1 bg-slateViolet/80 border border-brightPink/25 rounded-full text-[11px] text-lightPurple">Game ID: {game.gameId}</span>
               </div>
             </div>
           );
