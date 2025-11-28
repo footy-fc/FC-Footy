@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { getUserNotificationDetails } from "~/lib/kv";
 import { sendFrameNotification } from "~/lib/notifications";
+import { sendFrameNotificationsBatch } from "~/lib/notificationsBatch";
 import { getFansForTeamAbbr } from "~/lib/kvPerferences";
 
 export async function POST(request: NextRequest) {
@@ -35,39 +36,17 @@ export async function POST(request: NextRequest) {
     });
   }
 
-  const notificationResults: Array<{ fid: number; result: string | unknown }> = [];
-  const chunkSize = 35;
-
-  // Process keys in batches of 35
-  for (let i = 0; i < targetFids.length; i += chunkSize) {
-    const batch = targetFids.slice(i, i + chunkSize);
-
-    // Process the current batch concurrently
-    const batchResults = await Promise.all(
-      batch.map(async (fid) => {
-        try {
-          const notificationDetails = await getUserNotificationDetails(fid);
-          if (notificationDetails) {
-            const result = await sendFrameNotification({ fid, title, body, targetURL });
-            return { fid, result };
-          } else {
-            console.warn(`No notification details found for FID: ${fid}`);
-            return { fid, result: "No notification details found" };
-          }
-        } catch (error) {
-          console.error(`Error sending notification to FID: ${fid}`, error);
-          return { fid, result: "Error sending notification" };
-        }
-      })
-    );
-    notificationResults.push(...batchResults);
-  }
+  const batchResult = await sendFrameNotificationsBatch({
+    fids: targetFids,
+    title,
+    body,
+    targetURL,
+  });
 
   return Response.json({
     success: true,
-    notificationResults,
     sentTo: `team followers (${teamAbbreviation})`,
-    totalSent: notificationResults.length
+    totals: batchResult
   });
 }
 

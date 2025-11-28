@@ -2,6 +2,7 @@
 import { NextRequest } from "next/server";
 import { getUserNotificationDetails } from "~/lib/kv";
 import { sendFrameNotification } from "~/lib/notifications";
+import { sendFrameNotificationsBatch } from "~/lib/notificationsBatch";
 import { Redis } from "@upstash/redis";
 import { scanKeys } from "../lib/redisScan";
 
@@ -32,45 +33,27 @@ export async function POST(request: NextRequest) {
   } else if (adminOnly) {
     targetFids = ADMIN_FIDS;
   } else {
-    const userKeys = await scanKeys(redis as any, "fc-footy:user:*", { count: 1000 });
-    targetFids = userKeys.map((key) => parseInt(key.split(":").pop()!));
+    // Use users index set
+    const members: (number | string)[] = await (redis as any).smembers("fc-footy:users");
+    targetFids = (Array.isArray(members) ? members : [])
+      .map((v) => (typeof v === 'string' ? Number(v) : (v as number)))
+      .filter((n) => Number.isFinite(n)) as number[];
   }
 
-  const notificationResults: Array<{ fid: number; result: any }> = [];
-  const chunkSize = 35;
-
-  // Process keys in batches of 35
-  for (let i = 0; i < targetFids.length; i += chunkSize) {
-    const batch = targetFids.slice(i, i + chunkSize);
-
-    // Process the current batch concurrently
-    const batchResults = await Promise.all(
-      batch.map(async (fid) => {
-        try {
-          const notificationDetails = await getUserNotificationDetails(fid);
-          if (notificationDetails) {
-            const result = await sendFrameNotification({ fid, title, body, targetURL });
-            return { fid, result };
-          } else {
-            console.warn(`No notification details found for FID: ${fid}`);
-            return { fid, result: "No notification details found" };
-          }
-        } catch (error) {
-          console.error(`Error sending notification to FID: ${fid}`, error);
-          return { fid, result: "Error sending notification" };
-        }
-      })
-    );
-    notificationResults.push(...batchResults);
-  }
+  // Use batched sender; it will skip users without tokens
+  const { sent, skipped, errors, rateLimited } = await sendFrameNotificationsBatch({
+    fids: targetFids,
+    title,
+    body,
+    targetURL,
+  });
 
   const sentTo = customFids ? "custom FIDs" : adminOnly ? "admins only" : "all users";
 
   return Response.json({
     success: true,
-    notificationResults,
     sentTo,
-    totalSent: notificationResults.length
+    totals: { sent, skipped, errors, rateLimited }
   });
 }
 

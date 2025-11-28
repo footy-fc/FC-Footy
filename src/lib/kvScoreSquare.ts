@@ -50,29 +50,37 @@ export async function getGamesByPrefix(prefix: string): Promise<GameData[]> {
   const keys: string[] = await scanKeys(redis as any, pattern, { count: 1000, limit: 100000 });
   const games: GameData[] = [];
 
-  for (const key of keys) {
-    const data = await redis.get(key);
-    if (data) {
-      if (typeof data === 'string') {
-        // Trim to remove any extraneous whitespace.
-        const trimmedData = data.trim();
-        // Check if it looks like valid JSON.
-        if (trimmedData.startsWith('{') || trimmedData.startsWith('[')) {
-          try {
-            const game = JSON.parse(trimmedData) as GameData;
-            games.push(game);
-          } catch (err) {
-            console.error("Failed to parse game data for key", key, trimmedData, err);
-          }
-        } else {
-          console.error("Data does not appear to be JSON for key", key, data);
-        }
-      } else if (typeof data === 'object') {
-        // If data is already an object, use it directly.
-        games.push(data as GameData);
-      }
+  if (!keys.length) return games;
+
+  // Pipeline all GETs into one network roundtrip
+  const pipe = redis.pipeline();
+  for (const key of keys) pipe.get(key);
+  const results = await pipe.exec();
+
+  results.forEach((data, idx) => {
+    const key = keys[idx];
+    let val: unknown = data as unknown;
+    if (val && typeof val === 'object') {
+      if ('data' in (val as any)) val = (val as any).data;
+      if ('result' in (val as any)) val = (val as any).result;
     }
-  }
+    if (!val) return;
+    if (typeof val === 'string') {
+      const trimmedData = val.trim();
+      if (trimmedData.startsWith('{') || trimmedData.startsWith('[')) {
+        try {
+          const game = JSON.parse(trimmedData) as GameData;
+          games.push(game);
+        } catch (err) {
+          console.error("Failed to parse game data for key", key, trimmedData, err);
+        }
+      } else {
+        console.error("Data does not appear to be JSON for key", key, val);
+      }
+    } else if (typeof val === 'object') {
+      games.push(val as GameData);
+    }
+  });
   return games;
 }
 

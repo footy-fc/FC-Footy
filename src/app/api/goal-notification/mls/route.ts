@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { Redis } from "@upstash/redis";
 import axios from "axios";
 import { sendFrameNotification } from "~/lib/notifications";
+import { sendFrameNotificationsBatch } from "~/lib/notificationsBatch";
 import { getFansForTeams } from "~/lib/kvPerferences";
 import { scanKeys } from "../../lib/redisScan";
 import { fetchJSONWithRetry, errorAsOk, okJson } from "../../lib/http";
@@ -151,36 +152,27 @@ export async function POST(request: NextRequest) {
     }
     const uniqueFansToNotify = new Set([...homeFans, ...awayFans]);
 
-    // Get all subscribed user keys from Redis
-    let userKeys: string[] = [];
+    // Use users index set instead of scanning keys
+    let userFids: (number | string)[] = [];
     try {
-      userKeys = await scanKeys(redis as any, "fc-footy:user:*", { count: 1000, limit: 50000 });
+      userFids = await (redis as any).smembers("fc-footy:users");
     } catch (err) {
-      console.error("Error scanning user keys from Redis", err);
+      console.error("Error reading users set from Redis", err);
     }
-    // Filter fans to notify based on user key patterns
-    const fidsToNotify = Array.from(uniqueFansToNotify).filter((fid) =>
-      userKeys.some((key) => key.endsWith(`:${fid}`))
+    const userSet = new Set<number>(
+      (Array.isArray(userFids) ? userFids : []).map((v) => (typeof v === 'string' ? Number(v) : (v as number)))
+        .filter((n) => Number.isFinite(n)) as number[]
     );
+    const fidsToNotify = userSet.size > 0
+      ? Array.from(uniqueFansToNotify).filter((fid) => userSet.has(fid))
+      : Array.from(uniqueFansToNotify);
     console.log(`Notifying ${fidsToNotify.length} fans for match ${matchId}`);
 
-    // Send notifications in batches
-    const batchSize = 40;
-    for (let i = 0; i < fidsToNotify.length; i += batchSize) {
-      const batch = fidsToNotify.slice(i, i + batchSize);
-      const notificationPromises = batch.map(async (fid) => {
-        try {
-          await sendFrameNotification({
-            fid,
-            title: "Goal! Goal! Goal!",
-            body: message,
-          });
-        } catch (error) {
-          console.error(`Failed to send notification to FID: ${fid}`, error);
-        }
-      });
-      await Promise.all(notificationPromises);
-    }
+    await sendFrameNotificationsBatch({
+      fids: fidsToNotify,
+      title: "Goal! Goal! Goal!",
+      body: message,
+    });
 
     // Update Redis with the new scores after sending notifications
     try {

@@ -4,6 +4,7 @@ import { NextRequest } from "next/server";
 import { Redis } from "@upstash/redis";
 import axios from "axios";
 import { sendFrameNotification } from "~/lib/notifications";
+import { sendFrameNotificationsBatch } from "~/lib/notificationsBatch";
 import { scanKeys } from "../../lib/redisScan";
 import { fetchJSONWithRetry, errorAsOk, okJson } from "../../lib/http";
 
@@ -92,25 +93,17 @@ export async function POST(request: NextRequest) {
         const message = `${homeTeam.team.shortDisplayName} ${homeScore} - ${awayScore} ${awayTeam.team.shortDisplayName} | ${scoringPlayer} scored at ${clockTime}`;
         goalNotifications.push(message);
 
-        // Send notifications to all subscribed footies
-        const userKeys = await scanKeys(redis as any, "fc-footy:user:*", { count: 1000, limit: 50000 });
-        const batchSize = 40;
-        for (let i = 0; i < userKeys.length; i += batchSize) {
-          const batch = userKeys.slice(i, i + batchSize);
-          const notificationPromises = batch.map(async (key) => {
-            const fid = parseInt(key.split(":").pop()!);
-            try {
-              await sendFrameNotification({
-                fid,
-                title: "Goal! Goal! Goal!",
-                body: message,
-              });
-            } catch (error) {
-              console.error(`Failed to send notification to FID: ${fid}`, error);
-            }
-          });
-          await Promise.all(notificationPromises);
+        // Send notifications using users index set (no scans) and batch tokens
+        let userFids: (number | string)[] = [];
+        try {
+          userFids = await (redis as any).smembers("fc-footy:users");
+        } catch (err) {
+          console.error("Error reading users set from Redis", err);
         }
+        const fids: number[] = (Array.isArray(userFids) ? userFids : [])
+          .map((v) => (typeof v === 'string' ? Number(v) : (v as number)))
+          .filter((n) => Number.isFinite(n)) as number[];
+        await sendFrameNotificationsBatch({ fids, title: "Goal! Goal! Goal!", body: message });
 
         // Update Redis with the new scores
         try {

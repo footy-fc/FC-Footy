@@ -71,46 +71,45 @@ export async function getFansForTeam(uniqueTeamId: string): Promise<number[]> {
  * of FIDs for which the stored preferences include any of the given unique team IDs.
  */
 export async function getFansForTeams(uniqueTeamIds: string[]): Promise<number[]> {
-//console.log("getFansForTeams", uniqueTeamIds);
   const fanFidsSet = new Set<number>();
 
   if (uniqueTeamIds.length === 0) {
-    return Array.from(fanFidsSet);
+    return [];
   }
 
-  // Batch the SMEMBERS operations
-  const pipeline = redis.pipeline();
-  for (const teamId of uniqueTeamIds) {
-    pipeline.smembers<number[]>(`fc-footy:team-fans:${teamId}`);
-  }
-  
-  const results = await pipeline.exec();
-  
-  // Debug logging to understand the results structure
-  if (process.env.NODE_ENV === 'development') {
-    console.log('Pipeline results structure:', JSON.stringify(results, null, 2));
-  }
-  
-  // Process the batched results - handle both array and error results
-  results.forEach((result, index) => {
-    if (result && Array.isArray(result)) {
-      result.forEach((fid) => fanFidsSet.add(fid));
-    } else if (result instanceof Error) {
-      console.error(`Error fetching fans for ${uniqueTeamIds[index]}:`, result);
-    } else if (result && typeof result === 'object' && 'data' in result) {
-      // Handle case where result might be wrapped in an object
-      const wrappedResult = result as { data: unknown };
-      if (Array.isArray(wrappedResult.data)) {
-        wrappedResult.data.forEach((fid) => fanFidsSet.add(fid as number));
-      }
-    } else if (result && typeof result === 'object' && 'result' in result) {
-      // Handle case where result might be wrapped in a result property
-      const wrappedResult = result as { result: unknown };
-      if (Array.isArray(wrappedResult.result)) {
-        wrappedResult.result.forEach((fid) => fanFidsSet.add(fid as number));
+  // Use SUNION to let Redis union sets server‑side in a single call
+  const keys = uniqueTeamIds.map((teamId) => `fc-footy:team-fans:${teamId}`);
+  try {
+    const members = (await (redis as any).sunion(...keys)) as Array<number | string> | null;
+    if (Array.isArray(members)) {
+      for (const v of members) {
+        const n = typeof v === 'string' ? Number(v) : (v as number);
+        if (!Number.isNaN(n)) fanFidsSet.add(n);
       }
     }
-  });
+  } catch (err) {
+    console.error('SUNION failed, falling back to pipeline SMEMBERS', err);
+    const pipeline = redis.pipeline();
+    for (const key of keys) {
+      pipeline.smembers<number[] | string[]>(key);
+    }
+    const results = await pipeline.exec();
+    results.forEach((r) => {
+      const arr = Array.isArray(r)
+        ? r
+        : r && typeof r === 'object' && 'data' in (r as any)
+        ? ((r as any).data as unknown)
+        : r && typeof r === 'object' && 'result' in (r as any)
+        ? ((r as any).result as unknown)
+        : null;
+      if (Array.isArray(arr)) {
+        for (const v of arr) {
+          const n = typeof v === 'string' ? Number(v) : (v as number);
+          if (!Number.isNaN(n)) fanFidsSet.add(n);
+        }
+      }
+    });
+  }
 
   return Array.from(fanFidsSet);
 }
@@ -143,30 +142,35 @@ const SUPPORTED_LEAGUES = [
  */
 export async function getFansForTeamAbbr(teamAbbr: string): Promise<number[]> {
   const fanFidsSet = new Set<number>();
-  
-  // Generate all possible team IDs for the abbreviation across supported leagues
+
   const possibleTeamIds = SUPPORTED_LEAGUES.map((leagueId) => `${leagueId}-${teamAbbr.toLowerCase()}`);
-  
-  // console.log(`Fetching fans for team abbreviation "${teamAbbr}" across leagues: ${possibleTeamIds}`);
+  if (!possibleTeamIds.length) return [];
 
-  if (possibleTeamIds.length === 0) {
-    return Array.from(fanFidsSet);
-  }
-
-  // For now, use the original approach to ensure accurate counts
-  // TODO: Debug and fix the batching approach
-  for (const teamId of possibleTeamIds) {
-    try {
-      const teamFans = await redis.smembers<number[]>(`fc-footy:team-fans:${teamId}`);
-      teamFans.forEach((fid) => fanFidsSet.add(fid));
-    } catch (err) {
-      console.error(`Error fetching fans for ${teamId}:`, err);
+  const keys = possibleTeamIds.map((id) => `fc-footy:team-fans:${id}`);
+  try {
+    const members = (await (redis as any).sunion(...keys)) as Array<number | string> | null;
+    if (Array.isArray(members)) {
+      for (const v of members) {
+        const n = typeof v === 'string' ? Number(v) : (v as number);
+        if (!Number.isNaN(n)) fanFidsSet.add(n);
+      }
+    }
+  } catch (err) {
+    console.error('SUNION failed in getFansForTeamAbbr, falling back', err);
+    for (const key of keys) {
+      try {
+        const arr = await redis.smembers<number[] | string[]>(key);
+        for (const v of arr) {
+          const n = typeof v === 'string' ? Number(v) : (v as number);
+          if (!Number.isNaN(n)) fanFidsSet.add(n);
+        }
+      } catch (e) {
+        console.error('SMEMBERS error for', key, e);
+      }
     }
   }
 
-  const fanFids = Array.from(fanFidsSet);
-  //console.log(`Found ${fanFids.length} unique fans for "${teamAbbr}"`);
-  return fanFids;
+  return Array.from(fanFidsSet);
 }
 
 /**
@@ -192,37 +196,32 @@ export async function getFansForTeamWithLeagues(teamAbbr: string, leagueIds: str
     return 0; // No leagues assigned, no followers
   }
 
-  const fanFidsSet = new Set<number>();
-  
-  // Generate team IDs for the specific leagues this team is assigned to
-  const teamIds = leagueIds.map((leagueId) => `${leagueId}-${teamAbbr.toLowerCase()}`);
-  
-  // console.log(`Fetching fans for team "${teamAbbr}" in leagues: ${leagueIds}`, teamIds);
-
-  // Batch the SMEMBERS operations
-  const pipeline = redis.pipeline();
-  for (const teamId of teamIds) {
-    pipeline.smembers<number[]>(`fc-footy:team-fans:${teamId}`);
-  }
-  
-  const results = await pipeline.exec();
-  
-  // Process the batched results - handle both array and error results
-  results.forEach((result, index) => {
-    if (result && Array.isArray(result)) {
-      result.forEach((fid) => fanFidsSet.add(fid));
-    } else if (result instanceof Error) {
-      console.error(`Error fetching fans for ${teamIds[index]}:`, result);
-    } else if (result && typeof result === 'object' && 'data' in result) {
-      // Handle case where result might be wrapped in an object
-      const wrappedResult = result as { data: unknown };
-      if (Array.isArray(wrappedResult.data)) {
-        wrappedResult.data.forEach((fid) => fanFidsSet.add(fid as number));
+  // Generate keys and SUNION for a single server-side union
+  const keys = leagueIds.map((leagueId) => `fc-footy:team-fans:${leagueId}-${teamAbbr.toLowerCase()}`);
+  try {
+    const members = (await (redis as any).sunion(...keys)) as Array<number | string> | null;
+    return Array.isArray(members) ? members.length : 0;
+  } catch (err) {
+    console.error('SUNION failed in getFansForTeamWithLeagues, falling back', err);
+    const set = new Set<number>();
+    const pipeline = redis.pipeline();
+    for (const key of keys) pipeline.smembers<number[] | string[]>(key);
+    const results = await pipeline.exec();
+    results.forEach((r) => {
+      const arr = Array.isArray(r)
+        ? r
+        : r && typeof r === 'object' && 'data' in (r as any)
+        ? ((r as any).data as unknown)
+        : r && typeof r === 'object' && 'result' in (r as any)
+        ? ((r as any).result as unknown)
+        : null;
+      if (Array.isArray(arr)) {
+        for (const v of arr) {
+          const n = typeof v === 'string' ? Number(v) : (v as number);
+          if (!Number.isNaN(n)) set.add(n);
+        }
       }
-    }
-  });
-
-  const fanCount = fanFidsSet.size;
-  // console.log(`Found ${fanCount} unique fans for "${teamAbbr}" across ${leagueIds.length} leagues`);
-  return fanCount;
+    });
+    return set.size;
+  }
 }
