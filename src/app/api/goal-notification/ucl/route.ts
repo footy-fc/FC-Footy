@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { Redis } from "@upstash/redis";
 import axios from "axios";
 import { sendFrameNotification } from "~/lib/notifications";
+import { sendFrameNotificationsBatch } from "~/lib/notificationsBatch";
 import { getFansForTeamAbbr } from "~/lib/kvPerferences";
 import { ApiResponse, Competition, Competitor, MatchDetail, MatchEvent } from "../../lib/types";
 import { fetchJSONWithRetry, errorAsOk, okJson } from "../../lib/http";
@@ -115,22 +116,11 @@ export async function POST(request: NextRequest) {
       otherNotifications.push(message);
       console.log(`Kickoff detected for match ${matchId}: ${message}`);
 
-      const batchSize = 40;
-      for (let i = 0; i < fidsToNotify.length; i += batchSize) {
-        const batch = fidsToNotify.slice(i, i + batchSize);
-        const notificationPromises = batch.map(async (fid) => {
-          try {
-            await sendFrameNotification({
-              fid,
-              title: "Match Started! (UCL)",
-              body: message,
-            });
-          } catch (error) {
-            console.error(`Failed to send kickoff notification to FID: ${fid}`, error);
-          }
-        });
-        await Promise.all(notificationPromises);
-      }
+      await sendFrameNotificationsBatch({
+        fids: fidsToNotify,
+        title: "Match Started! (UCL)",
+        body: message,
+      });
 
       try {
         await redis.hset(`fc-footy:ucl:notifications:${matchId}`, {
@@ -150,22 +140,11 @@ export async function POST(request: NextRequest) {
       otherNotifications.push(message);
       console.log(`Halftime detected for match ${matchId}: ${message}`);
 
-      const batchSize = 40;
-      for (let i = 0; i < fidsToNotify.length; i += batchSize) {
-        const batch = fidsToNotify.slice(i, i + batchSize);
-        const notificationPromises = batch.map(async (fid) => {
-          try {
-            await sendFrameNotification({
-              fid,
-              title: "Halftime! (UCL)",
-              body: message,
-            });
-          } catch (error) {
-            console.error(`Failed to send halftime notification to FID: ${fid}`, error);
-          }
-        });
-        await Promise.all(notificationPromises);
-      }
+      await sendFrameNotificationsBatch({
+        fids: fidsToNotify,
+        title: "Halftime! (UCL)",
+        body: message,
+      });
 
       try {
         await redis.hset(`fc-footy:ucl:notifications:${matchId}`, {
@@ -186,22 +165,11 @@ export async function POST(request: NextRequest) {
       otherNotifications.push(message);
       console.log(`Full-time detected for match ${matchId}: ${message}`);
 
-      const batchSize = 40;
-      for (let i = 0; i < fidsToNotify.length; i += batchSize) {
-        const batch = fidsToNotify.slice(i, i + batchSize);
-        const notificationPromises = batch.map(async (fid) => {
-          try {
-            await sendFrameNotification({
-              fid,
-              title: "Match Ended! (UCL)",
-              body: message,
-            });
-          } catch (error) {
-            console.error(`Failed to send full-time notification to FID: ${fid}`, error);
-          }
-        });
-        await Promise.all(notificationPromises);
-      }
+      await sendFrameNotificationsBatch({
+        fids: fidsToNotify,
+        title: "Match Ended! (UCL)",
+        body: message,
+      });
 
       try {
         await redis.hset(`fc-footy:ucl:notifications:${matchId}`, {
@@ -279,22 +247,11 @@ export async function POST(request: NextRequest) {
 
     console.log(`Notifying ${fidsToNotify.length} fans for UCL match ${matchId}`);
 
-    const batchSize = 40;
-    for (let i = 0; i < fidsToNotify.length; i += batchSize) {
-      const batch = fidsToNotify.slice(i, i + batchSize);
-      const notificationPromises = batch.map(async (fid) => {
-        try {
-          await sendFrameNotification({
-            fid,
-            title: "Goal! Goal! Goal! (UCL)",
-            body: message,
-          });
-        } catch (error) {
-          console.error(`Failed to send UCL notification to FID: ${fid}`, error);
-        }
-      });
-      await Promise.all(notificationPromises);
-    }
+    await sendFrameNotificationsBatch({
+      fids: fidsToNotify,
+      title: "Goal! Goal! Goal! (UCL)",
+      body: message,
+    });
 
     try {
       await redis.hset(`fc-footy:ucl:match:${matchId}`, { homeScore, awayScore });

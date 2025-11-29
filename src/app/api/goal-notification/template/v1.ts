@@ -6,6 +6,7 @@
 // import { Redis } from "@upstash/redis";
 // import axios from "axios";
 // import { sendFrameNotification } from "~/lib/notifications";
+// import { sendFrameNotificationsBatch } from "~/lib/notificationsBatch";
 // import { getFansForTeamAbbr } from "~/lib/kvPerferences"; // Import the new function
 
 // const redis = new Redis({
@@ -175,6 +176,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { Redis } from "@upstash/redis";
 import axios from "axios";
 import { sendFrameNotification } from "~/lib/notifications";
+import { sendFrameNotificationsBatch } from "~/lib/notificationsBatch";
 import { getFansForTeamAbbr } from "~/lib/kvPerferences";
 import { fetchJSONWithRetry, errorAsOk, okJson } from "../../lib/http";
 
@@ -285,18 +287,7 @@ export async function POST(request: NextRequest) {
 
     // Function to send notifications
     const notifyFans = async (title: string, body: string) => {
-      const batchSize = 40;
-      for (let i = 0; i < fidsToNotify.length; i += batchSize) {
-        const batch = fidsToNotify.slice(i, i + batchSize);
-        const notificationPromises = batch.map(async (fid) => {
-          try {
-            await sendFrameNotification({ fid, title, body });
-          } catch (error) {
-            console.error(`Failed to send notification to FID: ${fid}`, error);
-          }
-        });
-        await Promise.all(notificationPromises);
-      }
+      await sendFrameNotificationsBatch({ fids: fidsToNotify, title, body });
     };
 
     // 1. Kickoff Notification (already handled on initialization if applicable)

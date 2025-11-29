@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { Redis } from "@upstash/redis";
 import axios from "axios";
 import { sendFrameNotification } from "~/lib/notifications";
+import { sendFrameNotificationsBatch } from "~/lib/notificationsBatch";
 import { getFansForTeamAbbr } from "~/lib/kvPerferences";
 import { ApiResponse, Competition, Competitor, MatchDetail, MatchEvent } from "../../lib/types";
 import { fetchJSONWithRetry, errorAsOk, okJson } from "../../lib/http";
@@ -91,7 +92,20 @@ export async function POST(request: NextRequest) {
       console.error(`Error fetching fans for CWC match ${matchId}`, err);
     }
     const uniqueFansToNotify = new Set([...homeFans, ...awayFans]);
-    const fidsToNotify = Array.from(uniqueFansToNotify);
+    // Intersect with known users set to reduce needless lookups
+    let userFids: (number | string)[] = [];
+    try {
+      userFids = await (redis as any).smembers("fc-footy:users");
+    } catch (err) {
+      console.error("Error reading users set from Redis", err);
+    }
+    const userSet = new Set<number>(
+      (Array.isArray(userFids) ? userFids : []).map((v) => (typeof v === 'string' ? Number(v) : (v as number)))
+        .filter((n) => Number.isFinite(n)) as number[]
+    );
+    const fidsToNotify = userSet.size > 0
+      ? Array.from(uniqueFansToNotify).filter((fid) => userSet.has(fid))
+      : Array.from(uniqueFansToNotify);
 
     // --- New Logic: Kickoff, Halftime, Full-Time Notifications ---
     let notificationFlags: {
@@ -115,22 +129,11 @@ export async function POST(request: NextRequest) {
       otherNotifications.push(message);
       console.log(`Kickoff detected for match ${matchId}: ${message}`);
 
-      const batchSize = 40;
-      for (let i = 0; i < fidsToNotify.length; i += batchSize) {
-        const batch = fidsToNotify.slice(i, i + batchSize);
-        const notificationPromises = batch.map(async (fid) => {
-          try {
-            await sendFrameNotification({
-              fid,
-              title: "Match Started! (Club World Cup)",
-              body: message,
-            });
-          } catch (error) {
-            console.error(`Failed to send kickoff notification to FID: ${fid}`, error);
-          }
-        });
-        await Promise.all(notificationPromises);
-      }
+      await sendFrameNotificationsBatch({
+        fids: fidsToNotify,
+        title: "Match Started! (Club World Cup)",
+        body: message,
+      });
 
       try {
         await redis.hset(`fc-footy:cwc:notifications:${matchId}`, {
@@ -150,22 +153,11 @@ export async function POST(request: NextRequest) {
       otherNotifications.push(message);
       console.log(`Halftime detected for match ${matchId}: ${message}`);
 
-      const batchSize = 40;
-      for (let i = 0; i < fidsToNotify.length; i += batchSize) {
-        const batch = fidsToNotify.slice(i, i + batchSize);
-        const notificationPromises = batch.map(async (fid) => {
-          try {
-            await sendFrameNotification({
-              fid,
-              title: "Halftime! (Club World Cup)",
-              body: message,
-            });
-          } catch (error) {
-            console.error(`Failed to send halftime notification to FID: ${fid}`, error);
-          }
-        });
-        await Promise.all(notificationPromises);
-      }
+      await sendFrameNotificationsBatch({
+        fids: fidsToNotify,
+        title: "Halftime! (Club World Cup)",
+        body: message,
+      });
 
       try {
         await redis.hset(`fc-footy:cwc:notifications:${matchId}`, {
@@ -186,22 +178,11 @@ export async function POST(request: NextRequest) {
       otherNotifications.push(message);
       console.log(`Full-time detected for match ${matchId}: ${message}`);
 
-      const batchSize = 40;
-      for (let i = 0; i < fidsToNotify.length; i += batchSize) {
-        const batch = fidsToNotify.slice(i, i + batchSize);
-        const notificationPromises = batch.map(async (fid) => {
-          try {
-            await sendFrameNotification({
-              fid,
-              title: "Match Ended! (Club World Cup)",
-              body: message,
-            });
-          } catch (error) {
-            console.error(`Failed to send full-time notification to FID: ${fid}`, error);
-          }
-        });
-        await Promise.all(notificationPromises);
-      }
+      await sendFrameNotificationsBatch({
+        fids: fidsToNotify,
+        title: "Match Ended! (Club World Cup)",
+        body: message,
+      });
 
       try {
         await redis.hset(`fc-footy:cwc:notifications:${matchId}`, {
@@ -279,22 +260,11 @@ export async function POST(request: NextRequest) {
 
     console.log(`Notifying ${fidsToNotify.length} fans for cwc match ${matchId}`);
 
-    const batchSize = 40;
-    for (let i = 0; i < fidsToNotify.length; i += batchSize) {
-      const batch = fidsToNotify.slice(i, i + batchSize);
-      const notificationPromises = batch.map(async (fid) => {
-        try {
-          await sendFrameNotification({
-            fid,
-            title: "Goal! Goal! Goal! (Club World Cup)",
-            body: message,
-          });
-        } catch (error) {
-          console.error(`Failed to send cwc notification to FID: ${fid}`, error);
-        }
-      });
-      await Promise.all(notificationPromises);
-    }
+    await sendFrameNotificationsBatch({
+      fids: fidsToNotify,
+      title: "Goal! Goal! Goal! (Club World Cup)",
+      body: message,
+    });
 
     try {
       await redis.hset(`fc-footy:cwc:match:${matchId}`, { homeScore, awayScore });
