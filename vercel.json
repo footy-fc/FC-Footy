@@ -9,6 +9,7 @@
     { "path": "/api/goal-notification/eflcup", "schedule": "*/1 * * * *" },
     { "path": "/api/goal-notification/uel", "schedule": "*/1 * * * *" },
     { "path": "/api/goal-notification/cwc", "schedule": "*/1 * * * *" },
+    { "path": "/api/goal-notification/afcon", "schedule": "*/1 * * * *" },
     { "path": "/api/goal-notification/worldcup/europe", "schedule": "*/1 * * * *" },
     { "path": "/api/goal-notification/worldcup/asia", "schedule": "*/1 * * * *" },
     { "path": "/api/goal-notification/worldcup/africa", "schedule": "*/1 * * * *" },
