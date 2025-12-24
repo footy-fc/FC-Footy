@@ -348,7 +348,7 @@ export const teamsByLeague: { [league: string]: { team: string; abbr: string; ro
     //{ team: "Zimbabwe", abbr: "zim" }
   ]
   ,
-  ["caf.africa.cup"]: [
+  ["caf.nations"]: [
     { team: "Algeria", abbr: "alg" },
     { team: "Angola", abbr: "ang" },
     { team: "Benin", abbr: "ben" },

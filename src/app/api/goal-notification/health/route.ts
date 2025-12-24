@@ -23,7 +23,7 @@ const leagues: LeagueHealth[] = [
   { id: "eflcup", label: "EFL Cup", scoreboardUrl: "https://site.api.espn.com/apis/site/v2/sports/soccer/eng.league_cup/scoreboard" },
   { id: "uel", label: "UEL", scoreboardUrl: "https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.europa/scoreboard" },
   { id: "cwc", label: "Club World Cup", scoreboardUrl: "https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.cwc/scoreboard" },
-  { id: "afcon", label: "AFCON", scoreboardUrl: "https://site.api.espn.com/apis/site/v2/sports/soccer/caf.africa.cup/scoreboard" },
+  { id: "afcon", label: "AFCON", scoreboardUrl: "https://site.api.espn.com/apis/site/v2/sports/soccer/caf.nations/scoreboard" },
   { id: "worldcup-uefa", label: "WCQ UEFA", scoreboardUrl: "https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.worldq.uefa/scoreboard" },
   { id: "worldcup-afc", label: "WCQ AFC", scoreboardUrl: "https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.worldq.afc/scoreboard" },
   { id: "worldcup-concacaf", label: "WCQ CONCACAF", scoreboardUrl: "https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.worldq.concacaf/scoreboard" },
