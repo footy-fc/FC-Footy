@@ -93,8 +93,8 @@ const sportsData = [
       },
       {
         name: 'AFCON',
-        sportId: 'caf.africa.cup',
-        url: 'https://site.api.espn.com/apis/site/v2/sports/soccer/caf.africa.cup/scoreboard',
+        sportId: 'caf.nations',
+        url: 'https://site.api.espn.com/apis/site/v2/sports/soccer/caf.nations/scoreboard',
       },
 
 

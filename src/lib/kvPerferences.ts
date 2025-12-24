@@ -134,7 +134,7 @@ const SUPPORTED_LEAGUES = [
   "fifa.worldq.caf",
   "fifa.worldq.ofc"
   ,
-  "caf.africa.cup"
+  "caf.nations"
 ];
 
 /**
