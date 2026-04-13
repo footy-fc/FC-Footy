@@ -1,10 +1,7 @@
-import { PinataSDK } from "pinata-web3";
-
-interface PinResponse {
-  IpfsHash: string;
-  PinSize: number;
-  Timestamp: string;
-  isDuplicate?: boolean;
+interface UploadResponse {
+  objectKey: string;
+  publicUrl: string;
+  contentType?: string;
 }
 
 const generateFiles = (jsonData: object) => {
@@ -36,34 +33,34 @@ const generateFiles = (jsonData: object) => {
   };
 };
 
-const uploadFilesToIPFS = async (jsonData: object): Promise<Record<string, PinResponse> | undefined> => {
-  const pinata = new PinataSDK({
-            pinataJwt: process.env.NEXT_PUBLIC_PINATAJWT!,
-        pinataGateway: process.env.NEXT_PUBLIC_PINATAGATEWAY!,
-  });
-
-  console.log("Uploading website files to Pinata");
+const uploadFilesToIPFS = async (jsonData: object): Promise<Record<string, UploadResponse> | undefined> => {
+  console.log("Uploading website files to QStorage");
 
   try {
     const files = generateFiles(jsonData);
-    const uploadResults: Record<string, PinResponse> = {};
+    const uploadResults: Record<string, UploadResponse> = {};
 
     for (const [fileName, fileContent] of Object.entries(files)) {
-      // Convert Blob to a File by specifying a file name, type, and lastModified date.
-      const fileObj = new File([fileContent], fileName, { 
-        type: fileContent.type, 
-        lastModified: Date.now() 
+      const response = await fetch(`/api/upload?objectKey=${encodeURIComponent(fileName)}`, {
+        method: "POST",
+        body: fileContent,
+        headers: {
+          "Content-Type": fileContent.type,
+          "x-file-name": fileName,
+        },
       });
-      const upload = await pinata.upload.file(fileObj).addMetadata({
-        name: fileName,
-      });
-      uploadResults[fileName] = upload;
+
+      if (!response.ok) {
+        throw new Error(`Failed to upload ${fileName}`);
+      }
+
+      uploadResults[fileName] = (await response.json()) as UploadResponse;
     }
 
     console.log("Upload complete:", uploadResults);
     return uploadResults;
   } catch (error) {
-    console.error("Error uploading files to Pinata:", error);
+    console.error("Error uploading files to QStorage:", error);
     return undefined;
   }
 };

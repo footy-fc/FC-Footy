@@ -1,6 +1,7 @@
 import { Metadata } from "next";
 import App from "./app";
 import { Providers } from "./providers";
+import { buildQStoragePublicUrl } from "~/lib/qstorage";
 
 const appUrl = process.env.NEXT_PUBLIC_URL ?? 'http://localhost:3000';
 
@@ -20,11 +21,12 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
     }
   });
 
-  if (url.searchParams.has('ipfsHash')) {
-    const ipfsHash = url.searchParams.get('ipfsHash');
-    if (ipfsHash) {
-      imgUrl = `https://tan-hidden-whippet-249.mypinata.cloud/ipfs/${ipfsHash}`;
-    }
+  const imageUrl = url.searchParams.get('imageUrl');
+  const imageKey = url.searchParams.get('imageKey');
+  if (imageUrl) {
+    imgUrl = imageUrl;
+  } else if (imageKey) {
+    imgUrl = buildQStoragePublicUrl(imageKey);
   }
 
       // Removed debug console.log

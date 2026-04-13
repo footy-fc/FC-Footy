@@ -83,10 +83,13 @@ NEXT_PUBLIC_FPL_API_URL=https://fantasy.premierleague.com/api
 NEYNAR_API_KEY=your_neynar_api_key
 SIGNER_UUID=your_signer_uuid
 
-# IPFS (Pinata)
-PINATA_JWT=your_pinata_jwt
-NEXT_PUBLIC_PINATAJWT=your_pinata_jwt
-NEXT_PUBLIC_PINATAGATEWAY=https://gateway.pinata.cloud
+# Quilibrium QStorage
+QSTORAGE_ENDPOINT=https://qstorage.quilibrium.com/footy
+QSTORAGE_BUCKET=footy
+QSTORAGE_REGION=us-east-1
+QSTORAGE_ACCESS_KEY_ID=your_qstorage_access_key
+QSTORAGE_SECRET_ACCESS_KEY=your_qstorage_secret_key
+QSTORAGE_PREFIX=footy-
 
 # KV Database
 KV_REST_API_URL=your_kv_url

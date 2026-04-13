@@ -357,20 +357,16 @@ const generateCommentaryForMatch = async (
           const dataUrl = await generateCompositeImage(homeLogo, awayLogo, homeScore, awayScore, clock);
           const blob = await (await fetch(dataUrl)).blob();
           const uploadRes = await fetch('/api/upload', { method: 'POST', body: blob });
-          const uploadResult = await uploadRes.json();
+          const uploadResult: { objectKey: string; publicUrl: string } = await uploadRes.json();
           if (!uploadRes.ok) throw new Error('Image upload failed');
 
-          // Log the uploaded IPFS CID for debugging/analytics
-          if (uploadResult?.ipfsHash) {
+          if (uploadResult?.objectKey) {
             // eslint-disable-next-line no-console
-            console.log('Composite image uploaded. CID:', uploadResult.ipfsHash);
+            console.log('Composite image uploaded. Key:', uploadResult.objectKey);
           }
 
-          //const gateway = (process.env.NEXT_PUBLIC_PINATAGATEWAY || 'https://gateway.pinata.cloud/ipfs').replace(/\/$/, '');
-          //imageUrl = `${gateway}/${uploadResult.ipfsHash}`;
-
           const urlObj = new URL(miniAppUrl);
-          urlObj.searchParams.set('ipfsHash', uploadResult.ipfsHash);
+          urlObj.searchParams.set('imageKey', uploadResult.objectKey);
           shareUrl = urlObj.toString();
         } catch (error) {
           console.error("Error generating composite image:", error);

@@ -4,7 +4,8 @@ import { useState } from 'react';
 const UploadForm = () => {
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
-  const [ipfsHash, setIpfsHash] = useState<string | null>(null);
+  const [uploadedUrl, setUploadedUrl] = useState<string | null>(null);
+  const [objectKey, setObjectKey] = useState<string | null>(null);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0] || null;
@@ -31,7 +32,8 @@ const UploadForm = () => {
       const data = await response.json();
 
       if (response.ok) {
-        setIpfsHash(data.ipfsHash);
+        setUploadedUrl(data.publicUrl);
+        setObjectKey(data.objectKey);
       } else {
         console.error('Upload failed:', data.error);
         alert('Upload failed.');
@@ -50,10 +52,11 @@ const UploadForm = () => {
       <button onClick={handleUpload} disabled={uploading}>
         {uploading ? 'Uploading...' : 'Upload'}
       </button>
-      {ipfsHash && (
+      {uploadedUrl && (
         <div>
-          <p>Upload successful! IPFS Hash:</p>
-          <pre>{ipfsHash}</pre>
+          <p>Upload successful! QStorage URL:</p>
+          <pre>{uploadedUrl}</pre>
+          {objectKey && <pre>{objectKey}</pre>}
         </div>
       )}
     </div>

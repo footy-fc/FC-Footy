@@ -1,56 +1,75 @@
 // app/api/upload/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { pinata } from '../../../lib/pinataconfig';
+import { uploadToQStorage } from '../../../lib/qstorage';
+
+function firstContentType(headerValue: string | null) {
+  return headerValue?.split(";")[0].trim() || "application/octet-stream";
+}
 
 export async function POST(req: NextRequest) {
   try {
     console.log('Upload API called');
-    
-    // Debug: Log environment variable status
 
-    
-    // Check if Pinata JWT is configured
-    const pinataJwt = process.env.NEXT_PUBLIC_PINATAJWT || process.env.PINATA_JWT;
-    const pinataGateway = process.env.NEXT_PUBLIC_PINATAGATEWAY || process.env.PINATA_GATEWAY;
-    
-    if (!pinataJwt) {
-      console.error('Pinata JWT not configured');
-      return NextResponse.json({ 
-        error: 'Pinata JWT not configured. Please set NEXT_PUBLIC_PINATAJWT environment variable.',
-        details: 'Get your JWT from https://app.pinata.cloud/'
-      }, { status: 500 });
-    }
-    
-    if (!pinataGateway) {
-      console.error('Pinata Gateway not configured');
-      return NextResponse.json({ error: 'Pinata Gateway not configured' }, { status: 500 });
+    const contentTypeHeader = req.headers.get("content-type");
+    const objectKeyParam =
+      req.nextUrl.searchParams.get("objectKey") ||
+      req.headers.get("x-object-key") ||
+      undefined;
+
+    let buffer: Buffer;
+    let fileName = req.headers.get("x-file-name") || "upload";
+    let contentType = firstContentType(contentTypeHeader);
+
+    if (contentTypeHeader?.includes("multipart/form-data")) {
+      const formData = await req.formData();
+      const file = formData.get("file");
+      const objectKeyFromForm = formData.get("objectKey");
+
+      if (!(file instanceof File)) {
+        return NextResponse.json({ error: "Missing file upload" }, { status: 400 });
+      }
+
+      buffer = Buffer.from(await file.arrayBuffer());
+      fileName = file.name || fileName;
+      contentType = file.type || contentType;
+
+      const uploadResult = await uploadToQStorage({
+        body: buffer,
+        contentType,
+        fileName,
+        objectKey:
+          typeof objectKeyFromForm === "string" && objectKeyFromForm.length > 0
+            ? objectKeyFromForm
+            : objectKeyParam,
+      });
+
+      return NextResponse.json(uploadResult);
     }
 
     const data = await req.arrayBuffer();
     console.log('Received data size:', data.byteLength);
-    
-    const buffer = Buffer.from(data);
-    const file = new File([buffer], 'uploaded_image.png', { type: 'image/png' });
-    console.log('Created file:', file.name, file.size);
 
-    // Upload the file to Pinata IPFS
-    console.log('Uploading to Pinata...');
-    const result = await pinata.upload.file(file);
-    console.log('IPFS Upload Success:', result);
-    
-    return NextResponse.json({ ipfsHash: result.IpfsHash });
+    buffer = Buffer.from(data);
+
+    const uploadResult = await uploadToQStorage({
+      body: buffer,
+      contentType,
+      fileName,
+      objectKey: objectKeyParam,
+    });
+    console.log('QStorage upload success:', uploadResult.objectKey);
+
+    return NextResponse.json(uploadResult);
   } catch (error) {
-    console.error('IPFS Upload Failed:', error);
+    console.error('QStorage Upload Failed:', error);
     console.error('Error details:', {
       message: error instanceof Error ? error.message : 'Unknown error',
       stack: error instanceof Error ? error.stack : undefined,
       name: error instanceof Error ? error.name : 'Unknown'
     });
-    
 
-    
     return NextResponse.json({ 
-      error: 'IPFS Upload Failed',
+      error: 'QStorage Upload Failed',
       details: error instanceof Error ? error.message : 'Unknown error'
     }, { status: 500 });
   }

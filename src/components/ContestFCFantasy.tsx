@@ -19,6 +19,10 @@ import { fetchNativeTokenPrice } from '~/utils/fetchUsdPrice';
 
 const testing = false; // Toggle this for testing - will not mint NFTs
 
+type UploadResponse = {
+  objectKey: string;
+  publicUrl: string;
+};
 
 const ContestFCFantasy = () => {
   const [fantasyData, setFantasyData] = useState<FantasyEntry[]>([]);
@@ -31,8 +35,8 @@ const ContestFCFantasy = () => {
   const [isContextLoaded, setIsContextLoaded] = useState<boolean>(false);
   const [sharingInProgress, setSharingInProgress] = useState(false);
   const [renderKey, setRenderKey] = useState(0);
-  const [imageCid, setImageCid] = useState<string | null>(null);
-  const [metadataCid, setMetadataCid] = useState<string | null>(null);
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [metadataUrl, setMetadataUrl] = useState<string | null>(null);
   const [currentUserFid, setCurrentUserFid] = useState<number | null>(null);
   const [cardPfpUrl, setCardPfpUrl] = useState<string>('/defifa_spinner.gif');
   const [feplChat, setFeplChat] = useState<{ exists: boolean; invite?: string | null }>({ exists: false, invite: null });
@@ -225,26 +229,26 @@ const ContestFCFantasy = () => {
       setStatusMessage('🌐 Uploading image...');
       const blob = await (await fetch(dataUrl)).blob();
       const response = await fetch('/api/upload', { method: 'POST', body: blob });
-      const result: { ipfsHash: string } = await response.json();
+      const result: UploadResponse = await response.json();
 
       if (!response.ok) {
         throw new Error('Image upload failed');
       }
 
-      const imageCid = result.ipfsHash;
-      console.log('✅ Image uploaded to IPFS:', imageCid);
+      const uploadedImageUrl = result.publicUrl;
+      console.log('✅ Image uploaded to QStorage:', uploadedImageUrl);
 
       setStatusMessage('📁 Uploading metadata...');
-      const metadataCid = await uploadMetadataToIPFS(imageCid, currentCardEntry);
+      const uploadedMetadataUrl = await uploadMetadataToStorage(uploadedImageUrl, currentCardEntry);
 
-      if (!metadataCid) throw new Error('Metadata upload failed');
+      if (!uploadedMetadataUrl) throw new Error('Metadata upload failed');
 
-      console.log('✅ Metadata uploaded:', metadataCid);
+      console.log('✅ Metadata uploaded:', uploadedMetadataUrl);
 
       setStatusMessage(
         <div>
-          <p>✅ Image CID: {imageCid}</p>
-          <p>✅ Metadata CID: {metadataCid}</p>
+          <p>✅ Image URL: {uploadedImageUrl}</p>
+          <p>✅ Metadata URL: {uploadedMetadataUrl}</p>
         </div>
       );
 
@@ -341,8 +345,8 @@ const ContestFCFantasy = () => {
   
     const handleRowSelect = async (selected: FantasyEntry) => {
       setSelectedEntry(selected);
-      setImageCid(null);        // 👈 Reset image CID
-      setMetadataCid(null);     // 👈 Reset metadata CID
+      setImageUrl(null);
+      setMetadataUrl(null);
       setStatusMessage('');
       setRenderKey((prev) => prev + 1);
     
@@ -353,12 +357,12 @@ const ContestFCFantasy = () => {
     };
     
   
-  const uploadMetadataToIPFS = async (imageCid: string, cardEntry: FantasyEntry | undefined): Promise<string | null> => {
+  const uploadMetadataToStorage = async (imageAssetUrl: string, cardEntry: FantasyEntry | undefined): Promise<string | null> => {
     try {
       const metadata = {
         name: `FC Footy NFT - ${cardEntry?.manager}`,
         description: `Fantasy Football rank card for ${cardEntry?.manager}.`,
-        image: `ipfs://${imageCid}`,
+        image: imageAssetUrl,
         attributes: [
           { trait_type: 'License', value: 'CC0' },
           { trait_type: 'Theme', value: 'FC Footy Retro' },
@@ -371,8 +375,8 @@ const ContestFCFantasy = () => {
         method: 'POST',
         body: metadataBlob,
       });
-      const result: { ipfsHash: string } = await response.json();
-      return response.ok ? result.ipfsHash : null;
+      const result: UploadResponse = await response.json();
+      return response.ok ? result.publicUrl : null;
     } catch (error) {
       console.error('Metadata upload failed', error);
       return null;
@@ -386,10 +390,10 @@ const ContestFCFantasy = () => {
     setStatusMessage('🖼️ Preparing card image...');
   
     try {
-      let localImageCid = imageCid;
-      let localMetadataCid = metadataCid;
+      let localImageUrl = imageUrl;
+      let localMetadataUrl = metadataUrl;
   
-      if (!localImageCid || !localMetadataCid) {
+      if (!localImageUrl || !localMetadataUrl) {
         await forceDOMUpdate();
         await waitForDOMUpdate();
         await document.fonts.ready;
@@ -407,21 +411,21 @@ const ContestFCFantasy = () => {
         setStatusMessage('🌐 Uploading image...');
         const blob = await (await fetch(dataUrl)).blob();
         const response = await fetch('/api/upload', { method: 'POST', body: blob });
-        const result: { ipfsHash: string } = await response.json();
+        const result: UploadResponse = await response.json();
   
         if (!response.ok) {
           throw new Error('Image upload failed');
         }
   
-        localImageCid = result.ipfsHash;
-        setImageCid(localImageCid);
+        localImageUrl = result.publicUrl;
+        setImageUrl(localImageUrl);
   
         setStatusMessage('📁 Uploading metadata...');
-        localMetadataCid = await uploadMetadataToIPFS(localImageCid, cardEntry);
+        localMetadataUrl = await uploadMetadataToStorage(localImageUrl, cardEntry);
   
-        if (!localMetadataCid) throw new Error('Metadata upload failed');
+        if (!localMetadataUrl) throw new Error('Metadata upload failed');
   
-        setMetadataCid(localMetadataCid);
+        setMetadataUrl(localMetadataUrl);
       }
   
       if (testing) {
@@ -435,7 +439,7 @@ const ContestFCFantasy = () => {
         address: CONTRACT_ADDRESS_FEPL,
         abi: CONTRACT_ABI_FEPL,
         functionName: 'mintAsWhitelisted',
-        args: [`ipfs://${localMetadataCid}`],
+        args: [localMetadataUrl],
         value: ethers.parseEther(FEPL_MINT_PRICE),
       });
   
@@ -698,9 +702,9 @@ const ContestFCFantasy = () => {
               setStatusMessage('🔄 Preparing shareable image...');
 
               try {
-                let localImageCid = imageCid;
+                let localImageUrl = imageUrl;
 
-                if (!localImageCid) {
+                if (!localImageUrl) {
                   await forceDOMUpdate();
                   await waitForDOMUpdate();
                   await document.fonts.ready;
@@ -715,19 +719,19 @@ const ContestFCFantasy = () => {
 
                   const blob = await (await fetch(dataUrl)).blob();
                   const response = await fetch('/api/upload', { method: 'POST', body: blob });
-                  const result: { ipfsHash: string } = await response.json();
+                  const result: UploadResponse = await response.json();
 
                   if (!response.ok) {
                     throw new Error('Image upload failed');
                   }
 
-                  localImageCid = result.ipfsHash;
-                  setImageCid(localImageCid);
+                  localImageUrl = result.publicUrl;
+                  setImageUrl(localImageUrl);
                 }
 
                 const castText = `🎫 Farcaster Fantasy EPL Season Pass for @${cardEntry?.manager}!\n🏆 2025/26 Season\n⚽ ${cardEntry?.team?.name || 'EPL'} Supporter\n⭐ OG NFT with exclusive benefits\nCheck out the latest Farcaster Fantasy EPL collection on @base 🚀`;
                 const encodedText = encodeURIComponent(castText);
-                const encodedEmbed1 = encodeURIComponent(`https://tan-hidden-whippet-249.mypinata.cloud/ipfs/${localImageCid}`);
+                const encodedEmbed1 = encodeURIComponent(localImageUrl);
                 // const encodedEmbed2 = encodeURIComponent(`https://fc-footy.vercel.app?tab=contests`);
 
                 // const warpcastUrl = `https://warpcast.com/~/compose?text=${encodedText}&channelKey=football&embeds[]=${encodedEmbed1}&embeds[]=${encodedEmbed2}`;

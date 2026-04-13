@@ -248,12 +248,11 @@ async function generateAndUploadInfographic(fplData, gameWeek) {
           }
           
           const uploadResult = await uploadResponse.json();
-          const ipfsHash = uploadResult.ipfsHash;
+          const publicUrl = uploadResult.publicUrl;
           
-          if (ipfsHash) {
-            const pinataGateway = process.env.NEXT_PUBLIC_PINATAGATEWAY || process.env.PINATA_GATEWAY || 'https://gateway.pinata.cloud';
-            infographicUrl = `${pinataGateway}/ipfs/${ipfsHash}`;
-            console.log(`✅ [infographic] Uploaded to IPFS: ${infographicUrl}`);
+          if (publicUrl) {
+            infographicUrl = publicUrl;
+            console.log(`✅ [infographic] Uploaded to QStorage: ${infographicUrl}`);
             break;
           }
           
