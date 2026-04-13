@@ -28,8 +28,33 @@ const Scout: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // State to manage the selected tab
-  const [selectedTab, setSelectedTab] = useState<string>('forwards'); // Default tab 
+  const [selectedTab, setSelectedTab] = useState<string>('forwards');
+  const scoutViews = [
+    {
+      id: 'forwards',
+      label: 'Forwards',
+      short: 'FWD',
+      hint: 'Shots, xG, finishing',
+    },
+    {
+      id: 'midfielders',
+      label: 'Midfielders',
+      short: 'MID',
+      hint: 'Chance creation and xGI',
+    },
+    {
+      id: 'defenders',
+      label: 'Defenders',
+      short: 'DEF',
+      hint: 'Threat and clean-sheet value',
+    },
+    {
+      id: 'goalkeepers',
+      label: 'Keepers',
+      short: 'GK',
+      hint: 'Saves and concession rate',
+    },
+  ] as const;
 
   // Fetch player data from the API
   useEffect(() => {
@@ -57,63 +82,47 @@ const Scout: React.FC = () => {
     return <div className="text-center text-red-500">Error: {error}</div>;
   }
 
-  // Handlers for selecting different tabs
   const handleTabSelect = (tab: string) => {
-    setSelectedTab(tab); // Set selected tab
+    setSelectedTab(tab);
   };
 
   return (
     <>
       <div className="mb-4">
-        {/* Horizontal Scrollable Menu for Tabs */}
-        <h2 className="font-2xl text-notWhite font-bold mb-4">Fantasy Player Rankings</h2>
-        <div className="flex overflow-x-auto space-x-4 mb-4">
-          {/* Tab Buttons */}
-          <button
-            onClick={() => handleTabSelect('forwards')}
-            className={`flex-shrink-0 py-1 px-2 text-sm font-semibold cursor-pointer underline-offset-4 ${
-              selectedTab === 'forwards' ? 'text-lightPurple underline' : 'text-gray-500 hover:text-lightPurple hover:underline'
-            }`}
-          >
-            Forwards
-          </button>
-          
-          <button
-            onClick={() => handleTabSelect('midfielders')}
-            className={`flex-shrink-0 py-1 px-2 text-sm font-semibold cursor-pointer underline-offset-4 ${
-              selectedTab === 'midfielders' ? 'text-lightPurple underline' : 'text-gray-500 hover:text-lightPurple hover:underline'
-            }`}
-          >
-            Midfielders
-          </button>
+        <div className="mb-4">
+          <h2 className="font-2xl text-notWhite font-bold">Fantasy Player Rankings</h2>
+          <p className="mt-1 text-xs text-gray-400">
+            Switch between role-based leaderboards instead of hunting through a scrolling menu.
+          </p>
+        </div>
 
-          <button
-            onClick={() => handleTabSelect('defenders')}
-            className={`flex-shrink-0 py-1 px-2 text-sm font-semibold cursor-pointer underline-offset-4 ${
-              selectedTab === 'defenders' ? 'text-lightPurple underline' : 'text-gray-500 hover:text-lightPurple hover:underline'
-            }`}
-          >
-            Defending
-          </button>
-
-          <button
-            onClick={() => handleTabSelect('goalkeepers')}
-            className={`flex-shrink-0 py-1 px-2 text-sm font-semibold cursor-pointer underline-offset-4 ${
-              selectedTab === 'goalkeepers' ? 'text-lightPurple underline' : 'text-gray-500 hover:text-lightPurple hover:underline'
-            }`}
-          >
-            Keepers
-          </button>
-
+        <div className="grid grid-cols-2 gap-2">
+          {scoutViews.map((view) => (
+            <button
+              key={view.id}
+              onClick={() => handleTabSelect(view.id)}
+              type="button"
+              className={`rounded-[18px] border px-3 py-3 text-left transition-all ${
+                selectedTab === view.id
+                  ? 'border-deepPink bg-deepPink/20 text-notWhite shadow-[0_12px_24px_rgba(220,20,120,0.2)]'
+                  : 'border-limeGreenOpacity/20 bg-darkPurple/60 text-lightPurple hover:border-limeGreenOpacity/40'
+              }`}
+            >
+              <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-deepPink">{view.short}</div>
+              <div className="mt-1 text-sm font-semibold">{view.label}</div>
+              <div className={`mt-1 text-[11px] ${selectedTab === view.id ? 'text-white/75' : 'text-gray-400'}`}>
+                {view.hint}
+              </div>
+            </button>
+          ))}
         </div>
       </div>
 
-      {/* Conditional Rendering Based on Selected Tab */}
-      <div className="bg-purplePanel text-lightPurple rounded-lg">
+      <div className="bg-darkPurple/70 text-lightPurple rounded-[20px] border border-limeGreenOpacity/20 p-2">
         {selectedTab === 'forwards' && <ScoutAttackersFwds playersIn={players} />}
         {selectedTab === 'midfielders' && <ScoutAttakersMids playersIn={players} />}
         {selectedTab === 'defenders' && <ScoutDefenders playersIn={players} />}
-        {selectedTab === 'goalkeepers' && <ScoutGoalKeepers playersIn={players} />} {/* Replace with actual component */}
+        {selectedTab === 'goalkeepers' && <ScoutGoalKeepers playersIn={players} />}
       </div>
     </>
   );

@@ -202,83 +202,6 @@ const MatchEventCard: React.FC<EventCardProps> = ({ event, sportId, isOpen: isOp
     }
   }, [sportId, selectedMatch]);
 
-  // Check for existing chat room when component mounts
-  useEffect(() => {
-    const checkExistingChatRoom = async () => {
-      try {
-        // Use match data utilities for consistent processing
-        const matchData = createRichMatchData(event, teams, sportId);
-        // const leagueId = matchData.competition;
-        const baseId = matchData.eventId;
-        
-        console.log("Checking for existing chat room:", baseId);
-        setCheckingRoom(true);
-        
-        const candidates = [baseId, `${baseId}_`];
-        let found: string | null = null;
-        
-        // First, try to find existing room
-        for (const id of candidates) {
-          const res = await fetch(`/api/match-rooms?eventId=${encodeURIComponent(id)}`);
-          const data = await res.json();
-          if (data?.room?.castHash) {
-            found = data.room.castHash;
-            break;
-          }
-        }
-        
-        setChatRoomHash(found);
-        setCheckingRoom(false);
-        
-        if (found) {
-          console.log(`✅ Found existing chat room for ${baseId}:`, found);
-        } else {
-          console.log(`❌ No existing chat room for ${baseId}`);
-        }
-      } catch (error) {
-        console.error('Error checking for existing chat room:', error);
-        setChatRoomHash(null);
-        setCheckingRoom(false);
-      }
-    };
-    
-    // Check for existing room when component mounts
-    checkExistingChatRoom();
-  }, [event, teams, sportId]);
-
-  // Function to refresh chat room status (can be called after successful cast)
-  const refreshChatRoomStatus = async () => {
-    try {
-      const matchData = createRichMatchData(event, teams, sportId);
-      const baseId = matchData.eventId;
-      
-      console.log("Refreshing chat room status for:", baseId);
-      setCheckingRoom(true);
-      
-      const candidates = [baseId, `${baseId}_`];
-      let found: string | null = null;
-      
-      for (const id of candidates) {
-        const res = await fetch(`/api/match-rooms?eventId=${encodeURIComponent(id)}`);
-        const data = await res.json();
-        if (data?.room?.castHash) {
-          found = data.room.castHash;
-          break;
-        }
-      }
-      
-      setChatRoomHash(found);
-      setCheckingRoom(false);
-      
-      if (found) {
-        console.log(`✅ Room found after refresh for ${baseId}:`, found);
-      }
-    } catch (error) {
-      console.error('Error refreshing chat room status:', error);
-      setChatRoomHash(null);
-      setCheckingRoom(false);
-    }
-  };
    // useEffect(() => {
    //   const fetchPrice = async () => {
    //     try {
@@ -309,8 +232,6 @@ const MatchEventCard: React.FC<EventCardProps> = ({ event, sportId, isOpen: isOp
   
   const homeTeamLogo = event.competitions[0]?.competitors[0]?.team.logo;
   const awayTeamLogo = event.competitions[0]?.competitors[1]?.team.logo;
-  const [chatRoomHash, setChatRoomHash] = useState<string | null>(null);
-  const [checkingRoom, setCheckingRoom] = useState<boolean>(false);
 
   const keyMoments: KeyMoment[] = event.competitions[0]?.details
     ?.sort((a: Detail, b: Detail) => {
@@ -406,79 +327,6 @@ const MatchEventCard: React.FC<EventCardProps> = ({ event, sportId, isOpen: isOp
     <div key={event.id} className="sidebar">
       <div className="cursor-pointer border border-darkPurple">
         <div className="flex items-center mb-2 w-full">
-          {/* Chat Room Affordance - positioned outside button */}
-          {(() => {
-            try {
-              // Use the sportId prop which contains the actual competition (e.g., eng.league_cup)
-              const leagueId = sportId || 'eng.1';
-              
-              // Only show chat affordance for Premier League matches (eng.1)
-              if (leagueId !== 'eng.1') return null;
-              
-              const home = event.competitions[0]?.competitors[0]?.team.abbreviation?.toUpperCase() || '';
-              const away = event.competitions[0]?.competitors[1]?.team.abbreviation?.toUpperCase() || '';
-              const baseId = `${leagueId.replace('.', '_')}_${home}_${away}`;
-              const appUrlRaw = process.env.NEXT_PUBLIC_URL || 'https://fc-footy.vercel.app';
-              const appUrl = appUrlRaw.startsWith('http') ? appUrlRaw : `https://${appUrlRaw}`;
-              const chatUrl = `${appUrl}/chat?eventId=${encodeURIComponent(baseId)}`;
-              const isChatPage = typeof window !== 'undefined' && window.location.pathname.startsWith('/chat');
-
-              if (isChatPage) return null;
-              if (checkingRoom) {
-                return (
-                  <div className="flex flex-col items-center w-8 opacity-90 mr-2">
-                    <div className="inline-flex items-center justify-center w-5 h-5 bg-yellow-400 rounded-full">
-                      <span className="text-sm">💬</span>
-                    </div>
-                  </div>
-                );
-              }
-              if (chatRoomHash) {
-                return (
-                  <div className="flex flex-col items-center w-8 opacity-90 mr-2">
-                  <a
-                    href={chatUrl}
-                      className="inline-flex items-center justify-center w-5 h-5 bg-limeGreen hover:bg-limeGreen/90 rounded-full transition-colors"
-                      title="Join match chat"
-                  >
-                      💬
-                  </a>
-                  </div>
-                );
-              }
-                            // No room exists - show share prompt
-              return (
-                <div className="flex flex-col items-center w-8 opacity-90 mr-2">
-                  <button
-                    onClick={async (e) => {
-                      e.stopPropagation(); // Prevent triggering the dropdown toggle
-                      
-                      // If dropdown is closed, open it first
-                      if (!isOpen) {
-                        handleSelectMatch();
-                        return;
-                      }
-                      
-                      // If dropdown is open, do nothing - user should use the create room button
-                      // This prevents the forever checking state
-                    }}
-                    className={`inline-flex items-center justify-center w-5 h-5 rounded-full transition-colors ${
-                      isOpen 
-                        ? 'bg-gray-500 cursor-not-allowed opacity-50' 
-                        : 'bg-fontRed hover:bg-fontRed/90 cursor-pointer'
-                    }`}
-                    title={isOpen ? "Use the 'Create room' button below" : "Tap to open match details"}
-                    disabled={isOpen}
-                  >
-                    <span className="text-sm">💬</span>
-                  </button>
-                </div>
-              );
-            } catch {
-              return null;
-            }
-          })()}
-          
           <button
             onClick={() => {
               handleSelectMatch();
@@ -653,19 +501,6 @@ const MatchEventCard: React.FC<EventCardProps> = ({ event, sportId, isOpen: isOp
                 const awayTeamData = teams.find((t) => t.abbreviation.toLowerCase() === awayAbbr);
                 return homeTeamData?.league || awayTeamData?.league || '';
               })()}
-              chatRoomExists={!!chatRoomHash}
-              checkingChatRoom={checkingRoom}
-              isPremierLeague={sportId === 'eng.1'}
-              onRoomCreated={(castHash?: string) => {
-                if (castHash) {
-                  // Directly set the chat room hash without re-checking the database
-                  setChatRoomHash(castHash);
-                  console.log(`✅ Room created, setting hash directly:`, castHash);
-                } else {
-                  // Fallback to refresh if no castHash provided
-                  refreshChatRoomStatus();
-                }
-              }}
             />
           </div>
 

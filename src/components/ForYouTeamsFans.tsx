@@ -5,11 +5,8 @@ import { getTeamPreferences, getFanCountForTeam, getFansForTeam } from "../lib/k
 import { getTeamLogo } from "./utils/fetchTeamLogos";
 import { fetchMutualFollowers } from './utils/fetchCheckIfFollowing';
 import SettingsFollowClubs from './SettingsFollowClubs';
-import ContentLiveChat from './ContentLiveChat';
 import type { FanPair } from "./utils/getAlikeFanMatches";
 import { fetchFanUserData } from './utils/fetchFCProfile';
-import { PRIVILEGED_FIDS } from '~/config/privileged';
-// import OCaptainFPLPrompt from './ocaptain/OCaptainFPLPrompt';
 
 type TeamLink = {
   href: string;
@@ -17,9 +14,7 @@ type TeamLink = {
   shortText?: string;
 };
 
-type Props = { showLiveChat: boolean; setShowLiveChat?: (val: boolean) => void };
-
-const ForYouTeamsFans: React.FC<Props> = ({ showLiveChat }) => {
+const ForYouTeamsFans: React.FC = () => {
   const [favoriteTeams, setFavoriteTeams] = useState<string[]>([]);
   const [currentFid, setCurrentFid] = useState<number | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
@@ -28,9 +23,6 @@ const ForYouTeamsFans: React.FC<Props> = ({ showLiveChat }) => {
   const [selectedTeam, setSelectedTeam] = useState<string | null>(null);
   const [favoriteTeamFans, setFavoriteTeamFans] = useState<Array<{ fid: number; pfp: string; mutual: boolean; youFollow?: boolean; username?: string }>>([]);
   const [fanCount, setFanCount] = useState<number>(0);
-  const [fanclubGroup, setFanclubGroup] = useState<{ groupId: string; inviteLinkUrl?: string | null; adminFids?: number[] } | null>(null);
-  const [fanclubGroupLoading, setFanclubGroupLoading] = useState<boolean>(false);
-  const [inviteCandidate, setInviteCandidate] = useState<{ fid: number; username?: string } | null>(null);
   const [loadingFollowers, setLoadingFollowers] = useState<boolean>(false);
   const [showSettings, setShowSettings] = useState(false);
   const [cachedTeamFollowers, setCachedTeamFollowers] = useState<Record<string, Array<{ fid: number; pfp: string; mutual: boolean; youFollow?: boolean }>>>({});
@@ -81,21 +73,6 @@ const ForYouTeamsFans: React.FC<Props> = ({ showLiveChat }) => {
         }
       })
       .catch(err => console.error('Error fetching fan count:', err));
-
-    // Lookup fanclub group mapping for selected team
-    setFanclubGroupLoading(true);
-    (async () => {
-      try {
-        const res = await fetch(`/api/fanclub-chat?teamId=${encodeURIComponent(selectedTeam)}`);
-        if (res.ok) {
-          const j = await res.json();
-          setFanclubGroup({ groupId: j.groupId, inviteLinkUrl: j.inviteLinkUrl, adminFids: j.adminFids });
-        } else {
-          setFanclubGroup(null);
-        }
-      } catch { setFanclubGroup(null); }
-      finally { setFanclubGroupLoading(false); }
-    })();
 
     // If we have cached followers for this team, use them and avoid refetching
     if (cachedTeamFollowers[selectedTeam]) {
@@ -231,9 +208,9 @@ const ForYouTeamsFans: React.FC<Props> = ({ showLiveChat }) => {
         </div>
         <div className="mb-4">
           <ul className="list-disc list-inside space-y-2 text-base text-lightPurple">
-            <li>⚽️ Live banter 💬 &amp; goal alerts 🔔</li>
-            <li>🤝 Connect with fans 💜 ⚽ </li>
-            <li>🎮 Fantasy leagues &amp; 💰 games</li>
+            <li>🔔 Goal and score alerts for the teams you follow</li>
+            <li>🤝 See who else follows your club or country</li>
+            <li>⭐ Set one favorite to anchor your Footy identity</li>
           </ul>
         </div>
         <SettingsFollowClubs onSave={(newFavorites: string[]) => {
@@ -241,13 +218,6 @@ const ForYouTeamsFans: React.FC<Props> = ({ showLiveChat }) => {
           setSelectedTeam(newFavorites[0] ?? null);
           setShowSettings(false);
         }} />
-      </div>
-    );
-  }
-  if (showLiveChat && selectedTeam) {
-    return (      
-      <div className="h-[380px] overflow-hidden rounded-lg relative">
-        <ContentLiveChat teamId={selectedTeam} />
       </div>
     );
   }
@@ -288,7 +258,7 @@ const ForYouTeamsFans: React.FC<Props> = ({ showLiveChat }) => {
         return (
           <div className="relative rounded-lg overflow-hidden">
             <div className="mt-2">
-              <h3 className="text-notWhite mb-1 m">Team Followers ({fanCount})</h3>
+              <h3 className="text-notWhite mb-1 m">Club Fans ({fanCount})</h3>
               <div className="flex items-center gap-4 text-xs text-lightPurple mb-2 ml-1">
                 <div className="flex items-center gap-1">
                   <span className="w-3 h-3 ring-2 ring-limeGreen rounded-full inline-block"></span>
@@ -313,11 +283,7 @@ const ForYouTeamsFans: React.FC<Props> = ({ showLiveChat }) => {
                         key={fan.fid}
                         onClick={async () => {
                           try { await sdk.haptics.impactOccurred('light'); } catch {}
-                          if (fanclubGroup && fan.username) {
-                            setInviteCandidate({ fid: fan.fid, username: fan.username });
-                          } else {
-                            sdk.actions.viewProfile({ fid: fan.fid });
-                          }
+                          sdk.actions.viewProfile({ fid: fan.fid });
                         }}
                         className={`rounded-full border-2 focus:outline-none w-6 h-6 flex items-center justify-center ${
                           fan.mutual ? 'border-purple-500' : fan.youFollow ? 'border-limeGreen' : 'border-fontRed'
@@ -338,140 +304,6 @@ const ForYouTeamsFans: React.FC<Props> = ({ showLiveChat }) => {
                 </div>
               )}
             </div>
-
-            {/* Fan Club actions */}
-            {!fanclubGroupLoading && fanclubGroup ? (
-              <div className="mt-3 flex items-center gap-2 ml-1">
-                <button
-                  className="px-3 py-1 text-xs rounded border border-limeGreenOpacity text-lightPurple hover:bg-deepPink hover:text-white transition-colors"
-                  onClick={async () => {
-                    try { await sdk.actions.ready(); } catch {}
-                    try {
-                      const link = fanclubGroup.inviteLinkUrl;
-                      if (link) { try { await sdk.actions.openUrl(link); } catch {} }
-                    } catch (err) { console.error('Open invite failed', err); }
-                  }}
-                >
-                  Team Group Chat
-                </button>
-                {inviteCandidate && currentFid && PRIVILEGED_FIDS.includes(currentFid) && (
-                  <button
-                    className="px-3 py-1 text-xs rounded border border-limeGreenOpacity text-lightPurple hover:bg-deepPink hover:text-white transition-colors"
-                    onClick={async () => {
-                      try {
-                        const res = await fetch('/api/admin/group-invite', {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ groupId: fanclubGroup.groupId, invitees: [{ fid: inviteCandidate.fid, role: 'member' }] }),
-                        });
-                        const j = await res.json().catch(() => ({}));
-                        if (!res.ok) {
-                          console.log('Invite failed', j);
-                        } else {
-                          setInviteCandidate(null);
-                        }
-                      } catch (e) { console.error('Invite error', e); }
-                    }}
-                  >
-                    Invite @{inviteCandidate.username || inviteCandidate.fid}
-                  </button>
-                )}
-              </div>
-            ) : (!fanclubGroupLoading && currentFid && PRIVILEGED_FIDS.includes(currentFid) ? (
-              // No mapping exists yet: offer to create a new group chat
-              <div className="mt-3 flex items-center gap-2 ml-1">
-                <button
-                  className="px-3 py-1 text-xs rounded border border-deepPink text-deepPink hover:bg-deepPink hover:text-white"
-                  onClick={async () => {
-                    if (!selectedTeam || !currentFid) return;
-                    try {
-                      const [abbr] = (selectedTeam || '').split('-');
-                      const imageUrl = getTeamLogoUrl(selectedTeam);
-                      const friendly = abbr ? abbr.toUpperCase() : 'Club';
-                      const name = `${friendly} Fan Chat`;
-                      const payload = {
-                        name,
-                        description: undefined,
-                        imageUrl,
-                        generateInviteLink: true,
-                        settings: { messageTTLDays: 30, membersCanInvite: true },
-                        teamId: selectedTeam,
-                        invitees: [{ fid: currentFid, role: 'admin' as const }],
-                      };
-                      const res = await fetch('/api/admin/create-group', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(payload),
-                      });
-                      const j = await res.json().catch(() => ({}));
-                      if (res.ok) {
-                        // Update local state so UI flips to Open
-                        const gid = j?.result?.groupId || j?.groupId;
-                        const invite = j?.result?.inviteLinkUrl || j?.inviteLinkUrl;
-                        setFanclubGroup({ groupId: gid, inviteLinkUrl: invite });
-                        if (invite) { try { await sdk.actions.openUrl(invite); } catch {} }
-                      } else {
-                        console.log('Create group failed', j);
-                      }
-                    } catch (e) {
-                      console.error('Create group error', e);
-                    }
-                  }}
-                >
-                  Create Group Chat
-                </button>
-              </div>
-            ) : null)}
-
-            
-                    {/* New affordance added below the team followers */}
-{/*         <div className="mt-4 text-center">
-          <p className="text-lightPurple text-sm">
-            Connect with fellow fans and share your passion for the beautiful game!
-          </p>
-          <div className="mt-2 flex gap-2 justify-center">
-            {showChatFeature && (
-              <button
-                onClick={() => {
-                  setShowLiveChat(true);
-                }}
-                className="px-4 py-2 bg-deepPink hover:bg-fontRed text-white rounded-lg"
-              >
-                Join the chat
-              </button>
-            )}
-            <button
-              disabled={loadingMatches}
-              onClick={async () => {
-                try {
-                  await sdk.haptics.impactOccurred('heavy');
-                } catch {
-                  // ignore haptics errors
-                }
-                setLoadingMatches(true);
-                const context = await sdk.context;
-                const currentFid = context.user?.fid;
-                const matches = await getAlikeFanMatches(
-                  currentFid ? Number(currentFid) : undefined,
-                  favoriteTeamFans.map(fan => fan.fid)
-                );
-                setMatchUps(matches);
-                setShowMatchUps(true);
-                setLoadingMatches(false);
-              }}
-              className={`px-4 py-2 rounded-lg text-white ${
-                loadingMatches ? 'bg-purple-400 cursor-not-allowed' : 'bg-deepPink hover:bg-fontRed'
-              }`}
-            >
-              {loadingMatches ? 'Loading...' : 'Fans like you'}
-            </button>
-          </div>
-        </div> */}
-        
-        {/* FPL League Section */}
-        <div className="mt-6">
-          {/* <OCaptainFPLPrompt /> */}
-        </div>
         {showMatchUps && (
           <div className="mt-4">
             <h2 className="text-notWhite text-md font-semibold mb-2">Fans Most Like You</h2>

@@ -6,20 +6,18 @@ import { sdk } from "@farcaster/miniapp-sdk";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Dispatch, SetStateAction } from "react";
 import TabNavigation from "./TabNavigation";
-import MatchesTab from "./MatchesTab";
-import Contests from "./Contests";
-import ContentTab from "./ContentTab";
-import Settings from "./Settings";
+import AppIdentityBar from "./AppIdentityBar";
 import AdminDashboard from "./AdminDashboard";
-import MoneyGames from "./MoneyGames";
-import OCaptain from "./OCaptain";
-import ForYou from "./ForYou";
+import HomeTab from "./HomeTab";
+import ScoresTab from "./ScoresTab";
+import FanClubsTab from "./FanClubsTab";
+import FantasyTab from "./FantasyTab";
+import ToolsTab from "./ToolsTab";
+import ProfileTab from "./ProfileTab";
 import { tabDisplayMap } from "../lib/navigation";
 import { Pingem } from 'pingem-sdk';
 import { useAccount } from "wagmi";
-import Rewards from "./Rewards";
 import { IS_TESTING } from "../lib/config";
-import Scout from "./Scout";
 
 interface SharedCast {
   author: {
@@ -48,10 +46,68 @@ export default function Main() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const [customSearchParams, setCustomSearchParams] = useState<URLSearchParams | null>(null);
+  const [isMiniApp, setIsMiniApp] = useState(false);
+  const [miniAppChecked, setMiniAppChecked] = useState(false);
   const effectiveSearchParams = searchParams || customSearchParams;
-  const selectedTab = effectiveSearchParams?.get("tab") || "forYou";
-  const selectedLeague = effectiveSearchParams?.get("league") || "eng.1";
+  const rawSelectedTab = effectiveSearchParams?.get("tab") || "home";
+  const selectedTab = (() => {
+    switch (rawSelectedTab) {
+      case "forYou":
+        return "home";
+      case "matches":
+        return "scores";
+      case "moneyGames":
+      case "oCaptain":
+        return "home";
+      case "contests":
+        return "fantasy";
+      case "scoutPlayers":
+        return "tools";
+      case "settings":
+        return "profile";
+      case "fanClubs":
+      case "home":
+      case "scores":
+      case "fantasy":
+      case "tools":
+      case "profile":
+      case "admins":
+        return rawSelectedTab;
+      default:
+        return "home";
+    }
+  })();
   const [isAdminFid, setIsAdminFid] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    const detectMiniApp = async () => {
+      try {
+        const [inMiniApp, context] = await Promise.all([
+          sdk.isInMiniApp().catch(() => false),
+          sdk.context.catch(() => null),
+        ]);
+
+        if (!cancelled) {
+          setIsMiniApp(Boolean(inMiniApp || context?.user?.fid || context?.client));
+        }
+      } catch {
+        if (!cancelled) {
+          setIsMiniApp(false);
+        }
+      } finally {
+        if (!cancelled) {
+          setMiniAppChecked(true);
+        }
+      }
+    };
+
+    detectMiniApp();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
@@ -92,7 +148,7 @@ export default function Main() {
     const checkShareContext = async () => {
       try {
         // If we've already handled share redirect once in this session, or user navigated away, do nothing
-        if (shareHandledRef.current || selectedTab !== "forYou") return;
+        if (shareHandledRef.current || selectedTab !== "home") return;
 
         // Check URL parameters first (available immediately)
         const castHash = effectiveSearchParams?.get('castHash');
@@ -103,7 +159,7 @@ export default function Main() {
 
         if (castHash && castFid) {
           // Redirect to ForYou profile tab with cast author's FID
-          router.push(`/?tab=forYou&profileFid=${castFid}`);
+          router.push(`/?tab=fanClubs&profileFid=${castFid}`);
           shareHandledRef.current = true;
           return;
         } 
@@ -122,7 +178,7 @@ export default function Main() {
           const cast = context.location.cast as SharedCast;
           // Redirect to ForYou profile tab with cast author's FID and cast hash
           const hashParam = cast?.hash ? `&castHash=${encodeURIComponent(cast.hash)}` : '';
-          router.push(`/?tab=forYou&profileFid=${cast.author.fid}${hashParam}`);
+          router.push(`/?tab=fanClubs&profileFid=${cast.author.fid}${hashParam}`);
           shareHandledRef.current = true;
         }
       } catch (error) {
@@ -135,13 +191,7 @@ export default function Main() {
 
   const handleTabChange: Dispatch<SetStateAction<string>> = (value) => {
     const newTab = typeof value === "function" ? value(selectedTab) : value;
-    const league = effectiveSearchParams?.get("league") || "eng.1";
-    router.push(`/?tab=${newTab}&league=${league}`);
-  };
-
-  const handleLeagueChange = (league: string) => {
-    const tab = effectiveSearchParams?.get("tab") || "forYou";
-    router.push(`/?tab=${tab}&league=${league}`);
+    router.push(`/?tab=${newTab}`);
   };
 
   // Loading states
@@ -184,84 +234,53 @@ export default function Main() {
     load();
   }, []);
 
+  const shouldRenderApp = IS_TESTING || isConnected || isMiniApp;
   // Render main app UI
   return (
     <div className="w-[400px] mx-auto py-2">
-      {IS_TESTING || !isConnected ? (
-        IS_TESTING ? (
-          <div className="w-[400px] mx-auto py-1 px-2">
+      {!miniAppChecked ? (
+        <div className="text-center text-sm text-gray-400 py-6">Loading Footy App...</div>
+      ) : shouldRenderApp ? (
+        <div className="w-[400px] mx-auto px-2 pb-24 pt-1">
+          {IS_TESTING && (
             <div className="text-center text-sm text-gray-400 mb-2">
               Testing Mode - Bypassing Connection Check
             </div>
-            <TabNavigation
-              selectedTab={selectedTab}
-              setSelectedTab={handleTabChange}
-              tabDisplayMap={tabDisplayMap}
-            />
-            <div className="bg-darkPurple p-2 rounded-md text-white">
-              {selectedTab === "matches" && (
-                <MatchesTab
-                  league={selectedLeague}
-                  setSelectedTab={handleTabChange}
-                  setSelectedLeague={handleLeagueChange}
-                />
-              )}
-              {/* Admins renders only AdminDashboard */}
-              {selectedTab === "contests" && <Contests />}
-              {selectedTab === "moneyGames" && <MoneyGames />}
-              {selectedTab === "oCaptain" && <OCaptain />}
-              {selectedTab === "rewards" && <Rewards />}
-              {selectedTab === "extraTime" && <ContentTab />}
-              {selectedTab === "settings" && <Settings />}
-              {selectedTab === "admins" && isAdminFid && <AdminDashboard />}
-              {selectedTab === "forYou" && <ForYou />}
-              {selectedTab === "scoutPlayers" && <Scout />}
-              {!["forYou", "matches", "contests", "scoutPlayers", "moneyGames", "oCaptain", "rewards", "extraTime", "settings", "admins"].includes(selectedTab) && (
-                <div className="text-center text-lg text-fontRed">Coming soon...</div>
-              )}
-            </div>
-          </div>
-        ) : (
-          <div className="text-center text-lg text-fontRed">
-            <button
-              className="flex-1 sm:flex-none w-full sm:w-48 bg-deepPink text-white py-2 px-4 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-deepPink hover:bg-fontRed"
-              onClick={() => {
-                window.location.href = "https://farcaster.xyz/miniapps/vRlFDfogkgrw/footy-app";
-              }}
-            >
-              Open Footy Mini-App
-            </button>
-          </div>
-        )
-      ) : (
-        <div className="w-[400px] mx-auto py-1 px-2">
+          )}
+          <AppIdentityBar
+            selectedTab={selectedTab}
+            onOpenProfile={() => handleTabChange("profile")}
+            onOpenAdmins={() => handleTabChange("admins")}
+            isAdminFid={isAdminFid}
+          />
           <TabNavigation
             selectedTab={selectedTab}
             setSelectedTab={handleTabChange}
             tabDisplayMap={tabDisplayMap}
           />
-            <div className="bg-darkPurple p-2 rounded-md text-white">
-            {selectedTab === "matches" && (
-              <MatchesTab
-                league={selectedLeague}
-                setSelectedTab={handleTabChange}
-                setSelectedLeague={handleLeagueChange}
-              />
-            )}
-              {/* Admins renders only AdminDashboard */}
-            {selectedTab === "contests" && <Contests />}
-            {selectedTab === "moneyGames" && <MoneyGames />}
-            {selectedTab === "oCaptain" && <OCaptain />}
-            {selectedTab === "rewards" && <Rewards />}
-            {selectedTab === "extraTime" && <ContentTab />}
-            {selectedTab === "settings" && <Settings />}
+          <div className="rounded-[28px] bg-darkPurple p-3 text-white shadow-[0_18px_50px_rgba(0,0,0,0.28)]">
+            {selectedTab === "home" && <HomeTab onNavigate={(tab) => handleTabChange(tab)} />}
+            {selectedTab === "scores" && <ScoresTab onNavigate={(tab) => handleTabChange(tab)} />}
+            {selectedTab === "fanClubs" && <FanClubsTab />}
+            {selectedTab === "fantasy" && <FantasyTab />}
+            {selectedTab === "tools" && <ToolsTab />}
+            {selectedTab === "profile" && <ProfileTab />}
             {selectedTab === "admins" && isAdminFid && <AdminDashboard />}
-            {selectedTab === "forYou" && <ForYou />}
-            {selectedTab === "scoutPlayers" && <Scout />}
-            {!["forYou", "matches", "contests", "scoutPlayers", "moneyGames", "oCaptain", "rewards", "extraTime", "settings", "admins"].includes(selectedTab) && (
+            {!["home", "scores", "fanClubs", "fantasy", "tools", "profile", "admins"].includes(selectedTab) && (
               <div className="text-center text-lg text-fontRed">Coming soon...</div>
             )}
           </div>
+        </div>
+      ) : (
+        <div className="text-center text-lg text-fontRed">
+          <button
+            className="flex-1 sm:flex-none w-full sm:w-48 bg-deepPink text-white py-2 px-4 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-deepPink hover:bg-fontRed"
+            onClick={() => {
+              window.location.href = "https://farcaster.xyz/miniapps/vRlFDfogkgrw/footy-app";
+            }}
+          >
+            Open Footy Mini-App
+          </button>
         </div>
       )}
     </div>

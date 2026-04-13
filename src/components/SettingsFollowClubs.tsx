@@ -25,6 +25,16 @@ const altImage =`${appUrl}/512.png`
 // Helper function to generate a unique ID for each team.
 const getTeamId = (team: Team) => `${team.league}-${team.abbreviation}`;
 
+const getSafeMiniAppContext = async () => {
+  try {
+    await sdk.actions.ready();
+    return (await sdk.context) ?? null;
+  } catch (error) {
+    console.warn("Mini app context unavailable:", error);
+    return null;
+  }
+};
+
 const SettingsFollowClubs: React.FC<SettingsFollowClubsProps> = ({ onSave }) => {
   const [teams, setTeams] = useState<Team[]>([]);
   const [favTeams, setFavTeams] = useState<string[]>([]);
@@ -37,10 +47,8 @@ const SettingsFollowClubs: React.FC<SettingsFollowClubsProps> = ({ onSave }) => 
 
   useEffect(() => {
     const fetchContext = async () => {
-      await sdk.actions.ready();
-      const context = await sdk.context;
-      console.log("context now", context);
-      const fid = context.user?.fid;
+      const context = await getSafeMiniAppContext();
+      const fid = context?.user?.fid;
       setIsInstalled(Boolean(context?.client?.added));
       if (fid) {
         getTeamPreferences(fid)
@@ -58,12 +66,19 @@ const SettingsFollowClubs: React.FC<SettingsFollowClubsProps> = ({ onSave }) => 
     fetchTeamLogos().then((data) => setTeams(data));
   }, []);
 
+  const savePreferences = async (fid: number, updatedFavTeams: string[]) => {
+    await setTeamPreferences(fid, updatedFavTeams);
+    setFavTeams(updatedFavTeams);
+    onSave?.(updatedFavTeams);
+    setTransactionError(null);
+  };
+
   const handleRowClick = async (team: Team) => {
-    const context = await sdk.context;
-    console.log("context now", context.user);
-    const fid = context.user?.fid;
+    const context = await getSafeMiniAppContext();
+    const fid = context?.user?.fid;
     if (!fid) {
       console.error("User not authenticated");
+      setTransactionError("Open this in Farcaster to manage follows and alerts.");
       return;
     }
     const teamId = getTeamId(team);
@@ -78,17 +93,12 @@ const SettingsFollowClubs: React.FC<SettingsFollowClubsProps> = ({ onSave }) => 
       let updatedFavTeams: string[];
 
       if (favTeams.includes(teamId)) {
-        // Remove team
         updatedFavTeams = favTeams.filter((id) => id !== teamId);
       } else {
-        // Add team
         updatedFavTeams = [...favTeams, teamId];
       }
 
-      await setTeamPreferences(fid, updatedFavTeams);
-      setFavTeams(updatedFavTeams);
-      onSave?.(updatedFavTeams);
-      setTransactionError(null); // Clear error on success
+      await savePreferences(fid, updatedFavTeams);
 
       // Prompt to add mini app if this is their first team and the app isn't installed yet
       if (
@@ -128,6 +138,32 @@ const SettingsFollowClubs: React.FC<SettingsFollowClubsProps> = ({ onSave }) => 
     }
   };
 
+  const handleMakeFavorite = async (team: Team) => {
+    const context = await getSafeMiniAppContext();
+    const fid = context?.user?.fid;
+    if (!fid) {
+      console.error("User not authenticated");
+      setTransactionError("Open this in Farcaster to manage favorites.");
+      return;
+    }
+
+    const teamId = getTeamId(team);
+    if (!favTeams.includes(teamId) || favTeams[0] === teamId || loadingTeamIds.length > 0) {
+      return;
+    }
+
+    setLoadingTeamIds((prev) => [...prev, teamId]);
+    try {
+      const reordered = [teamId, ...favTeams.filter((id) => id !== teamId)];
+      await savePreferences(fid, reordered);
+    } catch (error) {
+      console.error("Error updating favorite team:", error);
+      setTransactionError("Could not update favorite team.");
+    } finally {
+      setLoadingTeamIds((prev) => prev.filter((id) => id !== teamId));
+    }
+  };
+
   // Filter teams based on the search term (case-insensitive)
   const filteredTeams = teams.filter((team) =>
     team.name.toLowerCase().includes(searchTerm.toLowerCase())
@@ -153,17 +189,23 @@ const SettingsFollowClubs: React.FC<SettingsFollowClubsProps> = ({ onSave }) => 
   return (
     <div className="w-full h-full overflow-y-auto">
       {favTeams.length > 0 && (
-        <div className="mb-2 text-center text-notWhite font-semibold">
-          Favorite Team: {favTeamObj ? favTeamObj.name : favTeams[0]}{" "}
-          {favTeamObj && (
-            <Image
-              src={favTeamObj.logoUrl || altImage}
-              alt={favTeamObj.name}
-              width={30}
-              height={30}
-              className="inline-block ml-2"
-            />
-          )}
+        <div className="mb-3 rounded-lg border border-limeGreenOpacity bg-purplePanel p-3">
+          <div className="text-notWhite font-semibold mb-1">Favorite team</div>
+          <div className="text-sm text-lightPurple mb-2">
+            Your favorite team anchors your profile. Every followed team still receives score alerts.
+          </div>
+          <div className="flex items-center gap-2 text-notWhite font-semibold">
+            <span>{favTeamObj ? favTeamObj.name : favTeams[0]}</span>
+            {favTeamObj && (
+              <Image
+                src={favTeamObj.logoUrl || altImage}
+                alt={favTeamObj.name}
+                width={30}
+                height={30}
+                className="inline-block"
+              />
+            )}
+          </div>
         </div>
       )}
 
@@ -171,7 +213,7 @@ const SettingsFollowClubs: React.FC<SettingsFollowClubsProps> = ({ onSave }) => 
       <div className="mb-4 w-full">
         <input
           type="text"
-          placeholder="Search teams..."
+          placeholder="Search clubs or countries..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           className="w-full bg-darkPurple p-2 border rounded-md border-limeGreenOpacity focus:outline-none focus:ring-2 focus:ring-darkPurple"
@@ -219,10 +261,11 @@ const SettingsFollowClubs: React.FC<SettingsFollowClubsProps> = ({ onSave }) => 
             {orderedTeams.map((team) => {
               const teamId = getTeamId(team);
               const isLoading = loadingTeamIds.includes(teamId);
+              const isFollowed = favTeams.includes(teamId);
+              const isFavorite = favTeams[0] === teamId;
               return (
                 <tr
                   key={teamId}
-                  // Only allow row clicks if no row is loading.
                   onClick={async () => {
                     if (!isLoading && loadingTeamIds.length === 0) {
                       try {
@@ -234,17 +277,14 @@ const SettingsFollowClubs: React.FC<SettingsFollowClubsProps> = ({ onSave }) => 
                     }
                   }}
                   className={`hover:bg-purplePanel transition-colors text-lightPurple text-sm cursor-pointer ${
-                    favTeams.includes(teamId) ? "bg-purplePanel" : ""
+                    isFollowed ? "bg-purplePanel" : ""
                   }`}
                 >
                   <td className="py-1 px-4 border-b border-limeGreenOpacity text-left">
                     <div className="flex items-center space-x-2">
                       <span>{team.name}</span>
-                      {favTeams.includes(teamId) && (
-                        <span role="img" aria-label="notification" className="ml-2">
-                          🔔
-                        </span>
-                      )}
+                      {isFavorite && <span className="text-yellow-300 text-xs">★ Favorite</span>}
+                      {isFollowed && !isFavorite && <span className="text-xs text-lightPurple">Alerts on</span>}
                     </div>
                   </td>
                   <td className="py-1 px-4 border-b border-limeGreenOpacity text-center">
@@ -264,7 +304,24 @@ const SettingsFollowClubs: React.FC<SettingsFollowClubsProps> = ({ onSave }) => 
                       />
                     )}
                   </td>
-                  </tr>
+                  <td className="py-1 px-4 border-b border-limeGreenOpacity text-right">
+                    {isFollowed && !isFavorite ? (
+                      <button
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          await handleMakeFavorite(team);
+                        }}
+                        className="text-xs rounded border border-limeGreenOpacity px-2 py-1 hover:bg-deepPink hover:text-white transition-colors"
+                      >
+                        Make favorite
+                      </button>
+                    ) : isFavorite ? (
+                      <span className="text-xs text-yellow-300">Primary</span>
+                    ) : (
+                      <span className="text-xs text-gray-500">Follow</span>
+                    )}
+                  </td>
+                </tr>
               );
             })}
           </tbody>

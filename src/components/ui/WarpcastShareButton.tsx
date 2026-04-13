@@ -58,6 +58,35 @@ function canvasToBlob(canvas: HTMLCanvasElement, type = 'image/png') {
   });
 }
 
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number, fallback: T): Promise<T> {
+  return new Promise((resolve) => {
+    let settled = false;
+
+    const timer = setTimeout(() => {
+      if (!settled) {
+        settled = true;
+        resolve(fallback);
+      }
+    }, timeoutMs);
+
+    promise
+      .then((value) => {
+        if (!settled) {
+          settled = true;
+          clearTimeout(timer);
+          resolve(value);
+        }
+      })
+      .catch(() => {
+        if (!settled) {
+          settled = true;
+          clearTimeout(timer);
+          resolve(fallback);
+        }
+      });
+  });
+}
+
 function drawLogoPanel(
   ctx: CanvasRenderingContext2D,
   image: HTMLImageElement | null,
@@ -216,29 +245,23 @@ interface WarpcastShareButtonProps {
   };
   ticketPriceEth?: number;
   prizePoolEth?: number;
-  onRoomCreated?: (castHash?: string) => void; // Callback when room is successfully created, with optional castHash
-  chatRoomExists?: boolean | null; // Pass chat room status from parent
-  checkingChatRoom?: boolean; // Pass checking status from parent
-  isPremierLeague?: boolean; // Whether this is a Premier League match (eng.1)
 }
 
-export function WarpcastShareButton({ selectedMatch, compositeImage, leagueId, moneyGamesParams, ticketPriceEth, prizePoolEth, onRoomCreated, chatRoomExists, checkingChatRoom, isPremierLeague }: WarpcastShareButtonProps) {
+export function WarpcastShareButton({ selectedMatch, compositeImage, leagueId, moneyGamesParams, ticketPriceEth, prizePoolEth }: WarpcastShareButtonProps) {
   const { isGenerating, currentCommentator } = useCommentator();
   const [ethUsdPrice, setEthUsdPrice] = useState<number | null>(null);
-  // Use props from parent instead of local state
-  const [localChatRoomExists, setLocalChatRoomExists] = useState<boolean | null>(chatRoomExists ?? null);
-  const [localCheckingChatRoom, setLocalCheckingChatRoom] = useState<boolean>(checkingChatRoom ?? false);
   const [isCreatingRoom, setIsCreatingRoom] = useState<boolean>(false);
   const [messageIndex, setMessageIndex] = useState<number>(0);
 
-  // Update local state when props change
   useEffect(() => {
-    setLocalChatRoomExists(chatRoomExists ?? null);
-  }, [chatRoomExists]);
+    if (!compositeImage) {
+      return;
+    }
 
-  useEffect(() => {
-    setLocalCheckingChatRoom(checkingChatRoom ?? false);
-  }, [checkingChatRoom]);
+    void loadImage(selectedMatch.homeLogo).catch(() => null);
+    void loadImage(selectedMatch.awayLogo).catch(() => null);
+    void loadImage('/assets/banny_background.png').catch(() => null);
+  }, [compositeImage, selectedMatch.homeLogo, selectedMatch.awayLogo]);
 
   useEffect(() => {
     // Fetch ETH price when we are composing MoneyGames link so we can show USD affordance
@@ -366,23 +389,6 @@ const generateCommentaryForMatch = async (
         competition,
       } = selectedMatch;
 
-      // Generate commentary if we have rich match data
-      let commentary = '';
-      if (matchEvents && matchEvents.length > 0 && !moneyGamesParams) {
-        try {
-          commentary = await generateCommentaryForMatch(
-            selectedMatch.homeTeam,
-            selectedMatch.awayTeam,
-            competition || 'Football Match',
-            matchEvents,
-            homeScore,
-            awayScore
-          );
-        } catch (error) {
-          console.error('Failed to generate commentary:', error);
-        }
-      }
-
       const keyMomentsText = keyMoments && keyMoments.length > 0
         ? `\n\nKey Moments:\n${keyMoments.join('\n')}`
         : "";
@@ -412,6 +418,53 @@ const generateCommentaryForMatch = async (
       // Build the base mini app URL from frameUrl and current query string.
       const miniAppUrl = `${frameUrl}${currentQuery}`;
 
+      const commentaryPromise =
+        matchEvents && matchEvents.length > 0 && !moneyGamesParams
+          ? withTimeout(
+              generateCommentaryForMatch(
+                selectedMatch.homeTeam,
+                selectedMatch.awayTeam,
+                competition || 'Football Match',
+                matchEvents,
+                homeScore,
+                awayScore
+              ),
+              1500,
+              ''
+            )
+          : Promise.resolve('');
+
+      const shareUrlPromise =
+        compositeImage
+          ? (async () => {
+              const blob = await generateCompositeImageBlob(
+                homeLogo,
+                awayLogo,
+                selectedMatch.homeTeam,
+                selectedMatch.awayTeam,
+                homeScore,
+                awayScore,
+                clock
+              );
+              const uploadRes = await fetch('/api/upload', { method: 'POST', body: blob });
+              const uploadResult: { objectKey: string; publicUrl: string } = await uploadRes.json();
+              if (!uploadRes.ok) throw new Error('Image upload failed');
+
+              if (uploadResult?.objectKey) {
+                console.log('Composite image uploaded. Key:', uploadResult.objectKey);
+              }
+
+              const urlObj = new URL(miniAppUrl);
+              urlObj.searchParams.set('imageKey', uploadResult.objectKey);
+              return urlObj.toString();
+            })().catch((error) => {
+              console.error("Error generating composite image:", error);
+              return miniAppUrl;
+            })
+          : Promise.resolve(miniAppUrl);
+
+      const [commentary, shareUrl] = await Promise.all([commentaryPromise, shareUrlPromise]);
+
       // Build the cast text
       const isMoneyGame = Boolean(moneyGamesParams);
       let matchSummary = `${competitorsLong} ${keyMomentsText}\n\n@gabedev.eth @kmacb.eth are you in on this one?`;
@@ -438,72 +491,12 @@ const generateCommentaryForMatch = async (
 
       //let imageUrl = '';
 
-      let shareUrl = miniAppUrl;
-      if (compositeImage) {
-        try {
-          const blob = await generateCompositeImageBlob(
-            homeLogo,
-            awayLogo,
-            selectedMatch.homeTeam,
-            selectedMatch.awayTeam,
-            homeScore,
-            awayScore,
-            clock
-          );
-          const uploadRes = await fetch('/api/upload', { method: 'POST', body: blob });
-          const uploadResult: { objectKey: string; publicUrl: string } = await uploadRes.json();
-          if (!uploadRes.ok) throw new Error('Image upload failed');
-
-          if (uploadResult?.objectKey) {
-            // eslint-disable-next-line no-console
-            console.log('Composite image uploaded. Key:', uploadResult.objectKey);
-          }
-
-          const urlObj = new URL(miniAppUrl);
-          urlObj.searchParams.set('imageKey', uploadResult.objectKey);
-          shareUrl = urlObj.toString();
-        } catch (error) {
-          console.error("Error generating composite image:", error);
-        }
-      }
-
       const embeds: [] | [string] | [string, string] = [shareUrl];
    
       try {
         await sdk.actions.ready({});
         const result = await sdk.actions.composeCast({ text: matchSummary, embeds, channelKey: 'football' });
-        
-        // Save cast hash to KV if cast was successful
-        if (result?.cast?.hash && selectedMatch?.eventId) {
-          console.log('✅ Cast successful, saving to KV:', result.cast.hash);
-          
-          try {
-            const saveResponse = await fetch('/api/match-rooms', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'x-api-key': process.env.NEXT_PUBLIC_NOTIFICATION_API_KEY || '',
-              },
-              body: JSON.stringify({
-                eventId: selectedMatch.eventId,
-                castHash: result.cast.hash,
-                parentUrl: shareUrl,
-                fid: null
-              })
-            });
-            
-            if (saveResponse.ok) {
-              console.log('💾 Cast hash saved to KV for room creation');
-              // Update local state to reflect new room
-              setLocalChatRoomExists(true);
-              onRoomCreated?.(result.cast.hash); // Call the callback with the castHash
-            } else {
-              console.error('Failed to save cast hash to KV:', await saveResponse.text());
-            }
-          } catch (saveError) {
-            console.error('Error saving cast hash to KV:', saveError);
-          }
-        } else if (result?.cast === null) {
+        if (result?.cast === null) {
           console.log('User cancelled the cast');
         }
       } catch (e) {
@@ -514,7 +507,7 @@ const generateCommentaryForMatch = async (
       // Reset creating room state
       setIsCreatingRoom(false);
     }
-  }, [selectedMatch, compositeImage, leagueId, moneyGamesParams, ticketPriceEth, prizePoolEth, ethUsdPrice, currentCommentator?.displayName, onRoomCreated]);
+  }, [selectedMatch, compositeImage, leagueId, moneyGamesParams, ticketPriceEth, prizePoolEth, ethUsdPrice, currentCommentator?.displayName]);
 
   return (
     <button
@@ -524,10 +517,7 @@ const generateCommentaryForMatch = async (
     >
       {isGenerating ? '🎤 Generating Commentary...' : 
        isCreatingRoom ? getLoadingMessage() :
-       localCheckingChatRoom ? 'Checking...' :
-       isPremierLeague ? (
-         localChatRoomExists ? 'Share Match' : 'Create Room'
-       ) : 'Share'}
+       'Share Score'}
     </button>
   );
 }

@@ -16,6 +16,11 @@ const sportsData = [
         url: 'https://site.api.espn.com/apis/site/v2/sports/soccer/ger.1/scoreboard',
     },
     {
+      name: 'World Cup',
+      sportId: 'fifa.world',
+      url: 'https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard',
+    },
+    {
       name: 'Serie A',
       sportId: 'ita.1',
       url: 'https://site.api.espn.com/apis/site/v2/sports/soccer/ita.1/scoreboard',

@@ -197,8 +197,10 @@ export async function GET(request: NextRequest) {
         const standingsData = await standingsRes.json();
         const list = Array.isArray(standingsData?.standings?.results) ? standingsData.standings.results : [];
         for (const r of list) {
-          if (typeof r.entry === 'number' && typeof r.rank === 'number') {
-            entryToRank.set(r.entry, r.rank);
+          const entry = Number(r?.entry);
+          const rank = Number(r?.rank);
+          if (Number.isFinite(entry) && Number.isFinite(rank)) {
+            entryToRank.set(entry, rank);
           }
         }
       }

@@ -79,11 +79,9 @@ export default function NotificationsTab({
   const categories = [
     { value: "matches", label: "Matches" },
     { value: "contests", label: "Fantasy" },
-    { value: "rewards", label: "Rewards" },
     { value: "moneyGames", label: "ScoreSquare" },
     { value: "forYou", label: "For You" },
     { value: "scoutPlayers", label: "Scout Players" },
-    { value: "extraTime", label: "Extra Time" },
     { value: "settings", label: "Settings" },
   ];
 
