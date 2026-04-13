@@ -10,8 +10,9 @@ const FanClubsTab: React.FC = () => {
 
   return (
     <div className="mb-4">
-      <h2 className="font-2xl text-notWhite font-bold mb-2">Fan Clubs</h2>
-      <p className="text-sm text-lightPurple mb-4">
+      <div className="app-eyebrow mb-2">Fan Clubs</div>
+      <h2 className="app-title mb-2">Build your football graph</h2>
+      <p className="app-copy mb-4">
         Set your favorite club, follow others for alerts, and discover fans who back the same badge.
       </p>
 
