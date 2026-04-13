@@ -1,6 +1,6 @@
 // app/api/upload/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { uploadToQStorage } from '../../../lib/qstorage';
+import { getQStorageDebugInfo, uploadToQStorage } from '../../../lib/qstorage';
 
 function firstContentType(headerValue: string | null) {
   return headerValue?.split(";")[0].trim() || "application/octet-stream";
@@ -50,6 +50,8 @@ export async function POST(req: NextRequest) {
     console.log('Received data size:', data.byteLength);
 
     buffer = Buffer.from(data);
+
+    console.log("QStorage debug info:", getQStorageDebugInfo());
 
     const uploadResult = await uploadToQStorage({
       body: buffer,

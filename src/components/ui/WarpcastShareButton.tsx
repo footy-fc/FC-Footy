@@ -6,41 +6,132 @@ import { findMostSignificantEvent } from '~/utils/matchDataUtils';
 import { RichMatchEvent } from '~/types/commentatorTypes';
 import { CommentaryPipeline, CommentaryContext } from '~/services/CommentaryPipeline';
 
-async function generateCompositeImage(
+const imageLoadCache = new Map<string, Promise<HTMLImageElement>>();
+
+function getInitials(name: string) {
+  const parts = name
+    .split(/\s+/)
+    .map((part) => part.trim())
+    .filter(Boolean);
+
+  if (parts.length === 0) {
+    return "?";
+  }
+
+  return parts
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? "")
+    .join("");
+}
+
+function loadImage(src: string): Promise<HTMLImageElement> {
+  const cached = imageLoadCache.get(src);
+  if (cached) {
+    return cached;
+  }
+
+  const promise = new Promise<HTMLImageElement>((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => resolve(img);
+    img.onerror = () => {
+      imageLoadCache.delete(src);
+      reject(new Error(`Failed to load image: ${src}`));
+    };
+    img.src = src;
+  });
+
+  imageLoadCache.set(src, promise);
+  return promise;
+}
+
+function canvasToBlob(canvas: HTMLCanvasElement, type = 'image/png') {
+  return new Promise<Blob>((resolve, reject) => {
+    canvas.toBlob((blob) => {
+      if (!blob) {
+        reject(new Error('Canvas export failed.'));
+        return;
+      }
+
+      resolve(blob);
+    }, type);
+  });
+}
+
+function drawLogoPanel(
+  ctx: CanvasRenderingContext2D,
+  image: HTMLImageElement | null,
+  fallbackText: string,
+  x: number,
+  y: number,
+  size: number,
+  panelColor: string,
+  textColor: string
+) {
+  if (image) {
+    ctx.drawImage(image, x, y, size, size);
+    return;
+  }
+
+  ctx.fillStyle = "#1a1520";
+  ctx.fillRect(x, y, size, size);
+  ctx.strokeStyle = panelColor;
+  ctx.lineWidth = 3;
+  ctx.strokeRect(x + 1.5, y + 1.5, size - 3, size - 3);
+  ctx.fillStyle = textColor;
+  ctx.font = 'bold 42px Arial';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(fallbackText, x + size / 2, y + size / 2);
+}
+
+async function generateCompositeImageBlob(
   homeLogo: string,
   awayLogo: string,
+  homeTeam: string,
+  awayTeam: string,
   homeScore: number,
   awayScore: number,
   clock: string
-): Promise<string> {
+): Promise<Blob> {
   const purplePanel = "#010513"; 
   const textNotWhite = "#FEA282"; 
   
   const canvas = document.createElement('canvas');
   canvas.width = 480;  
-  canvas.height = 320; // Adjusted to maintain 3:2 aspect ratio
+  canvas.height = 320;
   const ctx = canvas.getContext('2d');
   if (!ctx) throw new Error('Canvas context not available.');
 
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
   ctx.fillStyle = purplePanel;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  const loadImage = (src: string): Promise<HTMLImageElement> =>
-    new Promise((resolve, reject) => {
-      const img = new Image();
-      img.crossOrigin = 'anonymous';
-      img.onload = () => resolve(img);
-      img.onerror = reject;
-      img.src = src;
-    });
+  const [homeResult, awayResult, spinnerResult] = await Promise.allSettled([
+    loadImage(homeLogo),
+    loadImage(awayLogo),
+    loadImage('/assets/banny_background.png'),
+  ]);
 
-  const [homeImg, awayImg] = await Promise.all([loadImage(homeLogo), loadImage(awayLogo)]);
+  const homeImg = homeResult.status === "fulfilled" ? homeResult.value : null;
+  const awayImg = awayResult.status === "fulfilled" ? awayResult.value : null;
+  const spinnerImg = spinnerResult.status === "fulfilled" ? spinnerResult.value : null;
 
   const logoSize = 160; 
   const logoY = (canvas.height - logoSize) / 2; 
 
-  ctx.drawImage(homeImg, 0, logoY, logoSize, logoSize);
-  ctx.drawImage(awayImg, canvas.width - logoSize, logoY, logoSize, logoSize);
+  drawLogoPanel(ctx, homeImg, getInitials(homeTeam), 0, logoY, logoSize, textNotWhite, textNotWhite);
+  drawLogoPanel(
+    ctx,
+    awayImg,
+    getInitials(awayTeam),
+    canvas.width - logoSize,
+    logoY,
+    logoSize,
+    textNotWhite,
+    textNotWhite
+  );
 
   const centerX = logoSize;
   const centerWidth = canvas.width - 2 * logoSize; 
@@ -82,20 +173,16 @@ async function generateCompositeImage(
 
   ctx.fillText(displayClock, rectCenterX, rectCenterY + 100);
 
-  // New code to load and draw the spinner image
-  try {
-    const spinnerImg = await loadImage('/assets/banny_background.png'); // Adjust the path to your spinner image
-    const spinnerSize = 120; // Adjust spinner size as needed
+  if (spinnerImg) {
+    const spinnerSize = 120;
     const spinnerX = (canvas.width - spinnerSize) / 2;
     const spinnerY = (canvas.height - spinnerSize) / 1.5;
-    ctx.globalAlpha = 0.2; // Set partial transparency
+    ctx.globalAlpha = 0.2;
     ctx.drawImage(spinnerImg, spinnerX, spinnerY, spinnerSize, spinnerSize);
-    ctx.globalAlpha = 1; // Reset transparency
-  } catch (error) {
-    console.error("Error loading spinner image:", error);
+    ctx.globalAlpha = 1;
   }
 
-  return canvas.toDataURL('image/png');
+  return canvasToBlob(canvas);
 }
 
 
@@ -354,8 +441,15 @@ const generateCommentaryForMatch = async (
       let shareUrl = miniAppUrl;
       if (compositeImage) {
         try {
-          const dataUrl = await generateCompositeImage(homeLogo, awayLogo, homeScore, awayScore, clock);
-          const blob = await (await fetch(dataUrl)).blob();
+          const blob = await generateCompositeImageBlob(
+            homeLogo,
+            awayLogo,
+            selectedMatch.homeTeam,
+            selectedMatch.awayTeam,
+            homeScore,
+            awayScore,
+            clock
+          );
           const uploadRes = await fetch('/api/upload', { method: 'POST', body: blob });
           const uploadResult: { objectKey: string; publicUrl: string } = await uploadRes.json();
           if (!uploadRes.ok) throw new Error('Image upload failed');
