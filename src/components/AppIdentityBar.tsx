@@ -22,6 +22,15 @@ interface AppIdentityBarProps {
 
 const getTeamId = (team: Team) => `${team.league}-${team.abbreviation}`;
 
+const getSafeMiniAppContext = async () => {
+  try {
+    await sdk.actions.ready();
+    return (await sdk.context) ?? null;
+  } catch {
+    return null;
+  }
+};
+
 const AppIdentityBar: React.FC<AppIdentityBarProps> = ({
   onOpenProfile,
   onOpenAdmins,
@@ -36,8 +45,7 @@ const AppIdentityBar: React.FC<AppIdentityBarProps> = ({
 
     const load = async () => {
       try {
-        await sdk.actions.ready();
-        const context = await sdk.context;
+        const context = await getSafeMiniAppContext();
         const fid = context?.user?.fid;
         const [teamData, preferences] = await Promise.all([
           fetchTeamLogos(),
@@ -82,8 +90,8 @@ const AppIdentityBar: React.FC<AppIdentityBarProps> = ({
 
   return (
     <div className="mb-3 flex items-center gap-2 overflow-hidden rounded-[20px] border border-limeGreenOpacity/20 bg-purplePanel/80 px-3 py-2 shadow-[0_10px_28px_rgba(0,0,0,0.22)]">
-      <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-center gap-2">
+      <div className="min-w-0 flex-1 overflow-hidden">
+        <div className="flex items-center gap-2 overflow-x-auto whitespace-nowrap">
           <div className="rounded-full border border-deepPink/30 bg-deepPink/15 px-3 py-1 text-[11px] font-semibold text-notWhite">
             {favoriteTeam ? `Favorite: ${favoriteTeam.name}` : "Pick a favorite club"}
           </div>
@@ -94,7 +102,7 @@ const AppIdentityBar: React.FC<AppIdentityBarProps> = ({
               alt={favoriteTeam.name}
               width={22}
               height={22}
-              className="rounded-full"
+              className="shrink-0 rounded-full"
             />
           ) : null}
 
@@ -105,7 +113,7 @@ const AppIdentityBar: React.FC<AppIdentityBarProps> = ({
               alt={team.name}
               width={20}
               height={20}
-              className="rounded-full border border-darkPurple"
+              className="shrink-0 rounded-full border border-darkPurple"
             />
           ))}
 
