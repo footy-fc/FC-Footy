@@ -78,21 +78,49 @@ export default function Main() {
     }
   })();
   const [isAdminFid, setIsAdminFid] = useState(false);
+
+  const withTimeout = async <T,>(promise: Promise<T>, fallback: T, timeoutMs = 1500): Promise<T> => {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+      return await Promise.race([
+        promise,
+        new Promise<T>((resolve) => {
+          timer = setTimeout(() => resolve(fallback), timeoutMs);
+        }),
+      ]);
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
+  };
+
+  const detectMiniAppFallback = () => {
+    if (typeof window === "undefined") return false;
+    const ua = window.navigator.userAgent.toLowerCase();
+    const referrer = document.referrer.toLowerCase();
+    return (
+      ua.includes("farcaster") ||
+      ua.includes("warpcast") ||
+      referrer.includes("farcaster.xyz") ||
+      referrer.includes("warpcast.com")
+    );
+  };
+
   useEffect(() => {
     let cancelled = false;
     const detectMiniApp = async () => {
+      const fallbackMiniApp = detectMiniAppFallback();
       try {
         const [inMiniApp, context] = await Promise.all([
-          sdk.isInMiniApp().catch(() => false),
-          sdk.context.catch(() => null),
+          withTimeout(sdk.isInMiniApp().catch(() => false), false),
+          withTimeout(sdk.context.catch(() => null), null),
         ]);
 
         if (!cancelled) {
-          setIsMiniApp(Boolean(inMiniApp || context?.user?.fid || context?.client));
+          setIsMiniApp(Boolean(inMiniApp || context?.user?.fid || context?.client || fallbackMiniApp));
         }
       } catch {
         if (!cancelled) {
-          setIsMiniApp(false);
+          setIsMiniApp(fallbackMiniApp);
         }
       } finally {
         if (!cancelled) {
@@ -112,8 +140,8 @@ export default function Main() {
     let cancelled = false;
     const load = async () => {
       try {
-        await sdk.actions.ready();
-        const context = await sdk.context;
+        await withTimeout(sdk.actions.ready(), undefined, 1200);
+        const context = await withTimeout(sdk.context, null, 1200);
         const fid = context?.user?.fid;
         if (!cancelled) setIsAdminFid(Boolean(fid && [4163, 420564].includes(fid)));
       } catch {
@@ -211,9 +239,13 @@ export default function Main() {
         }
       } 
       const pingem = new Pingem();
-      await sdk.actions.ready();
-      await pingem.init(sdk, domain);
-      await pingem.ping('view');
+      try {
+        await withTimeout(sdk.actions.ready(), undefined, 1200);
+        await withTimeout(pingem.init(sdk, domain), undefined, 1200);
+        await withTimeout(pingem.ping('view'), undefined, 1200);
+      } catch (error) {
+        console.warn("Pingem boot skipped:", error);
+      }
     };
 
     if (!isSDKLoaded) {
@@ -225,7 +257,7 @@ export default function Main() {
     const load = async () => {
       try {
         if (!sdk || !sdk?.actions?.addMiniApp) return;
-        await sdk.actions.ready({});
+        await withTimeout(sdk.actions.ready({}), undefined, 1200);
         // await sdk.actions.addMiniApp();
       } catch (err) {
         console.warn('addMiniApp failed (likely non-miniapp or dev env):', err);
