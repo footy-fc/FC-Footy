@@ -49,20 +49,20 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
     title: "Footy App",
     openGraph: {
       title: "Footy App",
-      description: "⚽️ match previews, summaries, notifications, Farcaster fantasy league & onchain fan experiences",
+      description: "Live scores, fan clubs, and the Farcaster FEPL table.",
       images: [
         {
           url: imgUrl,
-          width: 1200,
-          height: 630,
-          alt: "Footy App match share image",
+          width: 600,
+          height: 400,
+          alt: "Footy App mini app cover",
         },
       ],
     },
     twitter: {
       card: "summary_large_image",
       title: "Footy App",
-      description: "⚽️ match previews, summaries, notifications, Farcaster fantasy league & onchain fan experiences",
+      description: "Live scores, fan clubs, and the Farcaster FEPL table.",
       images: [imgUrl],
     },
     other: {

@@ -17,8 +17,8 @@ const displayFont = Space_Grotesk({
 });
 
 export const metadata: Metadata = {
-  title: "Farcaster Footy App",
-  description: "Farcaster Footy App: Live Match Summaries, Fantasy League, Banter bot & Collectables",
+  title: "Footy App",
+  description: "Live scores, fan clubs, and the Farcaster FEPL table.",
 };
 
 export default function RootLayout({
