@@ -98,10 +98,6 @@ const AppIdentityBar: React.FC<AppIdentityBarProps> = ({
             />
           ) : null}
 
-          <div className="rounded-full border border-limeGreenOpacity/20 bg-darkPurple/70 px-3 py-1 text-[11px] text-lightPurple">
-            Following {favTeams.length}
-          </div>
-
           {followedTeams.slice(0, 3).map((team) => (
             <Image
               key={getTeamId(team)}

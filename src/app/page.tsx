@@ -50,6 +50,20 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
     openGraph: {
       title: "Footy App",
       description: "⚽️ match previews, summaries, notifications, Farcaster fantasy league & onchain fan experiences",
+      images: [
+        {
+          url: imgUrl,
+          width: 1200,
+          height: 630,
+          alt: "Footy App match share image",
+        },
+      ],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: "Footy App",
+      description: "⚽️ match previews, summaries, notifications, Farcaster fantasy league & onchain fan experiences",
+      images: [imgUrl],
     },
     other: {
       "fc:frame": JSON.stringify(frame),
