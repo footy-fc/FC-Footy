@@ -1,6 +1,5 @@
 import React from 'react';
 import Image from 'next/image';
-import { sdk } from '@farcaster/miniapp-sdk'; // Import the Farcaster SDK
 
 interface Players {
   photo: string;
@@ -21,30 +20,6 @@ interface ScoutAttackersProps {
 }
 
 const ScoutAttackers: React.FC<ScoutAttackersProps> = ({ playersIn }) => {
-  const BASE_URL = 'fc-footy.vercel.app'; // Example base URL for embedding
-
-  const handleCastClick = async (player: Players, rank: number) => {
-    const summary = `FC-FEPL: ${player.webName} from ${player.team} is #${rank} in attacker rank and has an enhanced eXpected Goal Involvement (xGI) of ${
-      (player.expected_assists_per_90 * 3 + player.expected_goals_per_90 * 5).toFixed(2)
-    }. \n \nThe xGI for a player per 90 minutes is calculated by weighting assists (x3) and goals (x5). Larger values are better.\n \nCheck out the full list of top attackers in the FC Footy app cc @gabedev.eth @kmacb.eth`;
-
-    const shareUrl = `${BASE_URL}/?tab=scout%20Players`;
-
-    try {
-      // Validate player photo URL before using it
-      const photoUrl = player.photo && player.photo !== '/defifa_spinner.gif' 
-        ? player.photo 
-        : undefined;
-      
-      await sdk.actions.composeCast({
-        text: summary,
-        embeds: photoUrl ? [shareUrl, photoUrl] : [shareUrl],
-      });
-    } catch (error) {
-      console.error('Failed to compose cast:', error);
-    }
-  };
-
   const filteredPlayers = playersIn.filter(player => player.minutes > 400 && player.position === 'Mid');
 
   // Sort the players based on expected goals per 90 minutes
@@ -73,8 +48,7 @@ const ScoutAttackers: React.FC<ScoutAttackersProps> = ({ playersIn }) => {
           {topPlayers.map((player, index) => (
             <tr
               key={player.id}
-              onClick={() => handleCastClick(player, index + 1)}
-              className="border-b border-limeGreenOpacity hover:bg-purplePanel transition-colors text-lightPurple text-sm cursor-pointer"
+              className="border-b border-limeGreenOpacity text-lightPurple text-sm"
             >
               <td className="py-1 px-1 text-center">
                 <span className="mb-1">{index + 1}</span>

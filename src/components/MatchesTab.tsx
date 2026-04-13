@@ -39,7 +39,7 @@ const MatchesTab: React.FC<MatchesTabProps> = ({ setSelectedTab, league, setSele
           Leagues & Cups
         </h2>
         <button
-          onClick={() => setSelectedTab("settings")}
+          onClick={() => setSelectedTab("profile")}
           title="Follow teams to personalize Scores"
           aria-label="Follow teams"
           className="self-end px-3 py-1 text-xs rounded text-lightPurple hover:bg-deepPink hover:text-white transition-colors"

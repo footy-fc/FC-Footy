@@ -6,41 +6,161 @@ import { findMostSignificantEvent } from '~/utils/matchDataUtils';
 import { RichMatchEvent } from '~/types/commentatorTypes';
 import { CommentaryPipeline, CommentaryContext } from '~/services/CommentaryPipeline';
 
-async function generateCompositeImage(
+const imageLoadCache = new Map<string, Promise<HTMLImageElement>>();
+
+function getInitials(name: string) {
+  const parts = name
+    .split(/\s+/)
+    .map((part) => part.trim())
+    .filter(Boolean);
+
+  if (parts.length === 0) {
+    return "?";
+  }
+
+  return parts
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? "")
+    .join("");
+}
+
+function loadImage(src: string): Promise<HTMLImageElement> {
+  const cached = imageLoadCache.get(src);
+  if (cached) {
+    return cached;
+  }
+
+  const promise = new Promise<HTMLImageElement>((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => resolve(img);
+    img.onerror = () => {
+      imageLoadCache.delete(src);
+      reject(new Error(`Failed to load image: ${src}`));
+    };
+    img.src = src;
+  });
+
+  imageLoadCache.set(src, promise);
+  return promise;
+}
+
+function canvasToBlob(canvas: HTMLCanvasElement, type = 'image/png') {
+  return new Promise<Blob>((resolve, reject) => {
+    canvas.toBlob((blob) => {
+      if (!blob) {
+        reject(new Error('Canvas export failed.'));
+        return;
+      }
+
+      resolve(blob);
+    }, type);
+  });
+}
+
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number, fallback: T): Promise<T> {
+  return new Promise((resolve) => {
+    let settled = false;
+
+    const timer = setTimeout(() => {
+      if (!settled) {
+        settled = true;
+        resolve(fallback);
+      }
+    }, timeoutMs);
+
+    promise
+      .then((value) => {
+        if (!settled) {
+          settled = true;
+          clearTimeout(timer);
+          resolve(value);
+        }
+      })
+      .catch(() => {
+        if (!settled) {
+          settled = true;
+          clearTimeout(timer);
+          resolve(fallback);
+        }
+      });
+  });
+}
+
+function drawLogoPanel(
+  ctx: CanvasRenderingContext2D,
+  image: HTMLImageElement | null,
+  fallbackText: string,
+  x: number,
+  y: number,
+  size: number,
+  panelColor: string,
+  textColor: string
+) {
+  if (image) {
+    ctx.drawImage(image, x, y, size, size);
+    return;
+  }
+
+  ctx.fillStyle = "#1a1520";
+  ctx.fillRect(x, y, size, size);
+  ctx.strokeStyle = panelColor;
+  ctx.lineWidth = 3;
+  ctx.strokeRect(x + 1.5, y + 1.5, size - 3, size - 3);
+  ctx.fillStyle = textColor;
+  ctx.font = 'bold 42px Arial';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(fallbackText, x + size / 2, y + size / 2);
+}
+
+async function generateCompositeImageBlob(
   homeLogo: string,
   awayLogo: string,
+  homeTeam: string,
+  awayTeam: string,
   homeScore: number,
   awayScore: number,
   clock: string
-): Promise<string> {
+): Promise<Blob> {
   const purplePanel = "#010513"; 
   const textNotWhite = "#FEA282"; 
   
   const canvas = document.createElement('canvas');
   canvas.width = 480;  
-  canvas.height = 320; // Adjusted to maintain 3:2 aspect ratio
+  canvas.height = 320;
   const ctx = canvas.getContext('2d');
   if (!ctx) throw new Error('Canvas context not available.');
 
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
   ctx.fillStyle = purplePanel;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  const loadImage = (src: string): Promise<HTMLImageElement> =>
-    new Promise((resolve, reject) => {
-      const img = new Image();
-      img.crossOrigin = 'anonymous';
-      img.onload = () => resolve(img);
-      img.onerror = reject;
-      img.src = src;
-    });
+  const [homeResult, awayResult, spinnerResult] = await Promise.allSettled([
+    loadImage(homeLogo),
+    loadImage(awayLogo),
+    loadImage('/assets/banny_background.png'),
+  ]);
 
-  const [homeImg, awayImg] = await Promise.all([loadImage(homeLogo), loadImage(awayLogo)]);
+  const homeImg = homeResult.status === "fulfilled" ? homeResult.value : null;
+  const awayImg = awayResult.status === "fulfilled" ? awayResult.value : null;
+  const spinnerImg = spinnerResult.status === "fulfilled" ? spinnerResult.value : null;
 
   const logoSize = 160; 
   const logoY = (canvas.height - logoSize) / 2; 
 
-  ctx.drawImage(homeImg, 0, logoY, logoSize, logoSize);
-  ctx.drawImage(awayImg, canvas.width - logoSize, logoY, logoSize, logoSize);
+  drawLogoPanel(ctx, homeImg, getInitials(homeTeam), 0, logoY, logoSize, textNotWhite, textNotWhite);
+  drawLogoPanel(
+    ctx,
+    awayImg,
+    getInitials(awayTeam),
+    canvas.width - logoSize,
+    logoY,
+    logoSize,
+    textNotWhite,
+    textNotWhite
+  );
 
   const centerX = logoSize;
   const centerWidth = canvas.width - 2 * logoSize; 
@@ -82,20 +202,16 @@ async function generateCompositeImage(
 
   ctx.fillText(displayClock, rectCenterX, rectCenterY + 100);
 
-  // New code to load and draw the spinner image
-  try {
-    const spinnerImg = await loadImage('/assets/banny_background.png'); // Adjust the path to your spinner image
-    const spinnerSize = 120; // Adjust spinner size as needed
+  if (spinnerImg) {
+    const spinnerSize = 120;
     const spinnerX = (canvas.width - spinnerSize) / 2;
     const spinnerY = (canvas.height - spinnerSize) / 1.5;
-    ctx.globalAlpha = 0.2; // Set partial transparency
+    ctx.globalAlpha = 0.2;
     ctx.drawImage(spinnerImg, spinnerX, spinnerY, spinnerSize, spinnerSize);
-    ctx.globalAlpha = 1; // Reset transparency
-  } catch (error) {
-    console.error("Error loading spinner image:", error);
+    ctx.globalAlpha = 1;
   }
 
-  return canvas.toDataURL('image/png');
+  return canvasToBlob(canvas);
 }
 
 
@@ -129,29 +245,23 @@ interface WarpcastShareButtonProps {
   };
   ticketPriceEth?: number;
   prizePoolEth?: number;
-  onRoomCreated?: (castHash?: string) => void; // Callback when room is successfully created, with optional castHash
-  chatRoomExists?: boolean | null; // Pass chat room status from parent
-  checkingChatRoom?: boolean; // Pass checking status from parent
-  isPremierLeague?: boolean; // Whether this is a Premier League match (eng.1)
 }
 
-export function WarpcastShareButton({ selectedMatch, compositeImage, leagueId, moneyGamesParams, ticketPriceEth, prizePoolEth, onRoomCreated, chatRoomExists, checkingChatRoom, isPremierLeague }: WarpcastShareButtonProps) {
+export function WarpcastShareButton({ selectedMatch, compositeImage, leagueId, moneyGamesParams, ticketPriceEth, prizePoolEth }: WarpcastShareButtonProps) {
   const { isGenerating, currentCommentator } = useCommentator();
   const [ethUsdPrice, setEthUsdPrice] = useState<number | null>(null);
-  // Use props from parent instead of local state
-  const [localChatRoomExists, setLocalChatRoomExists] = useState<boolean | null>(chatRoomExists ?? null);
-  const [localCheckingChatRoom, setLocalCheckingChatRoom] = useState<boolean>(checkingChatRoom ?? false);
   const [isCreatingRoom, setIsCreatingRoom] = useState<boolean>(false);
   const [messageIndex, setMessageIndex] = useState<number>(0);
 
-  // Update local state when props change
   useEffect(() => {
-    setLocalChatRoomExists(chatRoomExists ?? null);
-  }, [chatRoomExists]);
+    if (!compositeImage) {
+      return;
+    }
 
-  useEffect(() => {
-    setLocalCheckingChatRoom(checkingChatRoom ?? false);
-  }, [checkingChatRoom]);
+    void loadImage(selectedMatch.homeLogo).catch(() => null);
+    void loadImage(selectedMatch.awayLogo).catch(() => null);
+    void loadImage('/assets/banny_background.png').catch(() => null);
+  }, [compositeImage, selectedMatch.homeLogo, selectedMatch.awayLogo]);
 
   useEffect(() => {
     // Fetch ETH price when we are composing MoneyGames link so we can show USD affordance
@@ -279,23 +389,6 @@ const generateCommentaryForMatch = async (
         competition,
       } = selectedMatch;
 
-      // Generate commentary if we have rich match data
-      let commentary = '';
-      if (matchEvents && matchEvents.length > 0 && !moneyGamesParams) {
-        try {
-          commentary = await generateCommentaryForMatch(
-            selectedMatch.homeTeam,
-            selectedMatch.awayTeam,
-            competition || 'Football Match',
-            matchEvents,
-            homeScore,
-            awayScore
-          );
-        } catch (error) {
-          console.error('Failed to generate commentary:', error);
-        }
-      }
-
       const keyMomentsText = keyMoments && keyMoments.length > 0
         ? `\n\nKey Moments:\n${keyMoments.join('\n')}`
         : "";
@@ -325,6 +418,53 @@ const generateCommentaryForMatch = async (
       // Build the base mini app URL from frameUrl and current query string.
       const miniAppUrl = `${frameUrl}${currentQuery}`;
 
+      const commentaryPromise =
+        matchEvents && matchEvents.length > 0 && !moneyGamesParams
+          ? withTimeout(
+              generateCommentaryForMatch(
+                selectedMatch.homeTeam,
+                selectedMatch.awayTeam,
+                competition || 'Football Match',
+                matchEvents,
+                homeScore,
+                awayScore
+              ),
+              1500,
+              ''
+            )
+          : Promise.resolve('');
+
+      const shareUrlPromise =
+        compositeImage
+          ? (async () => {
+              const blob = await generateCompositeImageBlob(
+                homeLogo,
+                awayLogo,
+                selectedMatch.homeTeam,
+                selectedMatch.awayTeam,
+                homeScore,
+                awayScore,
+                clock
+              );
+              const uploadRes = await fetch('/api/upload', { method: 'POST', body: blob });
+              const uploadResult: { objectKey: string; publicUrl: string } = await uploadRes.json();
+              if (!uploadRes.ok) throw new Error('Image upload failed');
+
+              if (uploadResult?.objectKey) {
+                console.log('Composite image uploaded. Key:', uploadResult.objectKey);
+              }
+
+              const urlObj = new URL(miniAppUrl);
+              urlObj.searchParams.set('imageKey', uploadResult.objectKey);
+              return urlObj.toString();
+            })().catch((error) => {
+              console.error("Error generating composite image:", error);
+              return miniAppUrl;
+            })
+          : Promise.resolve(miniAppUrl);
+
+      const [commentary, shareUrl] = await Promise.all([commentaryPromise, shareUrlPromise]);
+
       // Build the cast text
       const isMoneyGame = Boolean(moneyGamesParams);
       let matchSummary = `${competitorsLong} ${keyMomentsText}\n\n@gabedev.eth @kmacb.eth are you in on this one?`;
@@ -351,69 +491,12 @@ const generateCommentaryForMatch = async (
 
       //let imageUrl = '';
 
-      let shareUrl = miniAppUrl;
-      if (compositeImage) {
-        try {
-          const dataUrl = await generateCompositeImage(homeLogo, awayLogo, homeScore, awayScore, clock);
-          const blob = await (await fetch(dataUrl)).blob();
-          const uploadRes = await fetch('/api/upload', { method: 'POST', body: blob });
-          const uploadResult = await uploadRes.json();
-          if (!uploadRes.ok) throw new Error('Image upload failed');
-
-          // Log the uploaded IPFS CID for debugging/analytics
-          if (uploadResult?.ipfsHash) {
-            // eslint-disable-next-line no-console
-            console.log('Composite image uploaded. CID:', uploadResult.ipfsHash);
-          }
-
-          //const gateway = (process.env.NEXT_PUBLIC_PINATAGATEWAY || 'https://gateway.pinata.cloud/ipfs').replace(/\/$/, '');
-          //imageUrl = `${gateway}/${uploadResult.ipfsHash}`;
-
-          const urlObj = new URL(miniAppUrl);
-          urlObj.searchParams.set('ipfsHash', uploadResult.ipfsHash);
-          shareUrl = urlObj.toString();
-        } catch (error) {
-          console.error("Error generating composite image:", error);
-        }
-      }
-
       const embeds: [] | [string] | [string, string] = [shareUrl];
    
       try {
         await sdk.actions.ready({});
         const result = await sdk.actions.composeCast({ text: matchSummary, embeds, channelKey: 'football' });
-        
-        // Save cast hash to KV if cast was successful
-        if (result?.cast?.hash && selectedMatch?.eventId) {
-          console.log('✅ Cast successful, saving to KV:', result.cast.hash);
-          
-          try {
-            const saveResponse = await fetch('/api/match-rooms', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'x-api-key': process.env.NEXT_PUBLIC_NOTIFICATION_API_KEY || '',
-              },
-              body: JSON.stringify({
-                eventId: selectedMatch.eventId,
-                castHash: result.cast.hash,
-                parentUrl: shareUrl,
-                fid: null
-              })
-            });
-            
-            if (saveResponse.ok) {
-              console.log('💾 Cast hash saved to KV for room creation');
-              // Update local state to reflect new room
-              setLocalChatRoomExists(true);
-              onRoomCreated?.(result.cast.hash); // Call the callback with the castHash
-            } else {
-              console.error('Failed to save cast hash to KV:', await saveResponse.text());
-            }
-          } catch (saveError) {
-            console.error('Error saving cast hash to KV:', saveError);
-          }
-        } else if (result?.cast === null) {
+        if (result?.cast === null) {
           console.log('User cancelled the cast');
         }
       } catch (e) {
@@ -424,7 +507,7 @@ const generateCommentaryForMatch = async (
       // Reset creating room state
       setIsCreatingRoom(false);
     }
-  }, [selectedMatch, compositeImage, leagueId, moneyGamesParams, ticketPriceEth, prizePoolEth, ethUsdPrice, currentCommentator?.displayName, onRoomCreated]);
+  }, [selectedMatch, compositeImage, leagueId, moneyGamesParams, ticketPriceEth, prizePoolEth, ethUsdPrice, currentCommentator?.displayName]);
 
   return (
     <button
@@ -434,10 +517,7 @@ const generateCommentaryForMatch = async (
     >
       {isGenerating ? '🎤 Generating Commentary...' : 
        isCreatingRoom ? getLoadingMessage() :
-       localCheckingChatRoom ? 'Checking...' :
-       isPremierLeague ? (
-         localChatRoomExists ? 'Share Match' : 'Create Room'
-       ) : 'Share'}
+       'Share Score'}
     </button>
   );
 }

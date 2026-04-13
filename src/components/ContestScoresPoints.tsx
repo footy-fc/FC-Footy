@@ -10,7 +10,7 @@ interface FarcasterUser {
 import React, { useState, useEffect, useRef } from 'react';
 import { getTeamPreferences } from '~/lib/kvPerferences';
 import { getTeamLogo } from "./utils/fetchTeamLogos";
-import { fetchUsersByAddress } from './utils/fetchUserByAddressNeynar';
+import { fetchUsersByAddress } from './utils/fetchUsersByAddress';
 
 const fetchRevnetShields = async (projectId: number, chainId: number) => {
   //const url = `https://app.revnet.eth.sucks/api/data/shields?projectId=${projectId}&chainId=${chainId}`;

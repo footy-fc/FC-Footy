@@ -243,15 +243,14 @@ async function testInfographicGeneration(fplData) {
         
         const uploadResult = await uploadResponse.json();
         console.log(`📤 [test] Upload result:`, uploadResult);
-        const ipfsHash = uploadResult.ipfsHash;
+        const publicUrl = uploadResult.publicUrl;
         
-        if (ipfsHash) {
-          const pinataGateway = process.env.NEXT_PUBLIC_PINATAGATEWAY || process.env.PINATA_GATEWAY || 'https://gateway.pinata.cloud';
-          infographicUrl = `${pinataGateway}/ipfs/${ipfsHash}`;
-          console.log(`✅ [test] Uploaded to IPFS: ${infographicUrl}`);
+        if (publicUrl) {
+          infographicUrl = publicUrl;
+          console.log(`✅ [test] Uploaded to QStorage: ${infographicUrl}`);
           break;
         } else {
-          console.log(`📤 [test] No IPFS hash in response:`, uploadResult);
+          console.log(`📤 [test] No public URL in response:`, uploadResult);
         }
         
       } catch (canvasError) {

@@ -9,11 +9,10 @@ import { FantasyEntry } from './utils/fetchFantasyData';
 interface FantasyRowProps {
   entry: FantasyEntry;  // Consistent FantasyEntry type
   onRowClick: (entry: FantasyEntry) => void;
-  currentUserEntry?: FantasyEntry | null;  // Add currentUserEntry prop
   currentUserFid?: number | null;  // Add currentUserFid for highlighting
 }
 
-const FantasyRow: React.FC<FantasyRowProps> = ({ entry, onRowClick, currentUserEntry, currentUserFid }) => {
+const FantasyRow: React.FC<FantasyRowProps> = ({ entry, onRowClick, currentUserFid }) => {
   const { totalPoints, team, entryName } = entry;
   const [pfpUrl, setPfpUrl] = useState<string>('/defifa_spinner.gif');
   const [isLoadingPfp, setIsLoadingPfp] = useState(false);
@@ -61,10 +60,6 @@ const FantasyRow: React.FC<FantasyRowProps> = ({ entry, onRowClick, currentUserE
     fetchPfp();
   }, [entry.fid, entry.entry_id]);
 
-
-  // Determine if user can interact with this row (is in fantasy league)
-  const canInteract = currentUserEntry !== null && currentUserEntry !== undefined;
-  
   // Check if this is the user's own row
   const isUserRow = currentUserFid && entry.fid === currentUserFid;
   
@@ -88,12 +83,9 @@ const FantasyRow: React.FC<FantasyRowProps> = ({ entry, onRowClick, currentUserE
       className={`border-b border-limeGreenOpacity transition-colors text-lightPurple text-sm ${
         isUserRow
           ? 'bg-limeGreenOpacity/20 border-limeGreenOpacity/50 font-bold' // Highlight user's row
-          : canInteract 
-            ? 'hover:bg-purplePanel cursor-pointer' 
-            : 'hover:bg-gray-700 cursor-pointer opacity-80'
+          : 'hover:bg-purplePanel cursor-pointer'
       }`}
-      onClick={() => onRowClick(entry)}
-      title={!canInteract ? 'Join the Fantasy Manager League to mint season passes' : undefined}>
+      onClick={() => onRowClick(entry)}>
       <td className="py-2 px-2 text-center text-lightPurple font-bold">
         {entry.rank ?? 'N/A'}
       </td>

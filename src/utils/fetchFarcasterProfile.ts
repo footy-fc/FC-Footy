@@ -1,8 +1,8 @@
+import { fetchUsersByAddresses } from '~/lib/hypersnap';
+
 /**
- * Utility functions for fetching Farcaster profile data using the Neynar API
+ * Utility functions for fetching Farcaster profile data using the HyperSnap API.
  */
-// Remove the Node.js SDK import
-// import { NeynarAPIClient, Configuration } from "@neynar/nodejs-sdk";
 
 interface FarcasterUser {
   fid: number;
@@ -30,47 +30,17 @@ interface FarcasterUser {
  */
 export async function fetchFarcasterProfileByAddress(address: string): Promise<FarcasterUser | null> {
   try {
-    const apiKey = process.env.NEXT_PUBLIC_NEYNAR_API_KEY || '';
-    if (!apiKey) {
-      return null;
-    }
-
-    // Normalize the address to lowercase
     const normalizedAddress = address.toLowerCase();
-    
-    // Use the correct endpoint with address_types parameter
-    const endpoint = `https://api.neynar.com/v2/farcaster/user/bulk-by-address?addresses=${normalizedAddress}&address_types=ethereum`;
-    
+
     try {
-      const response = await fetch(endpoint, {
-        method: 'GET',
-        headers: {
-          'accept': 'application/json',
-          'api_key': apiKey
-        }
-      });
-      
-      if (!response.ok) {
-        return null;
-      }
-      
-      const responseData = await response.json();
-      // console.log('Response data:', responseData);
-      // The response is an object with the address as the key and an array of users as the value
-      if (!responseData || Object.keys(responseData).length === 0) {
-        return null;
-      }
-      
-      // Get the first user from the response
+      const responseData = await fetchUsersByAddresses([normalizedAddress]);
       const users = responseData[normalizedAddress];
       if (!users || users.length === 0) {
         return null;
       }
-      
+
       const userData = users[0];
-      
-      // Create a result object with the data we have
-      const result: FarcasterUser = {
+      return {
         fid: userData.fid,
         username: userData.username || '',
         displayName: userData.display_name || '',
@@ -85,10 +55,8 @@ export async function fetchFarcasterProfileByAddress(address: string): Promise<F
         followerCount: userData.follower_count || 0,
         followingCount: userData.following_count || 0,
         activeStatus: 'active',
-        verifications: userData.verifications || []
+        verifications: userData.verifications || userData.verified_addresses?.eth_addresses || []
       };
-      // console.log('Returning result:', result);
-      return result;
     } catch {
       return null;
     }

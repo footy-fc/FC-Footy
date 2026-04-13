@@ -1,8 +1,9 @@
+import { fetchUsersByAddresses, type HypersnapUser } from '~/lib/hypersnap';
+
 /****
- * Fetch Farcaster user data by addresses using Neynar API.
- * The Neynar `bulk-by-address` endpoint requires a POST request with a JSON body containing the addresses.
+ * Fetch Farcaster user data by addresses using HyperSnap.
  * @param addresses Array of Ethereum addresses.
- * @returns Parsed response JSON from Neynar API.
+ * @returns A normalized response shape for existing consumers.
  */
 interface FarcasterUser {
   fid: number;
@@ -22,28 +23,39 @@ interface FarcasterUser {
   following_count: number;
 }
 
-interface NeynarUserResponse {
-  users: FarcasterUser[];
+interface UserLookupResponse {
+  [address: string]: FarcasterUser[];
 }
 
-export async function fetchUsersByAddress(addresses: string[]): Promise<NeynarUserResponse> {
+export async function fetchUsersByAddress(addresses: string[]): Promise<UserLookupResponse> {
   if (!addresses || addresses.length === 0) {
-    return { users: [] };
+    return {};
   }
-  const csv = addresses.join(',');
-  const query = csv;
-  const options = {
-    method: 'GET',
-    headers: {
-      'x-api-key': process.env.NEXT_PUBLIC_NEYNAR_API_KEY || '',
-      'x-neynar-experimental': 'false',
-    },
-  };
-  const url = `https://api.neynar.com/v2/farcaster/user/bulk-by-address?addresses=${query}`;
   try {
-    const response = await fetch(url, options);
-    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-    return await response.json() as NeynarUserResponse;
+    const response = await fetchUsersByAddresses(addresses);
+    const normalized: UserLookupResponse = {};
+
+    for (const [address, users] of Object.entries(response)) {
+      normalized[address] = users.map((user: HypersnapUser) => ({
+        fid: user.fid,
+        custody_address: user.verified_addresses?.eth_addresses?.[0] || '',
+        username: user.username || '',
+        display_name: user.display_name || '',
+        profile: {
+          bio: {
+            text: user.profile?.bio?.text || '',
+          },
+          location: {
+            place: '',
+          },
+          avatar_url: user.pfp_url || '',
+        },
+        follower_count: user.follower_count || 0,
+        following_count: user.following_count || 0,
+      }));
+    }
+
+    return normalized;
   } catch (err) {
     console.error('Failed to fetch users by address:', err);
     throw err;

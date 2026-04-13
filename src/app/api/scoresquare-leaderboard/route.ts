@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { ApolloClient, InMemoryCache, gql, HttpLink } from '@apollo/client';
+import { fetchUsersByAddresses, type HypersnapUser } from '~/lib/hypersnap';
 
 // GraphQL query for ScoreSquare players
 const GET_SCORESQUARE_PLAYERS = gql`
@@ -33,29 +34,13 @@ const client = new ApolloClient({
   cache: new InMemoryCache(),
 });
 
-// Fetch Farcaster user data by addresses using Neynar API
 async function fetchUsersByAddress(addresses: string[]) {
   if (!addresses || addresses.length === 0) {
-    return { users: [] };
+    return {};
   }
-  
-  const csv = addresses.join(',');
-  const options = {
-    method: 'GET',
-    headers: {
-      'accept': 'application/json',
-      'api_key': process.env.NEXT_PUBLIC_NEYNAR_API_KEY || '',
-    },
-  };
-  
-  const url = `https://api.neynar.com/v2/farcaster/user/bulk-by-address?addresses=${csv}&address_types=ethereum`;
-  
+
   try {
-    const response = await fetch(url, options);
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    return await response.json();
+    return await fetchUsersByAddresses(addresses);
   } catch (err) {
     console.error('Failed to fetch users by address:', err);
     throw err;
@@ -154,24 +139,19 @@ async function fetchScoreSquarePlayers() {
   }
 }
 
-// Look up FIDs for addresses using Neynar API
+// Look up FIDs for addresses using HyperSnap
 async function lookupFIDs(addresses: string[], participationStats: Map<string, { tickets: number; games: number; deployed: number; points: number; gameIds: string[] }>) {
-  if (!process.env.NEXT_PUBLIC_NEYNAR_API_KEY) {
-    return [];
-  }
-  
   try {
     const batchSize = 100;
     const allUsers: Array<{
       originalScoreSquareAddress: string;
       custody_address: string;
       fid: number;
-      username: string;
-      display_name: string;
-      follower_count: number;
-      following_count: number;
+      username?: string;
+      display_name?: string;
+      follower_count?: number;
+      following_count?: number;
       pfp_url?: string;
-      profile?: { avatar_url?: string };
     }> = [];
     
     for (let i = 0; i < addresses.length; i += batchSize) {
@@ -182,19 +162,11 @@ async function lookupFIDs(addresses: string[], participationStats: Map<string, {
       if (result && typeof result === 'object') {
         Object.entries(result).forEach(([scoreSquareAddress, users]) => {
           if (Array.isArray(users) && users.length > 0) {
-            users.forEach((user: {
-              custody_address: string;
-              fid: number;
-              username: string;
-              display_name: string;
-              follower_count: number;
-              following_count: number;
-              pfp_url?: string;
-              profile?: { avatar_url?: string };
-            }) => {
+            users.forEach((user: HypersnapUser) => {
               // Create extended user object with original ScoreSquare address
               const extendedUser = {
                 ...user,
+                custody_address: user.verified_addresses?.eth_addresses?.[0] || '',
                 originalScoreSquareAddress: scoreSquareAddress.toLowerCase()
               };
               allUsers.push(extendedUser);
@@ -221,7 +193,7 @@ async function lookupFIDs(addresses: string[], participationStats: Map<string, {
         displayName: user.display_name,
         followerCount: user.follower_count,
         followingCount: user.following_count,
-        pfpUrl: user.pfp_url || user.profile?.avatar_url || '',
+        pfpUrl: user.pfp_url || '',
         ticketsPurchased: userStats.tickets,
         gamesParticipated: userStats.games,
         gamesDeployed: userStats.deployed,
