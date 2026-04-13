@@ -19,26 +19,35 @@ export function useFetchCastsParentUrl(
     const fetchCasts = async () => {
       try {
         if (parentCast?.hash) {
-          // Use Neynar v2 conversation API via server proxy
-          const resp = await axios.get(`/api/neynar/conversation?hash=${encodeURIComponent(parentCast.hash)}&reply_depth=2&limit=${pageSize}&viewer_fid=4163&sort_type=desc_chron`);
+          const resp = await axios.get(`/api/farcaster/conversation?hash=${encodeURIComponent(parentCast.hash)}&reply_depth=2`);
           if (!cancelled) {
             if (resp.status === 200) {
-              type NeynarReply = { timestamp: string | number; author?: { fid?: number }; text?: string };
-              const directReplies = (resp.data?.conversation?.cast?.direct_replies || []) as NeynarReply[];
+              type ConversationReply = {
+                cast?: { timestamp?: string | number; author?: { fid?: number }; text?: string };
+                replies?: ConversationReply[];
+              };
+
+              const rootReplies = (resp.data?.conversation?.replies || resp.data?.replies || []) as ConversationReply[];
+              const flattenReplies = (replies: ConversationReply[]): ConversationReply[] =>
+                replies.flatMap((reply) => [reply, ...flattenReplies(reply.replies || [])]);
+
+              const directReplies = flattenReplies(rootReplies);
               // @ts-expect-error shaping external API into Farcaster Message dat
-              const messages: Message[] = directReplies.map((c: NeynarReply) => ({
+              const messages: Message[] = directReplies
+                .filter((reply) => reply.cast)
+                .map((reply: ConversationReply) => ({
                 data: {
                   // Farcaster hub Message.data expects timestamp number
-                  timestamp: new Date(c.timestamp).getTime(),
-                  fid: c.author?.fid as number,
-                  castAddBody: { text: String(c.text || '') },
+                  timestamp: new Date(reply.cast?.timestamp || 0).getTime(),
+                  fid: reply.cast?.author?.fid as number,
+                  castAddBody: { text: String(reply.cast?.text || '') },
                 } as unknown as Message['data'],
               }));
               // Oldest first so newest is bottom in UI
               const sorted = (messages || []).sort((a, b) => (a.data?.timestamp ?? 0) - (b.data?.timestamp ?? 0));
               setCasts(sorted.slice(-pageSize));
             } else {
-              console.error('Failed to fetch conversation (Neynar v2):', resp.statusText);
+              console.error('Failed to fetch conversation (HyperSnap):', resp.statusText);
             }
           }
         } else if (url) {
