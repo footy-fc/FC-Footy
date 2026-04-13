@@ -11,10 +11,8 @@ const ScoresTab: React.FC<ScoresTabProps> = ({ onNavigate }) => {
   return (
     <div className="mb-4">
       <div className="mb-4">
-        <h2 className="font-2xl text-notWhite font-bold mb-2">Scores</h2>
-        <p className="text-sm text-lightPurple">
-          Track the latest results, see if your clubs are winning, and monitor matches that affect your fantasy squad.
-        </p>
+        <div className="app-eyebrow mb-2">Scores</div>
+        <h2 className="app-title">Live now</h2>
       </div>
       <MatchesTab
         league={league}

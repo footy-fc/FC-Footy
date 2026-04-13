@@ -5,6 +5,12 @@
 :root {
   --background: #181424;
   --foreground: #171717;
+  --app-text: #f4edff;
+  --app-text-muted: #c0b2f0;
+  --app-text-soft: rgba(192, 178, 240, 0.72);
+  --app-accent: #bd195d;
+  --app-accent-soft: #fea282;
+  --app-border: rgba(162, 230, 52, 0.16);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -17,11 +23,12 @@
 body {
   color: var(--foreground);
   background: var(--background);
-  font-family: 'Inter', Helvetica, Arial, sans-serif;
+  font-family: var(--font-body), Helvetica, Arial, sans-serif;
   overflow-x: hidden;
   width: 100%;
   max-width: 100vw;
   position: relative;
+  letter-spacing: -0.01em;
 }
 
 html {
@@ -43,4 +50,53 @@ html {
   src: url('/fonts/VT323-Regular.ttf') format('truetype');
   font-weight: normal;
   font-style: normal;
+}
+
+.app-eyebrow {
+  color: var(--app-accent);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+}
+
+.app-title {
+  color: var(--app-text);
+  font-family: var(--font-display), sans-serif;
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  line-height: 1.05;
+}
+
+.app-section-title {
+  color: var(--app-text);
+  font-family: var(--font-display), sans-serif;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.15;
+}
+
+.app-card-title {
+  color: var(--app-text);
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+
+.app-copy {
+  color: var(--app-text-muted);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.55;
+}
+
+.app-micro {
+  color: var(--app-text-soft);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  line-height: 1.4;
 }

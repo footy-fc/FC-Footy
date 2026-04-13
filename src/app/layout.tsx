@@ -1,7 +1,20 @@
 import type { Metadata } from "next";
+import { Manrope, Space_Grotesk } from "next/font/google";
 
 import "~/app/globals.css";
 import { Providers } from "~/app/providers";
+
+const bodyFont = Manrope({
+  subsets: ["latin"],
+  variable: "--font-body",
+  display: "swap",
+});
+
+const displayFont = Space_Grotesk({
+  subsets: ["latin"],
+  variable: "--font-display",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   title: "Farcaster Footy App",
@@ -25,7 +38,7 @@ export default function RootLayout({
           rel="stylesheet"
         /> */}
       </head>
-      <body className="flex justify-center bg-black text-white m-0">
+      <body className={`${bodyFont.variable} ${displayFont.variable} flex justify-center bg-black text-white m-0`}>
         <Providers>{children}</Providers>
       </body>
     </html>
