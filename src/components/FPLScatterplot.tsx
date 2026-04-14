@@ -528,7 +528,7 @@ const FPLScatterplot: React.FC = () => {
                             `${positions[player.position as keyof typeof positions]?.name}`
                           ];
                         }
-                        return context.parsed.y.toString();
+                        return context.parsed.y != null ? context.parsed.y.toString() : '0';
                       }
                     }
                   }
