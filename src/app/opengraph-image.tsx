@@ -199,15 +199,16 @@ export default function Image() {
               >
                 <div
                   style={{
+                    display: "flex",
+                    flexDirection: "column",
                     fontSize: 46,
                     fontWeight: 800,
                     lineHeight: 0.94,
                     letterSpacing: "-0.06em",
                   }}
                 >
-                  Scores, fan clubs,
-                  <br />
-                  fantasy.
+                  <span>Scores, fan clubs,</span>
+                  <span>fantasy.</span>
                 </div>
                 <div
                   style={{

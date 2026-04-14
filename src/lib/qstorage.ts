@@ -220,7 +220,7 @@ export async function uploadToQStorage({
   );
 
   return {
-    objectKey: finalObjectKey,
+    objectKey: rawObjectKey,
     publicUrl: buildQStoragePublicUrl(rawObjectKey),
     contentType,
   };

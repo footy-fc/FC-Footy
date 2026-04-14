@@ -19,7 +19,8 @@ export function frameConnector() {
     async setup() {
       this.connect({ chainId: config.chains[0].id });
     },
-    async connect({ chainId } = {}) {
+    async connect(parameters: any = {}) {
+      const chainId = parameters?.chainId;
       const provider = await this.getProvider();
       const accounts = await provider.request({
         method: "eth_requestAccounts",
@@ -48,9 +49,9 @@ export function frameConnector() {
       connected = true;
 
       return {
-        accounts: accounts.map((x) => getAddress(x)),
+        accounts: accounts.map((x) => getAddress(x)) as readonly `0x${string}`[],
         chainId: currentChainId,
-      };
+      } as any;
     },
     async disconnect() {
       const provider = await this.getProvider()
@@ -79,7 +80,7 @@ export function frameConnector() {
       const accounts = await provider.request({
         method: "eth_requestAccounts",
       });
-      return accounts.map((x) => getAddress(x));
+      return accounts.map((x) => getAddress(x)) as readonly `0x${string}`[];
     },
     async getChainId() {
       const provider = await this.getProvider();
@@ -116,7 +117,7 @@ export function frameConnector() {
       if (accounts.length === 0) this.onDisconnect();
       else
         config.emitter.emit("change", {
-          accounts: accounts.map((x) => getAddress(x)),
+          accounts: accounts.map((x) => getAddress(x)) as readonly `0x${string}`[],
         });
     },
     onChainChanged(chain) {
