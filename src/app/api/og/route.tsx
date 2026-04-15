@@ -1,12 +1,9 @@
 import { ImageResponse } from "next/og";
 
-export const alt = "Footy App - scores, fan clubs, and fantasy";
-export const size = {
+const size = {
   width: 600,
   height: 400,
 };
-
-export const contentType = "image/png";
 
 const colors = {
   bg: "#050712",
@@ -60,7 +57,7 @@ function Dot({ color }: { color: string }) {
   );
 }
 
-export default function Image() {
+export async function GET() {
   return new ImageResponse(
     (
       <div

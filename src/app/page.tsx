@@ -13,7 +13,7 @@ type Props = {
 
 export async function generateMetadata({ searchParams }: Props): Promise<Metadata> {
   const url = new URL('/', appUrl);
-  let imgUrl = `${appUrl}/opengraph-image`;
+  let imgUrl = `${appUrl}/api/og`;
   
   Object.entries(await searchParams).forEach(([key, value]) => {
     if (typeof value === 'string') {
