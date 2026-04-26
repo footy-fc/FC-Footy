@@ -16,7 +16,6 @@ import ToolsTab from "./ToolsTab";
 import ProfileTab from "./ProfileTab";
 import { tabDisplayMap } from "../lib/navigation";
 import { Pingem } from 'pingem-sdk';
-import { useAccount } from "wagmi";
 import { IS_TESTING } from "../lib/config";
 
 interface SharedCast {
@@ -42,7 +41,6 @@ interface SharedCast {
 }
 
 export default function Main() {
-  const { isConnected } = useAccount();
   const searchParams = useSearchParams();
   const router = useRouter();
   const [customSearchParams, setCustomSearchParams] = useState<URLSearchParams | null>(null);
@@ -296,7 +294,7 @@ export default function Main() {
     load();
   }, []);
 
-  const shouldRenderApp = IS_TESTING || isConnected || isMiniApp;
+  const shouldRenderApp = IS_TESTING || isMiniApp;
   // Render main app UI
   return (
     <div className="w-[400px] mx-auto py-2">
