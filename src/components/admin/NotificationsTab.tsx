@@ -1,29 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { fetchFanUserData } from '../utils/fetchFCProfile';
-import { getFansForTeamAbbr } from '../../lib/kvPerferences';
 
 interface UserData {
   fid: number;
   username?: string;
   pfp?: string;
   loading?: boolean;
-}
-
-interface Team {
-  id: string;
-  name: string;
-  shortName: string;
-  abbreviation: string;
-  country: string;
-  logoUrl: string;
-}
-
-interface League {
-  id: string;
-  name: string;
-  country: string;
-  type: "domestic" | "continental" | "international";
-  active: boolean;
 }
 
 interface FantasyManager {
@@ -55,15 +37,7 @@ export default function NotificationsTab({
   const [loadingUsers, setLoadingUsers] = useState(false);
   const [showUserTable, setShowUserTable] = useState(false);
   
-  // New state for team filtering
-  const [leagues, setLeagues] = useState<League[]>([]);
-  const [teams, setTeams] = useState<Team[]>([]);
-  const [memberships, setMemberships] = useState<{[leagueId: string]: string[]}>({});
-  const [selectedLeague, setSelectedLeague] = useState<string>('');
-  const [selectedTeam, setSelectedTeam] = useState<string>('');
-  const [loadingLeagues, setLoadingLeagues] = useState(false);
-  const [loadingTeams, setLoadingTeams] = useState(false);
-  const [notificationMode, setNotificationMode] = useState<'all' | 'team' | 'fepl' | 'nonFepl' | 'custom'>('all');
+  const [notificationMode, setNotificationMode] = useState<'all' | 'fepl' | 'nonFepl' | 'custom'>('all');
   // Quick audience size estimator (does not require preview table)
   const [audienceCount, setAudienceCount] = useState<number | null>(null);
   const [audienceLoading, setAudienceLoading] = useState<boolean>(false);
@@ -102,69 +76,9 @@ export default function NotificationsTab({
     }
   };
 
-  // Fetch leagues and teams data
-  const fetchLeaguesAndTeams = useCallback(async () => {
-    setLoadingLeagues(true);
-    setLoadingTeams(true);
-    
-    try {
-      let leaguesData: { leagues?: League[] } | null = null;
-      
-      // Fetch leagues
-      const leaguesResponse = await fetch('/api/leagues');
-      if (leaguesResponse.ok) {
-        leaguesData = await leaguesResponse.json();
-        setLeagues(leaguesData?.leagues || []);
-      }
-
-      // Fetch teams
-      const teamsResponse = await fetch('/api/teams');
-      if (teamsResponse.ok) {
-        const teamsData = await teamsResponse.json();
-        setTeams(teamsData.teams || []);
-      }
-
-      // Fetch memberships using the all endpoint
-      const membershipsResponse = await fetch('/api/memberships/all', {
-        headers: {
-          'x-api-key': process.env.NEXT_PUBLIC_NOTIFICATION_API_KEY || "",
-        },
-      });
-      
-      if (membershipsResponse.ok) {
-        const membershipsData = await membershipsResponse.json();
-        setMemberships(membershipsData.memberships || {});
-      } else {
-        console.error('Failed to fetch memberships:', membershipsResponse.status);
-      }
-    } catch (error) {
-      console.error('Error fetching leagues and teams:', error);
-    } finally {
-      setLoadingLeagues(false);
-      setLoadingTeams(false);
-    }
-  }, []);
-
-  // Get teams for selected league
-  const getTeamsForLeague = (leagueId: string): Team[] => {
-    if (!leagueId || !memberships[leagueId]) {
-      return [];
-    }
-    
-    const teamIds = memberships[leagueId];
-    const leagueTeams = teams.filter(team => teamIds.includes(team.id));
-    return leagueTeams;
-  };
-
-  // Get all teams (fallback when no league is selected)
-  const getAllTeams = (): Team[] => {
-    return teams.sort((a, b) => a.name.localeCompare(b.name));
-  };
-
   // Helper function to get button text
   const getButtonText = (): string => {
     if (adminOnly) return "Admins";
-    if (notificationMode === 'team' && selectedTeam) return "Team Followers";
     if (notificationMode === 'fepl') return "FC FEPL Managers";
     if (notificationMode === 'nonFepl') return "Non-FEPL Users";
     if (notificationMode === 'custom') return "Custom List";
@@ -177,14 +91,7 @@ export default function NotificationsTab({
     try {
       let userFids: number[] = [];
 
-      if (notificationMode === 'team' && selectedTeam) {
-        // Get team followers
-        const selectedTeamData = teams.find(t => t.id === selectedTeam);
-        if (selectedTeamData) {
-          // Get team follower FIDs using the team abbreviation
-          userFids = await getFansForTeamAbbr(selectedTeamData.abbreviation);
-        }
-      } else if (notificationMode === 'fepl') {
+      if (notificationMode === 'fepl') {
         // Get FEPL manager FIDs
         userFids = await getFEPLManagerFIDs();
       } else if (notificationMode === 'nonFepl') {
@@ -282,7 +189,7 @@ export default function NotificationsTab({
     } finally {
       setLoadingUsers(false);
     }
-  }, [adminOnly, notificationMode, selectedTeam, teams, customFidsText, savedLists, selectedSavedList]);
+  }, [adminOnly, notificationMode, customFidsText, savedLists, selectedSavedList]);
 
   // Load saved lists from localStorage
   useEffect(() => {
@@ -299,11 +206,6 @@ export default function NotificationsTab({
     } catch {}
   };
 
-  // Fetch leagues and teams on component mount
-  useEffect(() => {
-    fetchLeaguesAndTeams();
-  }, [fetchLeaguesAndTeams]);
-
   // Fetch users when relevant state changes
   useEffect(() => {
     if (showUserTable) {
@@ -318,13 +220,7 @@ export default function NotificationsTab({
       setAudienceLoading(true);
       try {
         let count = 0;
-        if (notificationMode === 'team' && selectedTeam) {
-          const selectedTeamData = teams.find(t => t.id === selectedTeam);
-          if (selectedTeamData) {
-            const fids = await getFansForTeamAbbr(selectedTeamData.abbreviation);
-            count = (fids || []).length;
-          }
-        } else if (notificationMode === 'fepl') {
+        if (notificationMode === 'fepl') {
           const fids = await getFEPLManagerFIDs();
           count = fids.length;
         } else if (notificationMode === 'nonFepl') {
@@ -375,7 +271,7 @@ export default function NotificationsTab({
     };
     run();
     return () => { cancelled = true; };
-  }, [notificationMode, selectedTeam, teams, adminOnly, customFidsText, savedLists, selectedSavedList]);
+  }, [notificationMode, adminOnly, customFidsText, savedLists, selectedSavedList]);
 
   // Fetch global counts for detail math (all users and FEPL)
   useEffect(() => {
@@ -411,11 +307,6 @@ export default function NotificationsTab({
     return () => { cancelled = true; };
   }, []);
 
-  // Reset team selection when league changes
-  useEffect(() => {
-    setSelectedTeam('');
-  }, [selectedLeague]);
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setResponseMessage("");
@@ -425,34 +316,10 @@ export default function NotificationsTab({
       ? customTargetUrl 
       : `${process.env.NEXT_PUBLIC_URL}?tab=${category}`;
     
-    // Get selected team data early for use in success message
-    const selectedTeamData = selectedTeam ? teams.find(t => t.id === selectedTeam) : null;
-    
     try {
       let response;
-      
-      if (notificationMode === 'team' && selectedTeam) {
-        // Send to team followers
-        if (!selectedTeamData) {
-          setResponseMessage('Error: Selected team not found');
-          setLoading(false);
-          return;
-        }
-        
-        response = await fetch("/api/notify-team", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "x-api-key": process.env.NEXT_PUBLIC_NOTIFICATION_API_KEY || "",
-          },
-          body: JSON.stringify({ 
-            title, 
-            body,
-            targetURL,
-            teamAbbreviation: selectedTeamData.abbreviation
-          }),
-        });
-      } else if (notificationMode === 'fepl') {
+
+      if (notificationMode === 'fepl') {
         // Send to FEPL managers
         const feplFids = await getFEPLManagerFIDs();
         
@@ -539,9 +406,7 @@ export default function NotificationsTab({
 
       if (response.ok) {
         const data = await response.json();
-        const targetText = notificationMode === 'team' && selectedTeam 
-          ? `team followers (${selectedTeamData?.name})` 
-          : notificationMode === 'fepl'
+        const targetText = notificationMode === 'fepl'
           ? "FC FEPL managers"
           : notificationMode === 'nonFepl'
           ? 'non-FEPL users'
@@ -556,8 +421,6 @@ export default function NotificationsTab({
         setCustomTargetUrl("");
         setUseCustomUrl(false);
         setNotificationMode('all');
-        setSelectedTeam('');
-        setSelectedLeague('');
       } else {
         const errorData = await response.json();
         setResponseMessage(`Error: ${errorData.error || "Failed to send notification"}`);
@@ -759,16 +622,6 @@ export default function NotificationsTab({
                     All Users
                   </button>
                   <button
-                    onClick={() => setNotificationMode('team')}
-                    className={`px-3 py-1 rounded text-sm transition-colors ${
-                      notificationMode === 'team'
-                        ? 'bg-deepPink text-white'
-                        : 'bg-gray-600 text-lightPurple hover:bg-gray-500'
-                    }`}
-                  >
-                    Team Followers
-                  </button>
-                  <button
                     onClick={() => setNotificationMode('fepl')}
                     className={`px-3 py-1 rounded text-sm transition-colors ${
                       notificationMode === 'fepl'
@@ -800,62 +653,6 @@ export default function NotificationsTab({
                   </button>
                 </div>
               </div>
-
-              {/* Team Selection (only show when team mode is selected) */}
-              {notificationMode === 'team' && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-lightPurple mb-1">
-                      Select League
-                    </label>
-                    <select
-                      value={selectedLeague}
-                      onChange={(e) => setSelectedLeague(e.target.value)}
-                      className="w-full p-2 border border-limeGreenOpacity rounded bg-darkPurple text-lightPurple"
-                      disabled={loadingLeagues}
-                    >
-                      <option value="">Choose a league...</option>
-                      {leagues
-                        .sort((a, b) => a.name.localeCompare(b.name))
-                        .map((league) => (
-                        <option key={league.id} value={league.id}>
-                          {league.name} ({league.country})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-lightPurple mb-1">
-                      Select Team
-                    </label>
-                    <select
-                      value={selectedTeam}
-                      onChange={(e) => setSelectedTeam(e.target.value)}
-                      className="w-full p-2 border border-limeGreenOpacity rounded bg-darkPurple text-lightPurple"
-                      disabled={loadingTeams}
-                    >
-                      <option value="">Choose a team...</option>
-                      {(() => {
-                        const availableTeams = selectedLeague 
-                          ? getTeamsForLeague(selectedLeague)
-                          : getAllTeams();
-                        
-                        return availableTeams.map((team) => (
-                          <option key={team.id} value={team.id}>
-                            {team.name} ({team.abbreviation})
-                          </option>
-                        ));
-                      })()}
-                    </select>
-                    {selectedLeague && (
-                      <p className="text-xs text-gray-400 mt-1">
-                        {getTeamsForLeague(selectedLeague).length} teams in {leagues.find(l => l.id === selectedLeague)?.name}
-                      </p>
-                    )}
-                  </div>
-                </div>
-              )}
 
               {/* FC FEPL Managers Info */}
               {notificationMode === 'fepl' && (
@@ -1029,11 +826,6 @@ export default function NotificationsTab({
                 </table>
                 <div className="mt-4 text-sm text-lightPurple text-center">
                   Total users: {users.length}
-                  {notificationMode === 'team' && selectedTeam && (
-                    <span className="ml-2 text-deepPink">
-                      (Team followers)
-                    </span>
-                  )}
                   {notificationMode === 'fepl' && (
                     <span className="ml-2 text-blue-400">
                       (FC FEPL managers)

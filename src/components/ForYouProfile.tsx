@@ -19,10 +19,9 @@ type TeamLink = {
 
 interface ForYouProfileProps {
   profileFid?: number; // Optional FID to show instead of current user
-  castHash?: string; // Optional cast hash to pass to the invite button
 }
 
-const UserProfile: React.FC<ForYouProfileProps> = ({ profileFid, castHash }) => {
+const UserProfile: React.FC<ForYouProfileProps> = ({ profileFid }) => {
   const [userData, setUserData] = useState<{ fid?: number; username?: string; pfp?: string }>({});
   const [favoriteTeams, setFavoriteTeams] = useState<string[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -41,7 +40,6 @@ const UserProfile: React.FC<ForYouProfileProps> = ({ profileFid, castHash }) => 
   const [currentProfileFid, setCurrentProfileFid] = useState<number | undefined>(profileFid);
   const [hasPromptedMiniApp, setHasPromptedMiniApp] = useState<boolean>(false);
   const { isMiniApp, isLoading: isMiniAppLoading } = useMiniAppDetection();
-  const appUrl = process.env.NEXT_PUBLIC_URL || 'https://fc-footy.vercel.app';
 
   // Initialize SDK and fetch user context
   useEffect(() => {
@@ -103,7 +101,7 @@ const UserProfile: React.FC<ForYouProfileProps> = ({ profileFid, castHash }) => 
         setSelectedTeam(preferences[0]);
         setShowSettings(false);
       } else {
-        // If viewing someone else's profile and they have no teams, show invite button
+        // If viewing someone else's profile and they have no teams, keep settings hidden
         if (currentProfileFid && currentProfileFid !== context.user?.fid) {
           setShowSettings(false); // Don't show settings for other users
         } else {
@@ -306,70 +304,17 @@ const UserProfile: React.FC<ForYouProfileProps> = ({ profileFid, castHash }) => 
               }
             }}
           />
-          <button
-            className="mt-4 bg-deepPink hover:bg-fontRed text-white px-4 py-2 rounded-lg"
-            onClick={async () => {
-              await sdk.actions.composeCast({
-                text: 'Just joined Footy App to connect with fellow fans and get match notifications! 💜⚽\n\nShoutout to @kmacb.eth & @gabedev.eth for building this app - my love for the beautiful game is growing faster than my FPL points! 😂\n\nCheck it out: https://fc-footy.vercel.app',
-                embeds: [],
-              });
-            }}
-          >
-            Share Footy App!
-          </button>
         </div>
       ) : favoriteTeams.length === 0 && profileFid ? (
-        // Show invite button for cast author with no teams
         <div className="p-4 border border-dashed border-limeGreen rounded-lg text-center">
           <h2 className="text-notWhite mb-2">@{userData.username} hasn&apos;t joined Footy yet!</h2>
-          <p className="text-lightPurple mb-4">Invite them to discover their favorite teams and connect with fellow fans.</p>
-          <button
-            className="bg-deepPink hover:bg-fontRed text-white px-6 py-3 rounded-lg font-semibold"
-            onClick={async () => {
-              try {
-                await sdk.actions.composeCast({
-                  text: `Hey @${userData.username} I just discovered your profile on Footy App ⚽️ but you have no favorite teams yet!\n\nJoin me to connect with fellow football fans, track your favorite teams, and get notified when they play!\n\nCheck it out: https://fc-footy.vercel.app`,
-                  embeds: [],
-                  parent: castHash ? { type: 'cast', hash: castHash } : undefined
-                });
-              } catch (error) {
-                console.error('Error composing cast:', error);
-              }
-            }}
-          >
-            Invite to Footy App
-          </button>
+          <p className="text-lightPurple">They haven&apos;t picked any favorite teams yet.</p>
         </div>
       ) : (
         <>
           <h2 className="text-notWhite text-lg font-semibold mb-2">
             {favoriteTeams.length === 0 ? 'Select Team' : 'Follows'}
           </h2>
-          {/* Share profile affordance */}
-          {currentProfileFid && favoriteTeams.length > 0 && (
-            <div className="mb-3">
-              <button
-                className="px-3 py-1 text-xs rounded border border-limeGreenOpacity text-lightPurple hover:bg-deepPink hover:text-white transition-colors"
-                onClick={async () => {
-                  try {
-                    const firstTeam = favoriteTeams[0];
-                    const clubCode = firstTeam.split('-')[1]?.toUpperCase();
-                    const shareText = `@${userData.username} is a baller — supports ${clubCode}. Check their Footy profile!`;
-                    const profileLink = `${appUrl}?tab=forYou&profileFid=${currentProfileFid}`;
-                    await sdk.actions.composeCast({
-                      text: shareText,
-                      embeds: [profileLink],
-                      parent: castHash ? { type: 'cast', hash: castHash } : undefined,
-                    });
-                  } catch (err) {
-                    console.error('composeCast failed', err);
-                  }
-                }}
-              >
-                Share @{userData.username}&apos;s profile
-              </button>
-            </div>
-          )}
           <div className="flex overflow-x-auto gap-4 mb-4">
             {favoriteTeams.map(teamId => (
               <div

@@ -3,7 +3,7 @@ import { getFanclubGroupByTeam, setFanclubGroup, FanclubGroupRecord } from '~/li
 
 // Fan club chat join/create handler.
 // If FARCASTER_GC_API is set, this forwards the request to that service.
-// Otherwise, it returns a safe fallback (warpcast compose link) for testing.
+// Otherwise, it returns an explicit unavailable response.
 
 export async function POST(request: NextRequest) {
   try {
@@ -71,9 +71,10 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Fallback: return a compose link as a safe no-op for manual testing
-    const url = `https://warpcast.com/~/compose?text=${encodeURIComponent('Hello from FC-Footy fan club ' + teamId)}`;
-    return NextResponse.json({ ok: true, teamId, userFid: userFid ?? null, url }, { headers: { 'Cache-Control': 'no-store' } });
+    return NextResponse.json(
+      { error: 'Fan club chat service unavailable', teamId, userFid: userFid ?? null },
+      { status: 503, headers: { 'Cache-Control': 'no-store' } }
+    );
   } catch {
     return NextResponse.json({ error: 'Failed to handle fanclub chat request' }, { status: 500 });
   }

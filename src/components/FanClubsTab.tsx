@@ -6,7 +6,6 @@ import ForYouTeamsFans from "./ForYouTeamsFans";
 const FanClubsTab: React.FC = () => {
   const searchParams = useSearchParams();
   const profileFid = searchParams?.get("profileFid");
-  const castHash = searchParams?.get("castHash") || undefined;
 
   return (
     <div className="mb-4">
@@ -18,7 +17,7 @@ const FanClubsTab: React.FC = () => {
 
       <div className="bg-purplePanel text-lightPurple rounded-lg p-2 overflow-hidden">
         {profileFid ? (
-          <ForYouProfile profileFid={Number(profileFid)} castHash={castHash} />
+          <ForYouProfile profileFid={Number(profileFid)} />
         ) : (
           <ForYouTeamsFans />
         )}

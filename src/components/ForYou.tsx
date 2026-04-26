@@ -18,7 +18,6 @@ const ForYou = () => {
   
   // Get profileFid from URL params (for shared cast context)
   const profileFid = searchParams?.get("profileFid");
-  const castHash = searchParams?.get("castHash") || undefined;
   const forYouSub = searchParams?.get("forYouSub");
 
   useEffect(() => {
@@ -148,7 +147,7 @@ const ForYou = () => {
       {selectedTab === "fellowFollowers" && (
         <>
           {profileFid ? (
-            <ForYouProfile profileFid={Number(profileFid)} castHash={castHash} />
+            <ForYouProfile profileFid={Number(profileFid)} />
           ) : (
             <ForYouTeamsFans />
           )}

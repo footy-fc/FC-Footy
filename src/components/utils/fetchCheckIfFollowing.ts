@@ -1,6 +1,15 @@
 import { fetchFollowersPage, fetchFollowingPage } from '~/lib/hypersnap';
 
+const GRAPH_CACHE_TTL_MS = 60_000;
+const followingCache = new Map<number, { expiresAt: number; fids: Set<number> }>();
+const followerCache = new Map<number, { expiresAt: number; fids: Set<number> }>();
+
 async function fetchFollowingFids(viewerFid: number): Promise<Set<number>> {
+  const cached = followingCache.get(viewerFid);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.fids;
+  }
+
   const following = new Set<number>();
   let cursor: string | null | undefined = null;
 
@@ -12,10 +21,20 @@ async function fetchFollowingFids(viewerFid: number): Promise<Set<number>> {
     cursor = page.next?.cursor ?? null;
   } while (cursor);
 
+  followingCache.set(viewerFid, {
+    expiresAt: Date.now() + GRAPH_CACHE_TTL_MS,
+    fids: following,
+  });
+
   return following;
 }
 
 async function fetchFollowerFids(viewerFid: number): Promise<Set<number>> {
+  const cached = followerCache.get(viewerFid);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.fids;
+  }
+
   const followers = new Set<number>();
   let cursor: string | null | undefined = null;
 
@@ -26,6 +45,11 @@ async function fetchFollowerFids(viewerFid: number): Promise<Set<number>> {
     }
     cursor = page.next?.cursor ?? null;
   } while (cursor);
+
+  followerCache.set(viewerFid, {
+    expiresAt: Date.now() + GRAPH_CACHE_TTL_MS,
+    fids: followers,
+  });
 
   return followers;
 }
