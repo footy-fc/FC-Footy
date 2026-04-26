@@ -5,9 +5,10 @@ import { sdk } from "@farcaster/miniapp-sdk";
 
 interface HomeTabProps {
   onNavigate: (tab: string) => void;
+  viewerFid?: number;
 }
 
-const HomeTab: React.FC<HomeTabProps> = ({ onNavigate }) => {
+const HomeTab: React.FC<HomeTabProps> = ({ onNavigate, viewerFid }) => {
   const [hasChosenTeams, setHasChosenTeams] = React.useState(false);
 
   React.useEffect(() => {
@@ -15,9 +16,12 @@ const HomeTab: React.FC<HomeTabProps> = ({ onNavigate }) => {
 
     const loadPreferences = async () => {
       try {
-        await sdk.actions.ready();
-        const context = await sdk.context;
-        const fid = context?.user?.fid;
+        let fid = viewerFid;
+        if (!fid) {
+          await sdk.actions.ready();
+          const context = await sdk.context;
+          fid = context?.user?.fid;
+        }
         if (!fid) return;
 
         const preferences = await getTeamPreferences(fid);
@@ -36,7 +40,7 @@ const HomeTab: React.FC<HomeTabProps> = ({ onNavigate }) => {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [viewerFid]);
 
   return (
     <div className="mb-4">
@@ -73,7 +77,7 @@ const HomeTab: React.FC<HomeTabProps> = ({ onNavigate }) => {
 
       <div className="bg-purplePanel text-lightPurple rounded-lg p-2 overflow-hidden">
         <h3 className="app-section-title mb-2 px-2">Your Club Matches</h3>
-        <ForYouWhosPlaying suppressFtue={false} suppressAffordances={false} />
+        <ForYouWhosPlaying suppressFtue={false} suppressAffordances={false} viewerFid={viewerFid} />
       </div>
     </div>
   );

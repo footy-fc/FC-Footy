@@ -13,9 +13,10 @@ interface Props {
   eventId?: string;
   suppressFtue?: boolean;
   suppressAffordances?: boolean; // hides both FTUE and no-matches CTA panels
+  viewerFid?: number;
 }
 
-const ForYouWhosPlaying: React.FC<Props> = ({ eventId, suppressFtue = false, suppressAffordances = false }) => {
+const ForYouWhosPlaying: React.FC<Props> = ({ eventId, suppressFtue = false, suppressAffordances = false, viewerFid }) => {
   const [favoriteTeams, setFavoriteTeams] = useState<string[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -30,9 +31,12 @@ const ForYouWhosPlaying: React.FC<Props> = ({ eventId, suppressFtue = false, sup
 
   const fetchFavoriteTeams = async () => {
     try {
-      const context = await sdk.context;
-      console.log('context now', context.user);
-      const fid = context.user?.fid;
+      let fid = viewerFid;
+      if (!fid) {
+        const context = await sdk.context;
+        console.log('context now', context.user);
+        fid = context.user?.fid;
+      }
 
       if (!fid) {
         setError("No Farcaster FID found in frame context");
@@ -112,7 +116,7 @@ const ForYouWhosPlaying: React.FC<Props> = ({ eventId, suppressFtue = false, sup
     } else {
       fetchFavoriteTeams();
     }
-  }, [refreshTick, eventId]);
+  }, [refreshTick, eventId, viewerFid]);
 
   // Re-fetch favorites when window regains focus (user may have changed favorites elsewhere)
   useEffect(() => {

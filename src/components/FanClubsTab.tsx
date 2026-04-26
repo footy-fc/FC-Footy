@@ -3,7 +3,11 @@ import { useSearchParams } from "next/navigation";
 import ForYouProfile from "./ForYouProfile";
 import ForYouTeamsFans from "./ForYouTeamsFans";
 
-const FanClubsTab: React.FC = () => {
+interface FanClubsTabProps {
+  viewerFid?: number;
+}
+
+const FanClubsTab: React.FC<FanClubsTabProps> = ({ viewerFid }) => {
   const searchParams = useSearchParams();
   const profileFid = searchParams?.get("profileFid");
 
@@ -17,9 +21,9 @@ const FanClubsTab: React.FC = () => {
 
       <div className="bg-purplePanel text-lightPurple rounded-lg p-2 overflow-hidden">
         {profileFid ? (
-          <ForYouProfile profileFid={Number(profileFid)} />
+          <ForYouProfile profileFid={Number(profileFid)} viewerFid={viewerFid} />
         ) : (
-          <ForYouTeamsFans />
+          <ForYouTeamsFans viewerFid={viewerFid} />
         )}
       </div>
     </div>

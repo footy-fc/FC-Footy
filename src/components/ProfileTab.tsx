@@ -1,7 +1,11 @@
 import React from "react";
 import SettingsFollowClubs from "./SettingsFollowClubs";
 
-const ProfileTab: React.FC = () => {
+interface ProfileTabProps {
+  viewerFid?: number;
+}
+
+const ProfileTab: React.FC<ProfileTabProps> = ({ viewerFid }) => {
   return (
     <div className="mb-4">
       <div className="app-eyebrow mb-2">Profile</div>
@@ -11,7 +15,7 @@ const ProfileTab: React.FC = () => {
       </p>
 
       <div className="bg-purplePanel text-lightPurple rounded-lg p-2 overflow-hidden">
-        <SettingsFollowClubs />
+        <SettingsFollowClubs viewerFid={viewerFid} />
       </div>
     </div>
   );

@@ -16,9 +16,10 @@ type TeamLink = {
 
 interface ForYouProfileProps {
   profileFid?: number; // Optional FID to show instead of current user
+  viewerFid?: number;
 }
 
-const UserProfile: React.FC<ForYouProfileProps> = ({ profileFid }) => {
+const UserProfile: React.FC<ForYouProfileProps> = ({ profileFid, viewerFid }) => {
   const [userData, setUserData] = useState<{ fid?: number; username?: string; pfp?: string }>({});
   const [favoriteTeams, setFavoriteTeams] = useState<string[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -60,9 +61,9 @@ const UserProfile: React.FC<ForYouProfileProps> = ({ profileFid }) => {
             pfp: '/512.png',
           });
         }
-      } else if (context.user) {
+      } else if (viewerFid || context.user) {
         setUserData({
-          fid: context.user.fid,
+          fid: viewerFid ?? context.user.fid,
           username: context.user.username || 'Footy Og',
           pfp: context.user.pfpUrl || '/512.png',
         });
@@ -77,9 +78,9 @@ const UserProfile: React.FC<ForYouProfileProps> = ({ profileFid }) => {
   // Fetch user's favorite teams
   const fetchFavoriteTeams = async () => {
     try {
-      const context = await sdk.context;
       // Use currentProfileFid if provided, otherwise use current user's FID
-      const targetFid = currentProfileFid || context.user?.fid;
+      const context = currentProfileFid || viewerFid ? null : await sdk.context;
+      const targetFid = currentProfileFid || viewerFid || context?.user?.fid;
       if (!targetFid) {
         setError('Please link your Farcaster account to view your profile.');
         return;
@@ -92,7 +93,7 @@ const UserProfile: React.FC<ForYouProfileProps> = ({ profileFid }) => {
         setShowSettings(false);
       } else {
         // If viewing someone else's profile and they have no teams, keep settings hidden
-        if (currentProfileFid && currentProfileFid !== context.user?.fid) {
+        if (currentProfileFid && currentProfileFid !== (viewerFid || context?.user?.fid)) {
           setShowSettings(false); // Don't show settings for other users
         } else {
           setShowSettings(true);
@@ -154,6 +155,14 @@ const UserProfile: React.FC<ForYouProfileProps> = ({ profileFid }) => {
 
   // Function to toggle back to user's own profile
   const toggleToOwnProfile = async () => {
+    if (viewerFid) {
+      setCurrentProfileFid(undefined);
+      setViewingOwnProfile(true);
+      setFavoriteTeams([]);
+      setSelectedTeam(null);
+      setLoading(true);
+      return;
+    }
     const context = await sdk.context;
     if (context.user?.fid) {
       setCurrentProfileFid(undefined);
@@ -203,6 +212,7 @@ const UserProfile: React.FC<ForYouProfileProps> = ({ profileFid }) => {
         <div className="p-4 border border-dashed border-limeGreen rounded-lg">
           <h2 className="text-notWhite mb-2">Select Your Favorite Teams</h2>
           <SettingsFollowClubs
+            viewerFid={viewerFid}
             onSave={async (newFavorites: string[]) => {
               setFavoriteTeams(newFavorites);
               setSelectedTeam(newFavorites[0] ?? null);

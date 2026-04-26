@@ -14,7 +14,11 @@ type TeamLink = {
   shortText?: string;
 };
 
-const ForYouTeamsFans: React.FC = () => {
+interface ForYouTeamsFansProps {
+  viewerFid?: number;
+}
+
+const ForYouTeamsFans: React.FC<ForYouTeamsFansProps> = ({ viewerFid }) => {
   const [favoriteTeams, setFavoriteTeams] = useState<string[]>([]);
   const [currentFid, setCurrentFid] = useState<number | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
@@ -31,9 +35,12 @@ const ForYouTeamsFans: React.FC = () => {
 
   const fetchFavoriteTeams = async () => {
     try {
-      const context = await sdk.context;
-      console.log('context now', context.user);
-      const ctxFid = context.user?.fid;
+      let ctxFid = viewerFid ?? null;
+      if (!ctxFid) {
+        const context = await sdk.context;
+        console.log('context now', context.user);
+        ctxFid = context.user?.fid ?? null;
+      }
       setCurrentFid(ctxFid ? Number(ctxFid) : null);
 
       if (!ctxFid) {
@@ -90,10 +97,8 @@ const ForYouTeamsFans: React.FC = () => {
     const fetchFans = async () => {
       try {
         const fanFids = await getFansForTeam(selectedTeam.toLowerCase());
-        const context = await sdk.context;
-        console.log('context now', context.user);
-        const currentFid = context.user?.fid;
-        if (!currentFid) {
+        const currentViewerFid = viewerFid ?? currentFid;
+        if (!currentViewerFid) {
           console.error("No current fid found");
           return;
         }
@@ -102,7 +107,7 @@ const ForYouTeamsFans: React.FC = () => {
         const numericFids = fanFids.map(Number);
         
         // Team fans are already known from Redis; only resolve whether you follow them.
-        const followingMap = await fetchFollowingStatuses(currentFid, numericFids);
+        const followingMap = await fetchFollowingStatuses(currentViewerFid, numericFids);
         
         const userDatas = await Promise.all(numericFids.map(fid => fetchFanUserData(fid)));
         const fans = numericFids.reduce<Array<{ fid: number; pfp: string; youFollow: boolean; username?: string }>>((acc, fid, index) => {
@@ -135,7 +140,7 @@ const ForYouTeamsFans: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, [selectedTeam, cachedTeamFollowers]);
+  }, [selectedTeam, cachedTeamFollowers, viewerFid]);
 
   // Fetch the user's favorite teams from Redis
   useEffect(() => {
@@ -212,7 +217,7 @@ const ForYouTeamsFans: React.FC = () => {
             <li>⭐ Set one favorite to anchor your Footy identity</li>
           </ul>
         </div>
-        <SettingsFollowClubs onSave={(newFavorites: string[]) => {
+        <SettingsFollowClubs viewerFid={viewerFid} onSave={(newFavorites: string[]) => {
           setFavoriteTeams(newFavorites);
           setSelectedTeam(newFavorites[0] ?? null);
           setShowSettings(false);

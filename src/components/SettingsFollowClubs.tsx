@@ -17,6 +17,7 @@ interface Team {
 
 interface SettingsFollowClubsProps {
   onSave?: (newFavorites: string[]) => void;
+  viewerFid?: number;
 }
 
 const appUrl = process.env.NEXT_PUBLIC_URL;
@@ -35,7 +36,7 @@ const getSafeMiniAppContext = async () => {
   }
 };
 
-const SettingsFollowClubs: React.FC<SettingsFollowClubsProps> = ({ onSave }) => {
+const SettingsFollowClubs: React.FC<SettingsFollowClubsProps> = ({ onSave, viewerFid }) => {
   const [teams, setTeams] = useState<Team[]>([]);
   const [favTeams, setFavTeams] = useState<string[]>([]);
   const [searchTerm, setSearchTerm] = useState<string>("");
@@ -47,8 +48,8 @@ const SettingsFollowClubs: React.FC<SettingsFollowClubsProps> = ({ onSave }) => 
 
   useEffect(() => {
     const fetchContext = async () => {
-      const context = await getSafeMiniAppContext();
-      const fid = context?.user?.fid;
+      const context = viewerFid ? null : await getSafeMiniAppContext();
+      const fid = viewerFid ?? context?.user?.fid;
       setIsInstalled(Boolean(context?.client?.added));
       if (fid) {
         getTeamPreferences(fid)
@@ -64,7 +65,7 @@ const SettingsFollowClubs: React.FC<SettingsFollowClubsProps> = ({ onSave }) => 
     };
     fetchContext();
     fetchTeamLogos().then((data) => setTeams(data));
-  }, []);
+  }, [viewerFid]);
 
   const savePreferences = async (fid: number, updatedFavTeams: string[]) => {
     await setTeamPreferences(fid, updatedFavTeams);
@@ -74,8 +75,8 @@ const SettingsFollowClubs: React.FC<SettingsFollowClubsProps> = ({ onSave }) => 
   };
 
   const handleRowClick = async (team: Team) => {
-    const context = await getSafeMiniAppContext();
-    const fid = context?.user?.fid;
+    const context = viewerFid ? null : await getSafeMiniAppContext();
+    const fid = viewerFid ?? context?.user?.fid;
     if (!fid) {
       console.error("User not authenticated");
       setTransactionError("Open this in Farcaster to manage follows and alerts.");
@@ -139,8 +140,8 @@ const SettingsFollowClubs: React.FC<SettingsFollowClubsProps> = ({ onSave }) => 
   };
 
   const handleMakeFavorite = async (team: Team) => {
-    const context = await getSafeMiniAppContext();
-    const fid = context?.user?.fid;
+    const context = viewerFid ? null : await getSafeMiniAppContext();
+    const fid = viewerFid ?? context?.user?.fid;
     if (!fid) {
       console.error("User not authenticated");
       setTransactionError("Open this in Farcaster to manage favorites.");

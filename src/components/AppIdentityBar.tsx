@@ -18,6 +18,7 @@ interface AppIdentityBarProps {
   onOpenAdmins?: () => void;
   selectedTab: string;
   isAdminFid: boolean;
+  viewerFid?: number;
 }
 
 const getTeamId = (team: Team) => `${team.league}-${team.abbreviation}`;
@@ -36,6 +37,7 @@ const AppIdentityBar: React.FC<AppIdentityBarProps> = ({
   onOpenAdmins,
   selectedTab,
   isAdminFid,
+  viewerFid,
 }) => {
   const [teams, setTeams] = React.useState<Team[]>([]);
   const [favTeams, setFavTeams] = React.useState<string[]>([]);
@@ -45,8 +47,8 @@ const AppIdentityBar: React.FC<AppIdentityBarProps> = ({
 
     const load = async () => {
       try {
-        const context = await getSafeMiniAppContext();
-        const fid = context?.user?.fid;
+        const context = viewerFid ? null : await getSafeMiniAppContext();
+        const fid = viewerFid ?? context?.user?.fid;
         const [teamData, preferences] = await Promise.all([
           fetchTeamLogos(),
           fid ? getTeamPreferences(fid) : Promise.resolve<string[] | null>(null),
@@ -77,7 +79,7 @@ const AppIdentityBar: React.FC<AppIdentityBarProps> = ({
         window.removeEventListener("focus", handleFocus);
       }
     };
-  }, []);
+  }, [viewerFid]);
 
   const favoriteTeamId = favTeams[0];
   const favoriteTeam = favoriteTeamId

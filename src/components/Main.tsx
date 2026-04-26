@@ -374,6 +374,7 @@ export default function Main() {
             onOpenProfile={() => handleTabChange("profile")}
             onOpenAdmins={() => handleTabChange("admins")}
             isAdminFid={isAdminFid}
+            viewerFid={verifiedFid ?? undefined}
           />
           <TabNavigation
             selectedTab={selectedTab}
@@ -381,12 +382,12 @@ export default function Main() {
             tabDisplayMap={tabDisplayMap}
           />
           <div className="rounded-[28px] bg-darkPurple p-3 text-white shadow-[0_18px_50px_rgba(0,0,0,0.28)]">
-            {selectedTab === "home" && <HomeTab onNavigate={(tab) => handleTabChange(tab)} />}
+            {selectedTab === "home" && <HomeTab onNavigate={(tab) => handleTabChange(tab)} viewerFid={verifiedFid ?? undefined} />}
             {selectedTab === "scores" && <ScoresTab onNavigate={(tab) => handleTabChange(tab)} />}
-            {selectedTab === "fanClubs" && <FanClubsTab />}
+            {selectedTab === "fanClubs" && <FanClubsTab viewerFid={verifiedFid ?? undefined} />}
             {selectedTab === "fantasy" && <FantasyTab />}
             {selectedTab === "tools" && <ToolsTab />}
-            {selectedTab === "profile" && <ProfileTab />}
+            {selectedTab === "profile" && <ProfileTab viewerFid={verifiedFid ?? undefined} />}
             {selectedTab === "admins" && isAdminFid && <AdminDashboard />}
             {!["home", "scores", "fanClubs", "fantasy", "tools", "profile", "admins"].includes(selectedTab) && (
               <div className="text-center text-lg text-fontRed">Coming soon...</div>
