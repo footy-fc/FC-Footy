@@ -101,7 +101,7 @@ const ForYouTeamsFans: React.FC = () => {
         // Convert the fan FIDs to numbers
         const numericFids = fanFids.map(Number);
         
-        // Batch fetch mutual follower data using Neynar's bulk endpoint
+        // Resolve mutual follow relationships via HyperSnap follow + follower pages
         const mutualMap = await fetchMutualFollowers(currentFid, numericFids);
         
         const userDatas = await Promise.all(numericFids.map(fid => fetchFanUserData(fid)));

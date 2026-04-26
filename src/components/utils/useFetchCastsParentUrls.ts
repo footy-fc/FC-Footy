@@ -51,20 +51,8 @@ export function useFetchCastsParentUrl(
             }
           }
         } else if (url) {
-          // Fallback to Hub REST via URL
-          console.log('You should not see this. Falling back to Hub REST via URL:', url);
-          const endpoint = `${FarcasterHub}/v1/castsByParent?pageSize=${pageSize}&reverse=false&url=${encodeURIComponent(url)}`;
-          const castsResult = await axios.get(endpoint, {
-            headers: { "Content-Type": "application/json" },
-          });
           if (!cancelled) {
-            if (castsResult.status === 200) {
-              const messages = (castsResult.data?.messages || []) as Message[];
-              const sorted = (messages || []).sort((a, b) => (a.data?.timestamp ?? 0) - (b.data?.timestamp ?? 0));
-              setCasts(sorted.slice(-pageSize));
-            } else {
-              console.error('Failed to fetch casts (Hub URL):', castsResult.statusText);
-            }
+            setCasts([]);
           }
         } else {
           setCasts([]);

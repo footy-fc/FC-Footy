@@ -1,6 +1,6 @@
-import axios from "axios";
 import { getTeamPreferences } from '../../lib/kvPerferences';
 import fantasyManagersLookup from '../../data/fantasy-managers-lookup.json';
+import { fetchUsersByFids } from '~/lib/hypersnap';
 
 // Define FPL API response types
 interface FPLStandingResult {
@@ -128,19 +128,9 @@ export const fetchFPLLeagueData = async (leagueId: number = 18526): Promise<Fant
             fid = parseInt(fidMatch[1], 10);
             
             if (Number.isInteger(fid)) {
-              const server = "https://hub.merv.fun";
               try {
-                // Fetch user data by fid
-                const response = await axios.get(`${server}/v1/userDataByFid?fid=${fid}`);
-
-                // Extract username from response
-                const messages = response.data.messages || [];
-                for (const message of messages) {
-                  if (message.data?.userDataBody?.type === 'USER_DATA_TYPE_USERNAME') {
-                    username = message.data.userDataBody.value;
-                    break;
-                  }
-                }
+                const users = await fetchUsersByFids([fid]);
+                username = users[0]?.username || username;
               } catch (e) {
                 console.error("Error fetching user data for fid:", fid, e);
               }

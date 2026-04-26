@@ -10,21 +10,15 @@ const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
 // Function to fetch Farcaster username by FID
 async function fetchFanUserData(fanFid) {
   try {
-    const response = await fetch(`https://hub.merv.fun/v1/userDataByFid?fid=${fanFid}`);
+    const response = await fetch(`https://haatz.quilibrium.com/v2/farcaster/user/bulk?fids=${fanFid}`);
     const data = await response.json();
-    if (!data.messages || data.messages.length === 0) {
+    const user = data?.users?.[0];
+    if (!user) {
       return {};
     }
     const userDataMap = {};
-    for (const message of data.messages) {
-      const userData = message.data.userDataBody;
-      if (userData?.type && userData?.value) {
-        if (!userDataMap[userData.type]) {
-          userDataMap[userData.type] = [];
-        }
-        userDataMap[userData.type].push(userData.value);
-      }
-    }
+    if (user.username) userDataMap.USER_DATA_TYPE_USERNAME = [user.username];
+    if (user.pfp_url) userDataMap.USER_DATA_TYPE_PFP = [user.pfp_url];
     return userDataMap;
   } catch (error) {
     console.error("Error fetching fan user data for fid:", fanFid, error);

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Redis } from '@upstash/redis';
 import { getManagerPicks } from '~/lib/kvPicksStorage';
+import { fetchUsersByFids } from '~/lib/hypersnap';
 
 interface ManagerLookup {
   entry_id: number;
@@ -206,51 +207,18 @@ export async function GET(request: NextRequest) {
       }
     } catch {}
 
-    // Enrich with Farcaster username & pfp via Merv Hub (no Neynar)
+    // Enrich with Farcaster username & pfp via HyperSnap
     const fidList = results.map(r => r.fid).filter((v, i, a) => a.indexOf(v) === i);
     const fidToUser: Record<number, { username?: string; pfp_url?: string }> = {};
-    const mervFetch = async (fid: number) => {
-      try {
-        // Try cache first
-        const cacheKey = `fc-footy:merv-user:${fid}`;
-        try {
-          const cached = await redis.get(cacheKey);
-          if (cached && typeof cached === 'object' && cached !== null) {
-            const cachedUser = cached as { username?: string; pfp_url?: string };
-            fidToUser[fid] = { username: cachedUser.username, pfp_url: cachedUser.pfp_url };
-            return;
-          }
-        } catch {}
-
-        const r = await fetch(`https://hub.merv.fun/v1/userDataByFid?fid=${fid}`);
-        if (!r.ok) return;
-        const data: unknown = await r.json();
-        const msgsRaw = (data as { messages?: unknown })?.messages;
-        const msgs: Array<{ data?: { userDataBody?: { type?: string; value?: string } } }> = Array.isArray(msgsRaw)
-          ? (msgsRaw as Array<{ data?: { userDataBody?: { type?: string; value?: string } } }>)
-          : [];
-        let username: string | undefined;
-        let pfp_url: string | undefined;
-        for (const m of msgs) {
-          const t = m?.data?.userDataBody?.type;
-          const val = m?.data?.userDataBody?.value;
-          if (!t || typeof val !== 'string') continue;
-          if (!username && (t === 'USER_DATA_TYPE_USERNAME' || t === 'USERNAME')) username = val.toLowerCase();
-          if (!pfp_url && (t === 'USER_DATA_TYPE_PFP' || t === 'PFP' || t === 'USER_DATA_TYPE_PROFILE_PICTURE')) pfp_url = val;
-        }
-        fidToUser[fid] = { username, pfp_url };
-        // Cache the result for 24 hours
-        try {
-          await redis.setex(cacheKey, 86400, { username, pfp_url });
-        } catch {}
-      } catch {}
-    };
-    // Limit concurrency to be nice to the hub
-    const conc = 8;
-    let i = 0;
-    await Promise.all(Array.from({ length: conc }, async () => {
-      while (i < fidList.length) await mervFetch(fidList[i++]);
-    }));
+    try {
+      const users = await fetchUsersByFids(fidList);
+      for (const user of users) {
+        fidToUser[user.fid] = {
+          username: user.username?.toLowerCase(),
+          pfp_url: user.pfp_url,
+        };
+      }
+    } catch {}
 
     // Build final payload with rank, bucket, username, pfp
     const finalManagers = results.map(m => {

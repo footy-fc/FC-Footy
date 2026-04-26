@@ -361,7 +361,7 @@ const ContentLiveChat = ({ teamId, parentCastHash, parentUrl, hubUrl, eventId }:
   // const [setChannel] = useState(`match:${roomHash}`);
   //console.log("Initial channel state:", `match:${roomHash}`);
   const parentFid = 4163; // per instruction
-  const effectiveHubUrl = hubUrl || "https://hub.merv.fun";
+  const effectiveHubUrl = hubUrl || (process.env.NEXT_PUBLIC_HYPERSNAP_BASE_URL || "https://haatz.quilibrium.com");
   const { casts: footyChat } = useFetchCastsParentUrl(
     parentCastHash ? null : (parentUrl ?? null),
     effectiveHubUrl,

@@ -3,6 +3,7 @@
 import React, { useEffect, useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Image from 'next/image';
+import { fetchUsersByFids } from '~/lib/hypersnap';
 
 interface Manager {
   username: string;
@@ -53,6 +54,16 @@ const GameWeekTableToppersContent = () => {
     try {
       const fantasyManagersLookup = await import('../../../data/fantasy-managers-lookup.json');
       
+      const fids = managers
+        .map((manager) =>
+          fantasyManagersLookup.default.find(
+            (entry: { entry_id: number; fid?: number }) => entry.entry_id === manager.entry
+          )?.fid
+        )
+        .filter((fid): fid is number => Number.isInteger(fid));
+      const users = await fetchUsersByFids(fids);
+      const fidToPfp = new Map(users.map((user) => [user.fid, user.pfp_url || '']));
+
       for (const manager of managers) {
         // Find FID for this manager
         const lookupEntry = fantasyManagersLookup.default.find(
@@ -60,21 +71,9 @@ const GameWeekTableToppersContent = () => {
         );
         
         if (lookupEntry?.fid) {
-          try {
-            const response = await fetch(`https://hub.merv.fun/v1/userDataByFid?fid=${lookupEntry.fid}`);
-            const data = await response.json();
-            
-            if (data.messages && Array.isArray(data.messages)) {
-              const pfpMessage = data.messages.find((msg: { data?: { userDataBody?: { type: string; value?: string } } }) => 
-                msg.data?.userDataBody?.type === 'USER_DATA_TYPE_PFP'
-              );
-              
-              if (pfpMessage?.data?.userDataBody?.value) {
-                pfpMap[manager.username] = pfpMessage.data.userDataBody.value;
-              }
-            }
-          } catch (error) {
-            console.log(`Failed to fetch PFP for ${manager.username}:`, error);
+          const pfp = fidToPfp.get(lookupEntry.fid);
+          if (pfp) {
+            pfpMap[manager.username] = pfp;
           }
         }
         

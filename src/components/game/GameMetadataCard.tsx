@@ -4,7 +4,6 @@ import Image from 'next/image';
 import { getTeamLogo, getLeagueDisplayName } from '../utils/fetchTeamLogos';
 import { parseEventId } from '../../utils/eventIdParser';
 import { useGameContext } from '../../context/GameContext';
-import { FaTicketAlt, FaTrophy } from "react-icons/fa";
 import RefereeIcon from '../ui/RefereeIcon';
 import FarcasterAvatar from '../FarcasterAvatar';
 import { fetchNativeTokenPrice } from '~/utils/fetchUsdPrice';
@@ -166,9 +165,9 @@ return (
       </div>
 
       <div className="mt-4 bg-gray-800 p-4 rounded-lg shadow-md">
-        <div className="flex justify-between items-start text-notWhite text-md font-bold border-b border-gray-700 pb-2">
+<div className="flex justify-between items-start text-notWhite text-md font-bold border-b border-gray-700 pb-2">
   <div className="flex items-center gap-2">
-    <FaTrophy className="text-orange-400" />
+    <span aria-hidden="true">🏆</span>
     <p>Prize Pool:</p>
   </div>
   <div className="flex flex-col items-end -mt-1">
@@ -188,7 +187,7 @@ return (
 
         <div className="flex justify-between items-center text-notWhite text-sm mt-3">
           <div className="flex items-center gap-2">
-            <FaTicketAlt className="text-blue-400" />
+            <span aria-hidden="true">🎟</span>
             <p>Ticket Price:</p>
           </div>
           <p className="text-lightPurple">{ticketPrice.toFixed(4)} Ξ</p>

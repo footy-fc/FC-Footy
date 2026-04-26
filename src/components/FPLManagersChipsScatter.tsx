@@ -4,7 +4,8 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Chart } from 'chart.js/auto';
 import type { ChartDataset, ScriptableContext } from 'chart.js';
 import { sdk } from '@farcaster/miniapp-sdk';
-import { isProduction } from '~/constants/points';
+
+const isProduction = process.env.NODE_ENV === 'production';
 
 interface ManagerPoint {
   x: number; // free transfers bucket (1 or 2) with jitter

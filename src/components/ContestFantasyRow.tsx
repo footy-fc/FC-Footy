@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react';
 import Image from 'next/image';
 import { sdk } from "@farcaster/miniapp-sdk";
 import { FantasyEntry } from './utils/fetchFantasyData';
+import { fetchUsersByFids } from '~/lib/hypersnap';
 // import { BASE_URL } from '~/lib/config';
 
 
@@ -26,26 +27,11 @@ const FantasyRow: React.FC<FantasyRowProps> = ({ entry, onRowClick, currentUserF
 
       setIsLoadingPfp(true);
       try {
-        // Fetch Farcaster profile data
-        const response = await fetch(`https://hub.merv.fun/v1/userDataByFid?fid=${entry.fid}`);
-        const data = await response.json();
-        
-        // Look for PFP in the user data
-        const messages = data.messages || [];
-        let pfpFound = false;
-        
-        for (const message of messages) {
-          if (message.data?.userDataBody?.type === 'USER_DATA_TYPE_PFP') {
-            const pfp = message.data.userDataBody.value;
-            if (pfp && pfp !== '/defifa_spinner.gif') {
-              setPfpUrl(pfp);
-              pfpFound = true;
-              break;
-            }
-          }
-        }
-        
-        if (!pfpFound) {
+        const users = await fetchUsersByFids([entry.fid]);
+        const pfp = users[0]?.pfp_url;
+        if (pfp) {
+          setPfpUrl(pfp);
+        } else {
           setPfpUrl('/defifa_spinner.gif');
         }
       } catch (error) {
@@ -53,7 +39,6 @@ const FantasyRow: React.FC<FantasyRowProps> = ({ entry, onRowClick, currentUserF
         setPfpUrl('/defifa_spinner.gif');
       } finally {
         setIsLoadingPfp(false);
-        console.log('load', isLoadingPfp);
       }
     };
 

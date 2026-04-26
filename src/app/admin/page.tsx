@@ -11,7 +11,6 @@ import MatchRoomsTab from "../../components/admin/MatchRoomsTab";
 import GameWeekSummaryStepByStep from "../../components/admin/GameWeekSummaryStepByStep";
 import GroupChatsTab from "../../components/admin/GroupChatsTab";
 import RevnetInspector from "../../components/admin/RevnetInspector";
-import RevnetSetHookForm from "../../components/admin/RevnetSetHookForm";
 import HealthTab from "../../components/admin/HealthTab";
 import useEventsData from "../../components/utils/useEventsData";
 // import { parseEventId } from "../../utils/eventIdParser";
@@ -702,11 +701,6 @@ export default function AdminPage() {
                 <h4 className="text-notWhite font-semibold mb-2">Project & Token Inspector</h4>
                 <p className="text-xs text-gray-400 mb-3">View current/upcoming ruleset IDs and ERC‑20 token metadata (Base).</p>
                 <RevnetInspector />
-              </div>
-              <div className="p-4 rounded border border-limeGreenOpacity bg-gray-900/40">
-                <h4 className="text-notWhite font-semibold mb-2">Set Split With Hook</h4>
-                <p className="text-xs text-gray-400 mb-3">Calls JBController4_1.setSplitGroupsOf. Connect a wallet with permission to configure splits.</p>
-                <RevnetSetHookForm />
               </div>
             </div>
           )}

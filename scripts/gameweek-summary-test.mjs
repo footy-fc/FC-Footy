@@ -71,20 +71,12 @@ async function fetchFPLLeagueData(leagueId = 18526) {
 }
 
 /**
- * Fetch username from Merv Hub by FID
+ * Fetch username from HyperSnap by FID
  */
 async function fetchUsernameByFid(fid) {
   try {
-    const server = "https://hub.merv.fun";
-    const response = await axios.get(`${server}/v1/userDataByFid?fid=${fid}`);
-    
-    const messages = response.data.messages || [];
-    for (const message of messages) {
-      if (message.data?.userDataBody?.type === 'USER_DATA_TYPE_USERNAME') {
-        return message.data.userDataBody.value.toLowerCase();
-      }
-    }
-    return null;
+    const response = await axios.get(`https://haatz.quilibrium.com/v2/farcaster/user/bulk?fids=${fid}`);
+    return response.data?.users?.[0]?.username?.toLowerCase() || null;
   } catch (error) {
     console.error(`Error fetching username for fid ${fid}:`, error.message);
     return null;
@@ -92,7 +84,7 @@ async function fetchUsernameByFid(fid) {
 }
 
 /**
- * Get managers with FIDs and usernames from Merv Hub
+ * Get managers with FIDs and usernames from HyperSnap
  */
 async function getManagersWithFIDs(standings) {
   const managersWithFIDs = [];

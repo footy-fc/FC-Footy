@@ -1,7 +1,6 @@
 import React, { useState } from "react";
 import SettingsfollowClubs from "./SettingsFollowClubs";
 // Admin sections moved to AdminDashboard; keep Settings for user preferences only
-//import SettingsPFPClubs from "./SettingsPFPClubs";
 
 const Settings = () => {
   const [selectedTab, setSelectedTab] = useState<string>("followClubs");

@@ -2,8 +2,6 @@
 import React, { useState, useEffect } from "react";
 
 import GameWeekSummaryStepByStep from "./admin/GameWeekSummaryStepByStep";
-// import RevnetSplitHookForm from "./admin/RevnetSplitHookForm";
-import RevnetSetHookForm from "./admin/RevnetSetHookForm";
 import RevnetInspector from "./admin/RevnetInspector";
 
 const AdminDashboard: React.FC = () => {
@@ -217,7 +215,7 @@ const AdminDashboard: React.FC = () => {
             <div>
               <h3 className="text-lg font-semibold text-notWhite mb-2">Revnet Utilities</h3>
               <p className="text-sm text-lightPurple">
-                Create a Juicebox Split Hook and set a destination address as a split. Requires admin API key. See docs: split hooks &amp; splits.
+                Inspect project and token metadata for the remaining Revnet integration.
               </p>
             </div>
             <div className="p-4 rounded border border-limeGreenOpacity bg-gray-900/40">
@@ -225,7 +223,6 @@ const AdminDashboard: React.FC = () => {
               <p className="text-xs text-gray-400 mb-3">Quickly view current/upcoming ruleset IDs and ERC‑20 token metadata.</p>
               <RevnetInspector />
             </div>
-            <RevnetSetHookForm />
           </div>
         )}
       </div>

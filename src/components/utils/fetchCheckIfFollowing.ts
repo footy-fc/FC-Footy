@@ -1,4 +1,4 @@
-import { fetchFollowingPage } from '~/lib/hypersnap';
+import { fetchFollowersPage, fetchFollowingPage } from '~/lib/hypersnap';
 
 async function fetchFollowingFids(viewerFid: number): Promise<Set<number>> {
   const following = new Set<number>();
@@ -13,6 +13,21 @@ async function fetchFollowingFids(viewerFid: number): Promise<Set<number>> {
   } while (cursor);
 
   return following;
+}
+
+async function fetchFollowerFids(viewerFid: number): Promise<Set<number>> {
+  const followers = new Set<number>();
+  let cursor: string | null | undefined = null;
+
+  do {
+    const page = await fetchFollowersPage(viewerFid, cursor ?? null, 100);
+    for (const user of page.users || []) {
+      followers.add(user.fid);
+    }
+    cursor = page.next?.cursor ?? null;
+  } while (cursor);
+
+  return followers;
 }
 
 export const fetchCheckIfFollowing = async (
@@ -35,9 +50,13 @@ export async function fetchMutualFollowers(viewerFid: number, fanFids: number[])
   }
 
   try {
-    const following = await fetchFollowingFids(viewerFid);
+    const [following, followers] = await Promise.all([
+      fetchFollowingFids(viewerFid),
+      fetchFollowerFids(viewerFid),
+    ]);
+
     for (const fanFid of fanFids) {
-      result[fanFid] = following.has(fanFid);
+      result[fanFid] = following.has(fanFid) && followers.has(fanFid);
     }
   } catch (err) {
     console.warn('fetchMutualFollowers: request failed', err);

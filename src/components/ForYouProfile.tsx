@@ -151,6 +151,7 @@ const UserProfile: React.FC<ForYouProfileProps> = ({ profileFid, castHash }) => 
         if (!profileOwnerFid) return;
 
         const numericFids = fanFids.map(Number);
+        // Resolve mutual follow relationships via HyperSnap follow + follower pages
         const mutualMap = await fetchMutualFollowers(profileOwnerFid, numericFids);
         const userDatas = await Promise.all(numericFids.map(fid => fetchFanUserData(fid)));
 
