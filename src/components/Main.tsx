@@ -105,18 +105,48 @@ export default function Main() {
     );
   };
 
+  const detectLikelyMiniAppHost = () => {
+    if (typeof window === "undefined") return false;
+
+    try {
+      if (window.ReactNativeWebView) return true;
+      if (window.self !== window.top) return true;
+    } catch {
+      // Cross-origin iframe access errors still imply an embedded host.
+      return true;
+    }
+
+    return detectMiniAppFallback();
+  };
+
   useEffect(() => {
     let cancelled = false;
+
+    const confirmMiniApp = async (timeoutMs: number) => {
+      const [inMiniApp, context] = await Promise.all([
+        withTimeout(sdk.isInMiniApp().catch(() => false), false, timeoutMs),
+        withTimeout(sdk.context.catch(() => null), null, timeoutMs),
+      ]);
+
+      return Boolean(inMiniApp || context?.user?.fid || context?.client);
+    };
+
     const detectMiniApp = async () => {
       const fallbackMiniApp = detectMiniAppFallback();
+      const likelyHostedMiniApp = detectLikelyMiniAppHost();
       try {
-        const [inMiniApp, context] = await Promise.all([
-          withTimeout(sdk.isInMiniApp().catch(() => false), false),
-          withTimeout(sdk.context.catch(() => null), null),
-        ]);
+        const initialDetection = await confirmMiniApp(likelyHostedMiniApp ? 1500 : 800);
 
         if (!cancelled) {
-          setIsMiniApp(Boolean(inMiniApp || context?.user?.fid || context?.client || fallbackMiniApp));
+          setIsMiniApp(initialDetection || fallbackMiniApp);
+        }
+
+        if (!initialDetection && likelyHostedMiniApp) {
+          const retryDetection = await confirmMiniApp(3500);
+
+          if (!cancelled) {
+            setIsMiniApp(retryDetection || fallbackMiniApp);
+          }
         }
       } catch {
         if (!cancelled) {
