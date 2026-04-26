@@ -11,6 +11,8 @@
   --app-accent: #bd195d;
   --app-accent-soft: #fea282;
   --app-border: rgba(162, 230, 52, 0.16);
+  --font-body: "Manrope", Helvetica, Arial, sans-serif;
+  --font-display: "Space Grotesk", "Arial Narrow", Arial, sans-serif;
 }
 
 @media (prefers-color-scheme: dark) {

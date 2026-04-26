@@ -1,6 +1,5 @@
 import { Metadata } from "next";
 import App from "./app";
-import { Providers } from "./providers";
 import { buildQStoragePublicUrl } from "~/lib/qstorage";
 
 const appUrl = process.env.NEXT_PUBLIC_URL ?? 'http://localhost:3000';
@@ -72,10 +71,5 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
 }
 
 export default function Home() {
-
-  return (
-    <Providers>
-      <App />
-    </Providers>
-  );
+  return <App />;
 }
