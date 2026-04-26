@@ -3,6 +3,8 @@
 "use client";
 import { useEffect, useState, useRef } from "react";
 import { sdk } from "@farcaster/miniapp-sdk";
+import "@farcaster/auth-kit/styles.css";
+import { AuthKitProvider, SignInButton } from "@farcaster/auth-kit";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Dispatch, SetStateAction } from "react";
 import TabNavigation from "./TabNavigation";
@@ -38,6 +40,70 @@ interface SharedCast {
   text: string;
   embeds?: string[];
   channelKey?: string;
+}
+
+function BrowserAuthFallback({
+  authError,
+  authLoading,
+  onAuthError,
+  onVerified,
+}: {
+  authError: string | null;
+  authLoading: boolean;
+  onAuthError: (message: string | null) => void;
+  onVerified: (fid: number) => void;
+}) {
+  const appUrl =
+    typeof window !== "undefined"
+      ? window.location.origin
+      : process.env.NEXT_PUBLIC_URL || "https://fc-footy.vercel.app";
+  const domain =
+    typeof window !== "undefined"
+      ? window.location.hostname
+      : new URL(appUrl).hostname;
+
+  return (
+    <AuthKitProvider
+      config={{
+        domain,
+        siweUri: `${appUrl}/login`,
+        rpcUrl: "https://mainnet.optimism.io",
+      }}
+    >
+      <div className="mx-auto w-[400px] rounded-[28px] bg-darkPurple p-6 text-center shadow-[0_18px_50px_rgba(0,0,0,0.28)]">
+        <div className="app-section-title mb-3">Authenticate to Continue</div>
+        <p className="app-copy mb-4">
+          Footy could not confirm a Mini App host, so sign in with Farcaster to verify your FID before entering the app.
+        </p>
+        {authError && <p className="mb-4 text-sm text-fontRed">{authError}</p>}
+        <div className="flex flex-col gap-3 items-center">
+          <div className={authLoading ? "pointer-events-none opacity-70" : ""}>
+            <SignInButton
+              onSuccess={({ fid }) => {
+                if (typeof fid !== "number") {
+                  onAuthError("Authentication succeeded but no FID was returned");
+                  return;
+                }
+                onAuthError(null);
+                onVerified(fid);
+              }}
+              onError={(error) => {
+                onAuthError(error?.message || "Authentication failed");
+              }}
+            />
+          </div>
+          <button
+            className="w-full sm:w-48 border border-limeGreenOpacity text-lightPurple py-2 px-4 rounded-lg transition-colors hover:bg-purplePanel"
+            onClick={() => {
+              window.location.href = "https://farcaster.xyz/miniapps/vRlFDfogkgrw/footy-app";
+            }}
+          >
+            Open Footy Mini-App
+          </button>
+        </div>
+      </div>
+    </AuthKitProvider>
+  );
 }
 
 export default function Main() {
@@ -176,35 +242,6 @@ export default function Main() {
     setIsAdminFid(Boolean(verifiedFid && [4163, 420564].includes(verifiedFid)));
   }, [verifiedFid]);
   const shareHandledRef = useRef(false);
-
-  const authenticateWithFarcaster = async () => {
-    setAuthLoading(true);
-    setAuthError(null);
-
-    try {
-      const response = await sdk.quickAuth.fetch("/api/auth/me", {
-        method: "GET",
-        cache: "no-store",
-      });
-
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        throw new Error(typeof data?.error === "string" ? data.error : "Authentication failed");
-      }
-
-      const fid = Number(data?.fid);
-      if (!Number.isFinite(fid) || fid <= 0) {
-        throw new Error("Missing verified fid");
-      }
-
-      setVerifiedFid(fid);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Authentication failed";
-      setAuthError(message);
-    } finally {
-      setAuthLoading(false);
-    }
-  };
 
   // Handle URL redirect logic
   useEffect(() => {
@@ -357,35 +394,12 @@ export default function Main() {
           </div>
         </div>
       ) : (
-        <div className="mx-auto w-[400px] rounded-[28px] bg-darkPurple p-6 text-center shadow-[0_18px_50px_rgba(0,0,0,0.28)]">
-          <div className="app-section-title mb-3">Authenticate to Continue</div>
-          <p className="app-copy mb-4">
-            Footy could not confirm a Mini App host, so authenticate with Farcaster to verify your FID before entering the app.
-          </p>
-          {verifiedFid && (
-            <p className="app-micro mb-4 text-limeGreen">Verified FID: {verifiedFid}</p>
-          )}
-          {authError && (
-            <p className="mb-4 text-sm text-fontRed">{authError}</p>
-          )}
-          <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
-            <button
-              className="flex-1 sm:flex-none w-full sm:w-56 bg-deepPink text-white py-2 px-4 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-deepPink hover:bg-fontRed"
-              onClick={authenticateWithFarcaster}
-              disabled={authLoading}
-            >
-              {authLoading ? "Authenticating..." : "Authenticate with Farcaster"}
-            </button>
-            <button
-              className="flex-1 sm:flex-none w-full sm:w-48 border border-limeGreenOpacity text-lightPurple py-2 px-4 rounded-lg transition-colors hover:bg-purplePanel"
-              onClick={() => {
-                window.location.href = "https://farcaster.xyz/miniapps/vRlFDfogkgrw/footy-app";
-              }}
-            >
-              Open Footy Mini-App
-            </button>
-          </div>
-        </div>
+        <BrowserAuthFallback
+          authError={authError}
+          authLoading={authLoading}
+          onAuthError={setAuthError}
+          onVerified={(fid) => setVerifiedFid(fid)}
+        />
       )}
     </div>
   );
