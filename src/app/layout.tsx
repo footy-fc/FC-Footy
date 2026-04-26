@@ -15,6 +15,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
+      <head>
+        <link rel="preconnect" href="https://auth.farcaster.xyz" />
+      </head>
       <body className="flex justify-center bg-black text-white m-0">
         <Providers>{children}</Providers>
       </body>

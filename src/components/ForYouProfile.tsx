@@ -2,12 +2,9 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import React, { useEffect, useState } from 'react';
 import { sdk } from '@farcaster/miniapp-sdk';
-import { getTeamPreferences, getFanCountForTeam, getFansForTeam } from '../lib/kvPerferences';
+import { getTeamPreferences } from '../lib/kvPerferences';
 import { getTeamLogo } from './utils/fetchTeamLogos';
-import { fetchMutualFollowers } from './utils/fetchCheckIfFollowing';
 import SettingsFollowClubs from './SettingsFollowClubs';
-import { getAlikeFanMatches } from './utils/getAlikeFanMatches';
-import type { FanPair } from './utils/getAlikeFanMatches';
 import { fetchFanUserData } from './utils/fetchFCProfile';
 import { useMiniAppDetection } from "../hooks/useMiniAppDetection";
 
@@ -28,14 +25,7 @@ const UserProfile: React.FC<ForYouProfileProps> = ({ profileFid }) => {
   const [error, setError] = useState<string | null>(null);
   const [teamLinks, setTeamLinks] = useState<Record<string, TeamLink[]>>({});
   const [selectedTeam, setSelectedTeam] = useState<string | null>(null);
-  const [fanCount, setFanCount] = useState<number>(0);
-  const [favoriteTeamFans, setFavoriteTeamFans] = useState<Array<{ fid: number; pfp: string; mutual: boolean; youFollow?: boolean }>>([]);
-  const [loadingFollowers, setLoadingFollowers] = useState<boolean>(false);
   const [showSettings, setShowSettings] = useState(false);
-  const [cachedTeamFollowers, setCachedTeamFollowers] = useState<Record<string, Array<{ fid: number; pfp: string; mutual: boolean; youFollow?: boolean }>>>({});
-  const [showMatchUps, setShowMatchUps] = useState(false);
-  const [matchUps, setMatchUps] = useState<FanPair[]>([]);
-  const [loadingMatches, setLoadingMatches] = useState(false);
   const [viewingOwnProfile, setViewingOwnProfile] = useState<boolean>(!profileFid);
   const [currentProfileFid, setCurrentProfileFid] = useState<number | undefined>(profileFid);
   const [hasPromptedMiniApp, setHasPromptedMiniApp] = useState<boolean>(false);
@@ -116,74 +106,6 @@ const UserProfile: React.FC<ForYouProfileProps> = ({ profileFid }) => {
     }
   };
 
-  // Fetch team followers and mutuals for selected team
-  useEffect(() => {
-    if (!selectedTeam) return;
-    let cancelled = false;
-
-    getFanCountForTeam(selectedTeam.toLowerCase())
-      .then(count => !cancelled && setFanCount(count))
-      .catch(err => console.error('Error fetching fan count:', err));
-
-    if (cachedTeamFollowers[selectedTeam]) {
-      setFavoriteTeamFans(cachedTeamFollowers[selectedTeam]);
-      setLoadingFollowers(false);
-      return;
-    }
-
-    setFavoriteTeamFans([]);
-    setShowMatchUps(false);
-    setMatchUps([]);
-    setLoadingMatches(false);
-    setLoadingFollowers(true);
-
-    const fetchFans = async () => {
-      try {
-        const fanFids = await getFansForTeam(selectedTeam.toLowerCase());
-        const context = await sdk.context;
-        
-        // Determine which FID to use for mutual follower calculations
-        // If currentProfileFid is provided, use that (viewing someone else's profile)
-        // Otherwise use current user's FID (viewing own profile)
-        const profileOwnerFid = currentProfileFid || context.user?.fid;
-        if (!profileOwnerFid) return;
-
-        const numericFids = fanFids.map(Number);
-        // Resolve mutual follow relationships via HyperSnap follow + follower pages
-        const mutualMap = await fetchMutualFollowers(profileOwnerFid, numericFids);
-        const userDatas = await Promise.all(numericFids.map(fid => fetchFanUserData(fid)));
-
-        const fans = numericFids.reduce<Array<{ fid: number; pfp: string; mutual: boolean; youFollow?: boolean }>>(
-          (acc, fid, index) => {
-            const userData = userDatas[index];
-            const pfp = userData?.USER_DATA_TYPE_PFP?.[0];
-            if (pfp) {
-              const mutual = mutualMap[fid];
-              const youFollow = fid === profileOwnerFid;
-              acc.push({ fid, pfp, mutual, youFollow });
-            }
-            return acc;
-          },
-          []
-        );
-
-        if (!cancelled) {
-          setCachedTeamFollowers(prev => ({ ...prev, [selectedTeam]: fans }));
-          setFavoriteTeamFans(fans);
-        }
-      } catch (err) {
-        console.error('Error fetching fans:', err);
-      } finally {
-        if (!cancelled) setLoadingFollowers(false);
-      }
-    };
-
-    fetchFans();
-    return () => {
-      cancelled = true;
-    };
-  }, [selectedTeam, cachedTeamFollowers, currentProfileFid]);
-
   // Fetch favorite teams on mount
   useEffect(() => {
     fetchFavoriteTeams();
@@ -236,7 +158,6 @@ const UserProfile: React.FC<ForYouProfileProps> = ({ profileFid }) => {
     if (context.user?.fid) {
       setCurrentProfileFid(undefined);
       setViewingOwnProfile(true);
-      setCachedTeamFollowers({}); // Clear cache to refetch with new FID
       setFavoriteTeams([]);
       setSelectedTeam(null);
       setLoading(true);

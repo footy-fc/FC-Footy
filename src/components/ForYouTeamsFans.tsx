@@ -3,7 +3,7 @@ import Image from 'next/image';
 import { sdk } from '@farcaster/miniapp-sdk';
 import { getTeamPreferences, getFanCountForTeam, getFansForTeam } from "../lib/kvPerferences";
 import { getTeamLogo } from "./utils/fetchTeamLogos";
-import { fetchMutualFollowers } from './utils/fetchCheckIfFollowing';
+import { fetchFollowingStatuses } from './utils/fetchCheckIfFollowing';
 import SettingsFollowClubs from './SettingsFollowClubs';
 import type { FanPair } from "./utils/getAlikeFanMatches";
 import { fetchFanUserData } from './utils/fetchFCProfile';
@@ -21,11 +21,11 @@ const ForYouTeamsFans: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [teamLinks, setTeamLinks] = useState<Record<string, TeamLink[]>>({});
   const [selectedTeam, setSelectedTeam] = useState<string | null>(null);
-  const [favoriteTeamFans, setFavoriteTeamFans] = useState<Array<{ fid: number; pfp: string; mutual: boolean; youFollow?: boolean; username?: string }>>([]);
+  const [favoriteTeamFans, setFavoriteTeamFans] = useState<Array<{ fid: number; pfp: string; youFollow: boolean; username?: string }>>([]);
   const [fanCount, setFanCount] = useState<number>(0);
   const [loadingFollowers, setLoadingFollowers] = useState<boolean>(false);
   const [showSettings, setShowSettings] = useState(false);
-  const [cachedTeamFollowers, setCachedTeamFollowers] = useState<Record<string, Array<{ fid: number; pfp: string; mutual: boolean; youFollow?: boolean }>>>({});
+  const [cachedTeamFollowers, setCachedTeamFollowers] = useState<Record<string, Array<{ fid: number; pfp: string; youFollow: boolean; username?: string }>>>({});
   const [showMatchUps, setShowMatchUps] = useState(false);
   const [matchUps, setMatchUps] = useState<FanPair[]>([]);
 
@@ -101,18 +101,17 @@ const ForYouTeamsFans: React.FC = () => {
         // Convert the fan FIDs to numbers
         const numericFids = fanFids.map(Number);
         
-        // Resolve mutual follow relationships via HyperSnap follow + follower pages
-        const mutualMap = await fetchMutualFollowers(currentFid, numericFids);
+        // Team fans are already known from Redis; only resolve whether you follow them.
+        const followingMap = await fetchFollowingStatuses(currentFid, numericFids);
         
         const userDatas = await Promise.all(numericFids.map(fid => fetchFanUserData(fid)));
-        const fans = numericFids.reduce<Array<{ fid: number; pfp: string; mutual: boolean; youFollow?: boolean; username?: string }>>((acc, fid, index) => {
+        const fans = numericFids.reduce<Array<{ fid: number; pfp: string; youFollow: boolean; username?: string }>>((acc, fid, index) => {
           const userData = userDatas[index];
           const pfp = userData?.USER_DATA_TYPE_PFP?.[0];
           const uname = (userData?.USER_DATA_TYPE_USERNAME?.[0] || '').toLowerCase();
           if (pfp) {
-            const mutual = mutualMap[fid];
-            const youFollow = fid === currentFid; // Determine if the current user follows this fan
-            acc.push({ fid, pfp, mutual, youFollow, username: uname || undefined });
+            const youFollow = Boolean(followingMap[fid]);
+            acc.push({ fid, pfp, youFollow, username: uname || undefined });
           }
           return acc;
         }, []);
@@ -268,10 +267,6 @@ const ForYouTeamsFans: React.FC = () => {
                   <span className="w-3 h-3 ring-2 ring-fontRed rounded-full inline-block"></span>
                   <span>You don’t follow</span>
                 </div>
-                <div className="flex items-center gap-1">
-                  <span className="w-3 h-3 ring-2 ring-purple-500 rounded-full inline-block"></span>
-                  <span>Mutual</span>
-                </div>
               </div>
               {loadingFollowers ? (
                 <div className="text-sm text-gray-400 animate-pulse">Loading followers...</div>
@@ -286,7 +281,7 @@ const ForYouTeamsFans: React.FC = () => {
                           sdk.actions.viewProfile({ fid: fan.fid });
                         }}
                         className={`rounded-full border-2 focus:outline-none w-6 h-6 flex items-center justify-center ${
-                          fan.mutual ? 'border-purple-500' : fan.youFollow ? 'border-limeGreen' : 'border-fontRed'
+                          fan.youFollow ? 'border-limeGreen' : 'border-fontRed'
                         }`}
                       >
                         <Image

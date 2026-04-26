@@ -46,6 +46,9 @@ export default function Main() {
   const [customSearchParams, setCustomSearchParams] = useState<URLSearchParams | null>(null);
   const [isMiniApp, setIsMiniApp] = useState(false);
   const [miniAppChecked, setMiniAppChecked] = useState(false);
+  const [verifiedFid, setVerifiedFid] = useState<number | null>(null);
+  const [authLoading, setAuthLoading] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
   const effectiveSearchParams = searchParams || customSearchParams;
   const rawSelectedTab = effectiveSearchParams?.get("tab") || "home";
   const selectedTab = (() => {
@@ -126,7 +129,10 @@ export default function Main() {
         withTimeout(sdk.context.catch(() => null), null, timeoutMs),
       ]);
 
-      return Boolean(inMiniApp || context?.user?.fid || context?.client);
+      return {
+        isMiniApp: Boolean(inMiniApp || context?.user?.fid || context?.client),
+        fid: typeof context?.user?.fid === "number" ? context.user.fid : null,
+      };
     };
 
     const detectMiniApp = async () => {
@@ -136,14 +142,16 @@ export default function Main() {
         const initialDetection = await confirmMiniApp(likelyHostedMiniApp ? 1500 : 800);
 
         if (!cancelled) {
-          setIsMiniApp(initialDetection || fallbackMiniApp);
+          setIsMiniApp(initialDetection.isMiniApp || fallbackMiniApp);
+          if (initialDetection.fid) setVerifiedFid(initialDetection.fid);
         }
 
-        if (!initialDetection && likelyHostedMiniApp) {
+        if (!initialDetection.isMiniApp && likelyHostedMiniApp) {
           const retryDetection = await confirmMiniApp(3500);
 
           if (!cancelled) {
-            setIsMiniApp(retryDetection || fallbackMiniApp);
+            setIsMiniApp(retryDetection.isMiniApp || fallbackMiniApp);
+            if (retryDetection.fid) setVerifiedFid(retryDetection.fid);
           }
         }
       } catch {
@@ -165,21 +173,38 @@ export default function Main() {
   }, []);
 
   useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      try {
-        await withTimeout(sdk.actions.ready(), undefined, 1200);
-        const context = await withTimeout(sdk.context, null, 1200);
-        const fid = context?.user?.fid;
-        if (!cancelled) setIsAdminFid(Boolean(fid && [4163, 420564].includes(fid)));
-      } catch {
-        if (!cancelled) setIsAdminFid(false);
-      }
-    };
-    load();
-    return () => { cancelled = true; };
-  }, []);
+    setIsAdminFid(Boolean(verifiedFid && [4163, 420564].includes(verifiedFid)));
+  }, [verifiedFid]);
   const shareHandledRef = useRef(false);
+
+  const authenticateWithFarcaster = async () => {
+    setAuthLoading(true);
+    setAuthError(null);
+
+    try {
+      const response = await sdk.quickAuth.fetch("/api/auth/me", {
+        method: "GET",
+        cache: "no-store",
+      });
+
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(typeof data?.error === "string" ? data.error : "Authentication failed");
+      }
+
+      const fid = Number(data?.fid);
+      if (!Number.isFinite(fid) || fid <= 0) {
+        throw new Error("Missing verified fid");
+      }
+
+      setVerifiedFid(fid);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Authentication failed";
+      setAuthError(message);
+    } finally {
+      setAuthLoading(false);
+    }
+  };
 
   // Handle URL redirect logic
   useEffect(() => {
@@ -294,7 +319,7 @@ export default function Main() {
     load();
   }, []);
 
-  const shouldRenderApp = IS_TESTING || isMiniApp;
+  const shouldRenderApp = IS_TESTING || isMiniApp || verifiedFid !== null;
   // Render main app UI
   return (
     <div className="w-[400px] mx-auto py-2">
@@ -332,15 +357,34 @@ export default function Main() {
           </div>
         </div>
       ) : (
-        <div className="text-center text-lg text-fontRed">
-          <button
-            className="flex-1 sm:flex-none w-full sm:w-48 bg-deepPink text-white py-2 px-4 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-deepPink hover:bg-fontRed"
-            onClick={() => {
-              window.location.href = "https://farcaster.xyz/miniapps/vRlFDfogkgrw/footy-app";
-            }}
-          >
-            Open Footy Mini-App
-          </button>
+        <div className="mx-auto w-[400px] rounded-[28px] bg-darkPurple p-6 text-center shadow-[0_18px_50px_rgba(0,0,0,0.28)]">
+          <div className="app-section-title mb-3">Authenticate to Continue</div>
+          <p className="app-copy mb-4">
+            Footy could not confirm a Mini App host, so authenticate with Farcaster to verify your FID before entering the app.
+          </p>
+          {verifiedFid && (
+            <p className="app-micro mb-4 text-limeGreen">Verified FID: {verifiedFid}</p>
+          )}
+          {authError && (
+            <p className="mb-4 text-sm text-fontRed">{authError}</p>
+          )}
+          <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
+            <button
+              className="flex-1 sm:flex-none w-full sm:w-56 bg-deepPink text-white py-2 px-4 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-deepPink hover:bg-fontRed"
+              onClick={authenticateWithFarcaster}
+              disabled={authLoading}
+            >
+              {authLoading ? "Authenticating..." : "Authenticate with Farcaster"}
+            </button>
+            <button
+              className="flex-1 sm:flex-none w-full sm:w-48 border border-limeGreenOpacity text-lightPurple py-2 px-4 rounded-lg transition-colors hover:bg-purplePanel"
+              onClick={() => {
+                window.location.href = "https://farcaster.xyz/miniapps/vRlFDfogkgrw/footy-app";
+              }}
+            >
+              Open Footy Mini-App
+            </button>
+          </div>
         </div>
       )}
     </div>
