@@ -434,7 +434,7 @@ const generateCommentaryForMatch = async (
             )
           : Promise.resolve('');
 
-      const shareUrlPromise =
+      const shareTargetPromise =
         compositeImage
           ? (async () => {
               const blob = await generateCompositeImageBlob(
@@ -456,14 +456,23 @@ const generateCommentaryForMatch = async (
 
               const urlObj = new URL(miniAppUrl);
               urlObj.searchParams.set('imageKey', uploadResult.objectKey);
-              return urlObj.toString();
+              return {
+                shareUrl: urlObj.toString(),
+                imageUrl: uploadResult.publicUrl,
+              };
             })().catch((error) => {
               console.error("Error generating composite image:", error);
-              return miniAppUrl;
+              return {
+                shareUrl: miniAppUrl,
+                imageUrl: null,
+              };
             })
-          : Promise.resolve(miniAppUrl);
+          : Promise.resolve({
+              shareUrl: miniAppUrl,
+              imageUrl: null,
+            });
 
-      const [commentary, shareUrl] = await Promise.all([commentaryPromise, shareUrlPromise]);
+      const [commentary, shareTarget] = await Promise.all([commentaryPromise, shareTargetPromise]);
 
       // Build the cast text
       const isMoneyGame = Boolean(moneyGamesParams);
@@ -491,7 +500,9 @@ const generateCommentaryForMatch = async (
 
       //let imageUrl = '';
 
-      const embeds: [] | [string] | [string, string] = [shareUrl];
+      const embeds: [] | [string] | [string, string] = shareTarget.imageUrl
+        ? [shareTarget.imageUrl, shareTarget.shareUrl]
+        : [shareTarget.shareUrl];
    
       try {
         await sdk.actions.ready({});
