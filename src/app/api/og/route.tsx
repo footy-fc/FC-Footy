@@ -1,5 +1,9 @@
 import { ImageResponse } from "next/og";
 
+export const runtime = "edge";
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 const size = {
   width: 600,
   height: 400,
@@ -678,6 +682,11 @@ export async function GET() {
         </div>
       </div>
     ),
-    { ...size }
+    {
+      ...size,
+      headers: {
+        "Cache-Control": "public, max-age=120, s-maxage=120, stale-while-revalidate=60",
+      },
+    }
   );
 }
