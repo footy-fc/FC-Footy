@@ -379,11 +379,14 @@ const generateCommentaryForMatch = async (
       const frameUrl = frameUrlRaw.startsWith('http') ? frameUrlRaw : `https://${frameUrlRaw}`;
       const {
         competitorsLong,
+        homeTeam,
+        awayTeam,
         homeScore,
         awayScore,
         clock,
         homeLogo,
         awayLogo,
+        eventStarted,
         keyMoments,
         matchEvents,
         competition,
