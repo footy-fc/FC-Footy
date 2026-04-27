@@ -2,7 +2,11 @@ import { Metadata } from "next";
 import App from "./app";
 import { buildQStoragePublicUrl } from "~/lib/qstorage";
 
-const appUrl = process.env.NEXT_PUBLIC_URL ?? 'http://localhost:3000';
+const appUrl = process.env.NEXT_PUBLIC_URL 
+  ? process.env.NEXT_PUBLIC_URL 
+  : process.env.VERCEL_URL 
+    ? `https://${process.env.VERCEL_URL}` 
+    : 'http://localhost:3000';
 
 export const revalidate = 300;
 
@@ -77,6 +81,8 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
     },
     other: {
       "fc:frame": JSON.stringify(frame),
+      "fc:frame:image": imgUrl,
+      "fc:frame:image:aspect_ratio": "1.91:1",
     },
   };
 }
