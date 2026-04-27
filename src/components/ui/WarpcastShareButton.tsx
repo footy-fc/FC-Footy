@@ -413,6 +413,14 @@ const generateCommentaryForMatch = async (
         }
       }
 
+      // Add match details for the OG image
+      search.set("home", homeTeam);
+      search.set("away", awayTeam);
+      search.set("homeScore", homeScore.toString());
+      search.set("awayScore", awayScore.toString());
+      search.set("status", clock);
+      search.set("isLive", eventStarted.toString());
+
       const currentQuery = search.toString() ? `?${search.toString()}` : "";
 
       // Build the base mini app URL from frameUrl and current query string.
