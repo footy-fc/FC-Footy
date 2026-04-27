@@ -210,280 +210,36 @@ async function fetchTopMatches(): Promise<MatchCard[]> {
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
-
-    // Check for override params
-    const homeParam = searchParams.get("home");
-    const awayParam = searchParams.get("away");
-    const homeScoreParam = searchParams.get("homeScore");
-    const awayScoreParam = searchParams.get("awayScore");
-    const statusParam = searchParams.get("status");
-    const leagueParam = searchParams.get("league");
-    const isLiveParam = searchParams.get("isLive");
-
-    let featuredMatch: MatchCard | null = null;
-    let otherMatches: MatchCard[] = [];
-
-    try {
-      const topMatches = await fetchTopMatches();
-      if (homeParam && awayParam) {
-        featuredMatch = {
-          homeAbbr: homeParam.substring(0, 3).toUpperCase(),
-          awayAbbr: awayParam.substring(0, 3).toUpperCase(),
-          homeScore: homeScoreParam || "0",
-          awayScore: awayScoreParam || "0",
-          statusLabel: statusParam || "LIVE",
-          isLive: isLiveParam === "true",
-          leagueName: leagueParam || "MATCH",
-        };
-        // Filter out the featured match from others if it exists
-        otherMatches = topMatches.filter(m => m.homeAbbr !== featuredMatch?.homeAbbr).slice(0, 4);
-      } else {
-        featuredMatch = topMatches[0] || null;
-        otherMatches = topMatches.slice(1, 5);
-      }
-    } catch {
-      // fallback
-    }
+    const home = searchParams.get("home") || "FC";
+    const away = searchParams.get("away") || "FOOTY";
+    const score = `${searchParams.get("homeScore") || "0"} - ${searchParams.get("awayScore") || "0"}`;
 
     return new ImageResponse(
       (
         <div
           style={{
-            position: "relative",
             display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
             width: "100%",
             height: "100%",
-            overflow: "hidden",
-            background: colors.bg,
-            color: colors.text,
-            fontFamily: "system-ui, -apple-system, sans-serif",
+            background: "#050712",
+            color: "#fff",
+            fontFamily: "sans-serif",
           }}
         >
-          {/* Background Gradients */}
-          <div
-            style={{
-              position: "absolute",
-              inset: 0,
-              background:
-                "radial-gradient(circle at 14% 10%, rgba(189,25,93,0.34), transparent 32%), radial-gradient(circle at 86% 22%, rgba(162,230,52,0.12), transparent 24%), linear-gradient(140deg, #060713 0%, #100B1C 46%, #171226 100%)",
-            }}
-          />
-          <div
-            style={{
-              position: "absolute",
-              top: -120,
-              right: -80,
-              width: 260,
-              height: 260,
-              borderRadius: 999,
-              background: "rgba(189,25,93,0.18)",
-              filter: "blur(18px)",
-            }}
-          />
-          <div
-            style={{
-              position: "absolute",
-              left: -50,
-              bottom: -80,
-              width: 230,
-              height: 230,
-              borderRadius: 999,
-              background: "rgba(254,162,130,0.12)",
-              filter: "blur(16px)",
-            }}
-          />
-
-          {/* Main Layout Container */}
-          <div
-            style={{
-              position: "relative",
-              display: "flex",
-              width: "100%",
-              height: "100%",
-              padding: "28px",
-              gap: 18,
-            }}
-          >
-            {/* Left Column */}
-            <div
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                justifyContent: "space-between",
-                width: "60%",
-                minWidth: 0,
-              }}
-            >
-              <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-                {/* Brand Header */}
-                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <div
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      width: 44,
-                      height: 44,
-                      borderRadius: 16,
-                      background: "linear-gradient(135deg, rgba(189,25,93,0.96), rgba(254,162,130,0.82))",
-                      color: "#fff",
-                      fontSize: 22,
-                      fontWeight: 800,
-                    }}
-                  >
-                    F
-                  </div>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
-                    <div style={{ color: colors.accent, fontSize: 12, fontWeight: 800, letterSpacing: "0.28em" }}>
-                      FOOTY APP
-                    </div>
-                    <div style={{ color: colors.muted, fontSize: 15, fontWeight: 700 }}>
-                      Mini app for football fandom
-                    </div>
-                  </div>
-                </div>
-
-                {/* Hero Text */}
-                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                  <div
-                    style={{
-                      display: "flex",
-                      flexDirection: "column",
-                      fontSize: 44,
-                      fontWeight: 800,
-                      lineHeight: 0.94,
-                      letterSpacing: "-0.06em",
-                    }}
-                  >
-                    <span>Scores, fan clubs,</span>
-                    <span>fantasy.</span>
-                  </div>
-                  <div
-                    style={{
-                      maxWidth: 300,
-                      color: colors.muted,
-                      fontSize: 18,
-                      fontWeight: 700,
-                      lineHeight: 1.25,
-                      letterSpacing: "-0.03em",
-                    }}
-                  >
-                    Follow your club, get match alerts, and track the Farcaster FEPL table.
-                  </div>
-                </div>
-              </div>
-
-              {/* Chips */}
-              <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                <div style={chipStyle}>Live scores</div>
-                <div style={chipStyle}>Club alerts</div>
-                <div style={chipStyle}>FEPL socials</div>
-              </div>
-            </div>
-
-            {/* Right Column */}
-            <div
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                gap: 14,
-                width: "40%",
-                minWidth: 0,
-              }}
-            >
-              {/* Featured Match Card */}
-              <div
-                style={{
-                  ...statCardStyle,
-                  minHeight: 150,
-                  background: "linear-gradient(180deg, rgba(33,24,52,0.96), rgba(15,11,26,0.98))",
-                }}
-              >
-                {featuredMatch ? (
-                  <div style={{ display: "flex", flexDirection: "column", justifyContent: "space-between", height: "100%", gap: 6 }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                      <div style={{ color: colors.muted, fontSize: 10, fontWeight: 800, letterSpacing: "0.14em", textTransform: "uppercase" }}>
-                        {featuredMatch.leagueName}
-                      </div>
-                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                        {featuredMatch.isLive && <Dot color={colors.lime} />}
-                        <div style={{ color: featuredMatch.isLive ? colors.lime : colors.muted, fontSize: 11, fontWeight: 800, letterSpacing: "0.12em" }}>
-                          {featuredMatch.statusLabel}
-                        </div>
-                      </div>
-                    </div>
-                    <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 12 }}>
-                      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
-                        <div style={{ fontSize: 34, fontWeight: 800 }}>{featuredMatch.homeScore}</div>
-                        <div style={{ fontSize: 13, fontWeight: 700, color: colors.muted }}>{featuredMatch.homeAbbr}</div>
-                      </div>
-                      <div style={{ fontSize: 20, color: colors.muted, fontWeight: 800 }}>:</div>
-                      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
-                        <div style={{ fontSize: 34, fontWeight: 800 }}>{featuredMatch.awayScore}</div>
-                        <div style={{ fontSize: 13, fontWeight: 700, color: colors.muted }}>{featuredMatch.awayAbbr}</div>
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <div style={{ display: "flex", alignItems: "center", height: "100%", justifyContent: "center", color: colors.muted }}>
-                    Match Day
-                  </div>
-                )}
-              </div>
-
-              {/* Live Now Sidebar */}
-              <div style={{ ...statCardStyle, minHeight: 180, padding: "14px" }}>
-                <div style={{ color: colors.accentSoft, fontSize: 11, fontWeight: 800, letterSpacing: "0.18em", marginBottom: 10 }}>
-                  LIVE NOW
-                </div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                  {otherMatches.length > 0 ? (
-                    otherMatches.map((m, i) => (
-                      <div
-                        key={i}
-                        style={{
-                          display: "flex",
-                          justifyContent: "space-between",
-                          alignItems: "center",
-                          borderBottom: i < otherMatches.length - 1 ? `1px solid ${colors.panelSoft}` : "none",
-                          paddingBottom: i < otherMatches.length - 1 ? 8 : 0,
-                        }}
-                      >
-                        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                          <div style={{ fontSize: 13, fontWeight: 800 }}>{m.homeAbbr}</div>
-                          <div style={{ fontSize: 13, fontWeight: 800, color: colors.lime }}>{m.homeScore}-{m.awayScore}</div>
-                          <div style={{ fontSize: 13, fontWeight: 800 }}>{m.awayAbbr}</div>
-                        </div>
-                        <div style={{ fontSize: 10, fontWeight: 700, color: colors.muted }}>
-                          {m.statusLabel}
-                        </div>
-                      </div>
-                    ))
-                  ) : (
-                    <div style={{ color: colors.muted, fontSize: 14 }}>Follow fan clubs</div>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
+          <div style={{ fontSize: 60, fontWeight: "bold", marginBottom: 20 }}>{home} vs {away}</div>
+          <div style={{ fontSize: 80, fontWeight: "bold", color: "#A2E634" }}>{score}</div>
+          <div style={{ fontSize: 24, marginTop: 40, color: "#C0B2F0" }}>Live on FC Footy</div>
         </div>
       ),
       {
-        ...size,
-        headers: {
-          "Cache-Control": "public, max-age=120, s-maxage=120, stale-while-revalidate=60",
-        },
+        width: 1200,
+        height: 630,
       }
     );
   } catch (e) {
-    console.error("OG Route Error:", e);
-    return new ImageResponse(
-      (
-        <div style={{ display: "flex", width: "100%", height: "100%", background: colors.bg, alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 40 }}>
-          Footy App
-        </div>
-      ),
-      { ...size }
-    );
+    return new Response(`Failed to generate image`, { status: 500 });
   }
 }
