@@ -12,20 +12,31 @@ type Props = {
 
 export async function generateMetadata({ searchParams }: Props): Promise<Metadata> {
   const url = new URL('/', appUrl);
-  let imgUrl = `${appUrl}/api/og`;
-  
   Object.entries(await searchParams).forEach(([key, value]) => {
     if (typeof value === 'string') {
       url.searchParams.append(key, value);
     }
   });
 
+  let imgUrl = `${appUrl}/api/og`;
   const imageUrl = url.searchParams.get('imageUrl');
   const imageKey = url.searchParams.get('imageKey');
+  
   if (imageUrl) {
     imgUrl = imageUrl;
   } else if (imageKey) {
     imgUrl = buildQStoragePublicUrl(imageKey);
+  } else {
+    // Pass relevant match params to the OG generator if present
+    const ogParams = new URLSearchParams();
+    ['home', 'away', 'homeScore', 'awayScore', 'status', 'league', 'isLive'].forEach(p => {
+      const val = url.searchParams.get(p);
+      if (val) ogParams.set(p, val);
+    });
+    const queryString = ogParams.toString();
+    if (queryString) {
+      imgUrl += `?${queryString}`;
+    }
   }
 
       // Removed debug console.log

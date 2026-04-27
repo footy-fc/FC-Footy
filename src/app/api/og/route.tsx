@@ -217,13 +217,38 @@ async function fetchBestMatch(): Promise<MatchCard | null> {
 /*  OG Image route                                                    */
 /* ------------------------------------------------------------------ */
 
-export async function GET() {
+export async function GET(request: Request) {
+  const { searchParams } = new URL(request.url);
+
+  // Check for override params
+  const homeParam = searchParams.get("home");
+  const awayParam = searchParams.get("away");
+  const homeScoreParam = searchParams.get("homeScore");
+  const awayScoreParam = searchParams.get("awayScore");
+  const statusParam = searchParams.get("status");
+  const leagueParam = searchParams.get("league");
+  const isLiveParam = searchParams.get("isLive");
+
   let match: MatchCard | null = null;
 
-  try {
-    match = await fetchBestMatch();
-  } catch {
-    // Fail silently, use fallback
+  if (homeParam && awayParam) {
+    // Use params if provided
+    match = {
+      homeAbbr: homeParam.substring(0, 3).toUpperCase(),
+      awayAbbr: awayParam.substring(0, 3).toUpperCase(),
+      homeScore: homeScoreParam || "0",
+      awayScore: awayScoreParam || "0",
+      statusLabel: statusParam || "LIVE",
+      isLive: isLiveParam === "true",
+      leagueName: leagueParam || "MATCH",
+    };
+  } else {
+    // Otherwise fetch best match
+    try {
+      match = await fetchBestMatch();
+    } catch {
+      // Fail silently, use fallback
+    }
   }
 
   return new ImageResponse(
