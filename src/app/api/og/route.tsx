@@ -57,7 +57,171 @@ function Dot({ color }: { color: string }) {
   );
 }
 
+/* ------------------------------------------------------------------ */
+/*  ESPN data fetching helpers                                        */
+/* ------------------------------------------------------------------ */
+
+interface ESPNTeam {
+  abbreviation?: string;
+  displayName: string;
+  shortDisplayName?: string;
+  logo?: string;
+}
+
+interface ESPNCompetitor {
+  homeAway: "home" | "away";
+  score: string;
+  team: ESPNTeam;
+}
+
+interface ESPNStatusType {
+  state: string; // "pre" | "in" | "post"
+  name: string;
+  shortDetail: string;
+  detail: string;
+}
+
+interface ESPNCompetition {
+  competitors?: ESPNCompetitor[];
+  status?: {
+    clock: number;
+    displayClock: string;
+    type: ESPNStatusType;
+  };
+}
+
+interface ESPNEvent {
+  id: string;
+  name: string;
+  competitions?: ESPNCompetition[];
+}
+
+interface ESPNResponse {
+  events?: ESPNEvent[];
+  leagues?: { abbreviation?: string }[];
+}
+
+interface MatchCard {
+  homeAbbr: string;
+  awayAbbr: string;
+  homeScore: string;
+  awayScore: string;
+  statusLabel: string; // e.g. "LIVE", "HT", "FT", "KO 15:00"
+  isLive: boolean;
+  leagueName: string;
+}
+
+const LEAGUES = [
+  { name: "EPL", id: "eng.1" },
+  { name: "UCL", id: "uefa.champions" },
+  { name: "La Liga", id: "esp.1" },
+  { name: "Serie A", id: "ita.1" },
+  { name: "Bundesliga", id: "ger.1" },
+  { name: "Ligue 1", id: "fra.1" },
+  { name: "FA Cup", id: "eng.fa" },
+  { name: "UEL", id: "uefa.europa" },
+  { name: "CWC", id: "fifa.cwc" },
+];
+
+async function fetchBestMatch(): Promise<MatchCard | null> {
+  // Try each league in priority order until we find a live → post → pre match
+  let bestLive: MatchCard | null = null;
+  let bestPost: MatchCard | null = null;
+  let bestPre: MatchCard | null = null;
+
+  for (const league of LEAGUES) {
+    try {
+      const url = `https://site.api.espn.com/apis/site/v2/sports/soccer/${league.id}/scoreboard`;
+      const res = await fetch(url, {
+        cache: "no-store",
+        signal: AbortSignal.timeout(4000),
+      });
+      if (!res.ok) continue;
+      const data = (await res.json()) as ESPNResponse;
+      if (!data.events?.length) continue;
+
+      const leagueName =
+        data.leagues?.[0]?.abbreviation ?? league.name;
+
+      for (const event of data.events) {
+        const comp = event.competitions?.[0];
+        if (!comp?.competitors || !comp.status) continue;
+
+        const home = comp.competitors.find((c) => c.homeAway === "home");
+        const away = comp.competitors.find((c) => c.homeAway === "away");
+        if (!home || !away) continue;
+
+        const state = comp.status.type.state;
+        const statusName = comp.status.type.name;
+
+        let statusLabel = "";
+        let isLive = false;
+
+        if (state === "in") {
+          isLive = true;
+          if (statusName === "STATUS_HALFTIME") {
+            statusLabel = "HT";
+          } else {
+            statusLabel = comp.status.type.shortDetail || "LIVE";
+          }
+        } else if (state === "post") {
+          statusLabel = "FT";
+        } else {
+          // pre
+          statusLabel = comp.status.type.shortDetail || "Upcoming";
+        }
+
+        const card: MatchCard = {
+          homeAbbr:
+            home.team.abbreviation ||
+            (home.team.shortDisplayName || home.team.displayName)
+              .substring(0, 3)
+              .toUpperCase(),
+          awayAbbr:
+            away.team.abbreviation ||
+            (away.team.shortDisplayName || away.team.displayName)
+              .substring(0, 3)
+              .toUpperCase(),
+          homeScore: home.score ?? "0",
+          awayScore: away.score ?? "0",
+          statusLabel,
+          isLive,
+          leagueName,
+        };
+
+        if (state === "in" && !bestLive) {
+          bestLive = card;
+        } else if (state === "post" && !bestPost) {
+          bestPost = card;
+        } else if (state === "pre" && !bestPre) {
+          bestPre = card;
+        }
+      }
+
+      // Prefer live matches – break early if we found one
+      if (bestLive) break;
+    } catch {
+      // network error – skip league
+      continue;
+    }
+  }
+
+  return bestLive ?? bestPost ?? bestPre ?? null;
+}
+
+/* ------------------------------------------------------------------ */
+/*  OG Image route                                                    */
+/* ------------------------------------------------------------------ */
+
 export async function GET() {
+  let match: MatchCard | null = null;
+
+  try {
+    match = await fetchBestMatch();
+  } catch {
+    // Fail silently, use fallback
+  }
+
   return new ImageResponse(
     (
       <div
@@ -245,6 +409,7 @@ export async function GET() {
               minWidth: 0,
             }}
           >
+            {/* ---- Score card ---- */}
             <div
               style={{
                 ...statCardStyle,
@@ -253,60 +418,221 @@ export async function GET() {
                   "linear-gradient(180deg, rgba(33,24,52,0.96), rgba(15,11,26,0.98))",
               }}
             >
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                }}
-              >
-                <div
-                  style={{
-                    color: colors.accent,
-                    fontSize: 13,
-                    fontWeight: 800,
-                    letterSpacing: "0.18em",
-                  }}
-                >
-                  LIVE NOW
-                </div>
-                <Dot color={colors.lime} />
-              </div>
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: 10,
-                }}
-              >
+              {match ? (
+                /* ---------- Dynamic match card ---------- */
                 <div
                   style={{
                     display: "flex",
+                    flexDirection: "column",
                     justifyContent: "space-between",
-                    alignItems: "baseline",
-                    fontSize: 36,
-                    fontWeight: 800,
-                    letterSpacing: "-0.06em",
+                    height: "100%",
+                    gap: 6,
                   }}
                 >
-                  <span>2</span>
-                  <span style={{ color: colors.muted, fontSize: 16 }}>-</span>
-                  <span>1</span>
+                  {/* Header row: league + status */}
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                    }}
+                  >
+                    <div
+                      style={{
+                        color: colors.muted,
+                        fontSize: 11,
+                        fontWeight: 800,
+                        letterSpacing: "0.14em",
+                        textTransform: "uppercase",
+                      }}
+                    >
+                      {match.leagueName}
+                    </div>
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 6,
+                      }}
+                    >
+                      {match.isLive && <Dot color={colors.lime} />}
+                      <div
+                        style={{
+                          color: match.isLive
+                            ? colors.lime
+                            : match.statusLabel === "FT"
+                              ? colors.accentSoft
+                              : colors.muted,
+                          fontSize: 12,
+                          fontWeight: 800,
+                          letterSpacing: "0.12em",
+                        }}
+                      >
+                        {match.statusLabel}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Scoreline */}
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "center",
+                      alignItems: "center",
+                      gap: 14,
+                      padding: "6px 0",
+                    }}
+                  >
+                    {/* Home */}
+                    <div
+                      style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: "center",
+                        gap: 4,
+                      }}
+                    >
+                      <div
+                        style={{
+                          fontSize: 38,
+                          fontWeight: 800,
+                          letterSpacing: "-0.04em",
+                          lineHeight: 1,
+                        }}
+                      >
+                        {match.homeScore}
+                      </div>
+                      <div
+                        style={{
+                          fontSize: 15,
+                          fontWeight: 700,
+                          color: colors.muted,
+                          letterSpacing: "0.04em",
+                        }}
+                      >
+                        {match.homeAbbr}
+                      </div>
+                    </div>
+
+                    {/* Separator */}
+                    <div
+                      style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: "center",
+                        gap: 2,
+                      }}
+                    >
+                      <div
+                        style={{
+                          width: 4,
+                          height: 4,
+                          borderRadius: 999,
+                          background: colors.muted,
+                        }}
+                      />
+                      <div
+                        style={{
+                          width: 4,
+                          height: 4,
+                          borderRadius: 999,
+                          background: colors.muted,
+                        }}
+                      />
+                    </div>
+
+                    {/* Away */}
+                    <div
+                      style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: "center",
+                        gap: 4,
+                      }}
+                    >
+                      <div
+                        style={{
+                          fontSize: 38,
+                          fontWeight: 800,
+                          letterSpacing: "-0.04em",
+                          lineHeight: 1,
+                        }}
+                      >
+                        {match.awayScore}
+                      </div>
+                      <div
+                        style={{
+                          fontSize: 15,
+                          fontWeight: 700,
+                          color: colors.muted,
+                          letterSpacing: "0.04em",
+                        }}
+                      >
+                        {match.awayAbbr}
+                      </div>
+                    </div>
+                  </div>
                 </div>
+              ) : (
+                /* ---------- Fallback: no live/recent match ---------- */
                 <div
                   style={{
                     display: "flex",
+                    flexDirection: "column",
                     justifyContent: "space-between",
-                    color: colors.muted,
-                    fontSize: 16,
-                    fontWeight: 700,
+                    height: "100%",
+                    gap: 6,
                   }}
                 >
-                  <span>LIV</span>
-                  <span>81&apos;</span>
-                  <span>ARS</span>
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                    }}
+                  >
+                    <div
+                      style={{
+                        color: colors.accent,
+                        fontSize: 13,
+                        fontWeight: 800,
+                        letterSpacing: "0.18em",
+                      }}
+                    >
+                      MATCH DAY
+                    </div>
+                    <Dot color={colors.accentSoft} />
+                  </div>
+                  <div
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 6,
+                    }}
+                  >
+                    <div
+                      style={{
+                        fontSize: 28,
+                        fontWeight: 800,
+                        letterSpacing: "-0.05em",
+                      }}
+                    >
+                      Live scores
+                    </div>
+                    <div
+                      style={{
+                        color: colors.muted,
+                        fontSize: 15,
+                        fontWeight: 700,
+                        lineHeight: 1.3,
+                      }}
+                    >
+                      Real-time scorelines across top leagues, updated every
+                      matchday.
+                    </div>
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
 
             <div style={{ ...statCardStyle, minHeight: 156 }}>
