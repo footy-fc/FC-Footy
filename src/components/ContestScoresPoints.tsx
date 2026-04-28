@@ -1,4 +1,5 @@
 import { sdk } from "@farcaster/miniapp-sdk";
+import { useFootyFarcaster } from "~/lib/farcaster/useFootyFarcaster";
 import Image from 'next/image';
 // --- FarcasterUser type for userMap/farcasterData entries ---
 interface FarcasterUser {
@@ -45,6 +46,7 @@ export default function BuyPoints() {
     teamLogo?: string;
   };
   const [topHolders, setTopHolders] = useState<Participant[]>([]);
+  const { signCast, submitSignedMessage } = useFootyFarcaster();
   // userMapRef stores mapping from address to FarcasterUser for use in render
   const userMapRef = useRef<Map<string, FarcasterUser>>(new Map());
 
@@ -157,18 +159,14 @@ const handlePfpClick = async (fid: number | undefined) => {
   const handleRowCast = async (holder: Participant) => {
     const username = holder.username ?? holder.address;
     const message = `@${username} has ${Number(holder.balance).toLocaleString()} $SCORES on Footy App`;
-    if (isMiniApp) {
-      try {
-        await sdk.actions.ready();
-        await sdk.actions.composeCast({
-          text: message,
-          embeds: ['https://fc-footy.vercel.app'],
-        });
-      } catch (err) {
-        console.error('Failed to compose cast:', err);
-      }
-    } else {
-      window.open('https://warpcast.com/~/compose?text=' + encodeURIComponent(message), '_blank');
+    try {
+      const signedMessage = await signCast({
+        text: message,
+        embeds: ['https://fc-footy.vercel.app'],
+      });
+      await submitSignedMessage(signedMessage);
+    } catch (err) {
+      console.error('Failed to post cast through Footy delegated signer:', err);
     }
   };
 

@@ -14,12 +14,12 @@ interface Props {
   suppressFtue?: boolean;
   suppressAffordances?: boolean; // hides both FTUE and no-matches CTA panels
   viewerFid?: number;
+  sectionTitle?: string;
 }
 
-const ForYouWhosPlaying: React.FC<Props> = ({ eventId, suppressFtue = false, suppressAffordances = false, viewerFid }) => {
+const ForYouWhosPlaying: React.FC<Props> = ({ eventId, suppressAffordances = false, viewerFid, sectionTitle }) => {
   const [favoriteTeams, setFavoriteTeams] = useState<string[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
   const [matchData, setMatchData] = useState<MatchEvent[]>([]);
   const [refreshTick, setRefreshTick] = useState<number>(0);
   // Defer showing CTA affordances briefly to avoid flash while state settles
@@ -34,12 +34,12 @@ const ForYouWhosPlaying: React.FC<Props> = ({ eventId, suppressFtue = false, sup
       let fid = viewerFid;
       if (!fid) {
         const context = await sdk.context;
-        console.log('context now', context.user);
-        fid = context.user?.fid;
+        console.log('context now', context?.user);
+        fid = context?.user?.fid;
       }
 
       if (!fid) {
-        setError("No Farcaster FID found in frame context");
+        setFavoriteTeams([]);
         return;
       }
 
@@ -181,10 +181,10 @@ const ForYouWhosPlaying: React.FC<Props> = ({ eventId, suppressFtue = false, sup
   }, [favoriteTeams]);
 
   if (loading) return <div>For you today</div>;
-  if (error) return <div>{error}</div>;
-
-  // FTUE: if no favorite teams, show onboarding nudge
   const hasFavorites = favoriteTeams.length > 0;
+  if (!hasFavorites && !eventId) {
+    return null;
+  }
   // Precompute filtered events for user's teams
   const filteredEvents = (matchData || [])
     .filter((event) => {
@@ -205,42 +205,14 @@ const ForYouWhosPlaying: React.FC<Props> = ({ eventId, suppressFtue = false, sup
     })
     .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
+  if (filteredEvents.length === 0 && suppressAffordances) {
+    return null;
+  }
+
   return (
     <div className="bg-purplePanel text-lightPurple rounded-lg p-2 overflow-hidden">
-      {/* Spinner placeholder to avoid CTA flash while settling */}
-      {!hasFavorites && !suppressFtue && !suppressAffordances && !affordancesReady && (
-        <div className="p-4 border border-dashed border-limeGreenOpacity rounded-lg text-center">
-          <Image src="/defifa_spinner.gif" alt="loading" width={30} height={30} className="mx-auto" />
-        </div>
-      )}
-      {!hasFavorites && !suppressFtue && !suppressAffordances && affordancesReady ? (
-        <div className="p-4 border border-dashed border-limeGreenOpacity rounded-lg text-center">
-          <h3 className="text-notWhite font-semibold mb-1">Who&apos;s Playing</h3>
-          <p className="text-sm text-lightPurple mb-3">Follow your favorite teams to see scores here and get match notifications.</p>
-          <div className="flex items-center justify-center gap-2 mb-3 text-xs">
-            <span className="px-2 py-0.5 rounded bg-gray-800 text-gray-300">1. Add Footy App</span>
-            <span className="px-2 py-0.5 rounded bg-gray-800 text-gray-300">2. Enable Notifications</span>
-            <span className="px-2 py-0.5 rounded bg-gray-800 text-gray-300">3. Follow Teams</span>
-          </div>
-          <div className="flex items-center justify-center gap-2">
-            <button
-              className="px-3 py-1 text-xs rounded border border-limeGreenOpacity text-lightPurple hover:bg-deepPink hover:text-white transition-colors"
-              onClick={async () => {
-                try { await sdk.actions.addMiniApp?.(); } catch (e) { console.warn('addMiniApp failed:', e); }
-              }}
-            >
-              Add Mini‑App
-            </button>
-            <button
-              className="px-3 py-1 text-xs rounded border border-limeGreenOpacity text-lightPurple hover:bg-deepPink hover:text-white transition-colors"
-              onClick={() => {
-                try { window.location.href = '/?tab=forYou&forYouSub=fellowFollowers'; } catch {}
-              }}
-            >
-              Follow Teams
-            </button>
-          </div>
-        </div>
+      {sectionTitle ? (
+        <h3 className="app-section-title mb-2 px-2">{sectionTitle}</h3>
       ) : null}
 
       {/* Empty state when user has favorites but no fixtures today */}

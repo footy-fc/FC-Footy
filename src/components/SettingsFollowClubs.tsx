@@ -7,6 +7,7 @@ import {
 } from "../lib/kvPerferences";
 import { sdk } from "@farcaster/miniapp-sdk";
 import { useMiniAppDetection } from "../hooks/useMiniAppDetection";
+import { useFootyFarcaster } from "~/lib/farcaster/useFootyFarcaster";
 
 interface Team {
   name: string;
@@ -37,6 +38,7 @@ const getSafeMiniAppContext = async () => {
 };
 
 const SettingsFollowClubs: React.FC<SettingsFollowClubsProps> = ({ onSave, viewerFid }) => {
+  const { hasFarcaster, requestSigner } = useFootyFarcaster();
   const [teams, setTeams] = useState<Team[]>([]);
   const [favTeams, setFavTeams] = useState<string[]>([]);
   const [searchTerm, setSearchTerm] = useState<string>("");
@@ -79,7 +81,10 @@ const SettingsFollowClubs: React.FC<SettingsFollowClubsProps> = ({ onSave, viewe
     const fid = viewerFid ?? context?.user?.fid;
     if (!fid) {
       console.error("User not authenticated");
-      setTransactionError("Open this in Farcaster to manage follows and alerts.");
+      setTransactionError("Connect Farcaster to manage follows and alerts.");
+      if (!hasFarcaster) {
+        await requestSigner();
+      }
       return;
     }
     const teamId = getTeamId(team);
@@ -144,7 +149,10 @@ const SettingsFollowClubs: React.FC<SettingsFollowClubsProps> = ({ onSave, viewe
     const fid = viewerFid ?? context?.user?.fid;
     if (!fid) {
       console.error("User not authenticated");
-      setTransactionError("Open this in Farcaster to manage favorites.");
+      setTransactionError("Connect Farcaster to manage favorites.");
+      if (!hasFarcaster) {
+        await requestSigner();
+      }
       return;
     }
 

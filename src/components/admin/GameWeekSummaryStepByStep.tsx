@@ -1,8 +1,8 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { sdk } from "@farcaster/miniapp-sdk";
 import { fetchFanUserData } from '../utils/fetchFCProfile';
+import { useFootyFarcaster } from "~/lib/farcaster/useFootyFarcaster";
 
 interface FPLManager {
   username: string;
@@ -85,6 +85,7 @@ export default function GameWeekSummaryStepByStep() {
   const [worstCaptainPicks, setWorstCaptainPicks] = useState<WorstCaptainPick[]>([]);
   const [castPreview, setCastPreview] = useState<string>("");
   const [isMiniapp, setIsMiniapp] = useState<boolean>(false);
+  const { signCast, submitSignedMessage } = useFootyFarcaster();
 
   // Game week options for dropdown
   const gameWeekOptions = Array.from({ length: 38 }, (_, i) => i + 1);
@@ -502,26 +503,12 @@ ${worstBanter}
 
       console.log('🔍 Admin: Final embeds being sent to Farcaster:', finalEmbeds);
 
-      // Post to Farcaster using SDK
-      if (isMiniapp) {
-        try {
-          await sdk.actions.ready();
-          await sdk.actions.composeCast({
-            text: castText,
-            embeds: finalEmbeds as [string, string] | [string] | [],
-            channelKey: 'football'
-          });
-          console.log('✅ Cast posted successfully via SDK');
-        } catch (sdkError) {
-          console.error('❌ SDK cast failed:', sdkError);
-          throw new Error(`Failed to post cast via SDK: ${sdkError}`);
-        }
-      } else {
-        // For web context, open compose URL
-        const composeUrl = `https://warpcast.com/~/compose?text=${encodeURIComponent(castText)}&embeds[]=${encodeURIComponent(finalEmbeds[0])}&embeds[]=${encodeURIComponent(finalEmbeds[1])}&channelKey=football`;
-        window.open(composeUrl, '_blank');
-        console.log('✅ Opened compose URL for web context');
-      }
+      const signedMessage = await signCast({
+        text: castText,
+        embeds: finalEmbeds,
+      });
+      await submitSignedMessage(signedMessage);
+      console.log('✅ Cast posted successfully via Footy delegated signer');
 
       updateStep(3, "completed", { url: "Cast posted successfully with infographic" });
       setResponseMessage('Cast posted successfully with infographic! 🎉');

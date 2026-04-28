@@ -108,24 +108,7 @@ const ContestFCFantasy = () => {
   };
 
   return (
-    <div>
-      {feplChat.exists && feplChat.invite && (
-        <div className="flex justify-end mb-4">
-          <button
-            title="Need help? Ask other managers in the league chat"
-            aria-label="Open league support chat"
-            className="px-3 py-1 text-xs rounded text-lightPurple hover:bg-deepPink hover:text-white transition-colors"
-            onClick={openSupportChat}
-          >
-            ❓ Need help? Ask in chat
-          </button>
-        </div>
-      )}
-
-      <div className="mt-2">
-        <h2 className="text-2xl font-bold text-notWhite mb-4 text-center">League Standings</h2>
-        <p className="text-sm text-lightPurple mb-4 text-center">Tap a manager row to open their profile.</p>
-
+      <div>
         {loadingFantasy ? (
           <div className="text-center">Loading...</div>
         ) : errorFantasy ? (
@@ -163,7 +146,6 @@ const ContestFCFantasy = () => {
           <div>No fantasy data available.</div>
         )}
       </div>
-    </div>
   );
 };
 

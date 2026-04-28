@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { sdk } from '@farcaster/miniapp-sdk';
+import { useFootyFarcaster } from "~/lib/farcaster/useFootyFarcaster";
 
 interface ScoreSquarePlayer {
   address: string;
@@ -27,6 +28,7 @@ const ContestScoreSquare: React.FC = () => {
   const [currentUserFid, setCurrentUserFid] = useState<number | null>(null);
   const [lastFetch, setLastFetch] = useState<number>(0);
   const [isPrivilegedUser, setIsPrivilegedUser] = useState<boolean>(false);
+  const { signCast, submitSignedMessage } = useFootyFarcaster();
   const CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours (1 day)
 
   // Privileged user FIDs
@@ -140,13 +142,13 @@ const ContestScoreSquare: React.FC = () => {
       await sdk.haptics.impactOccurred('light');
       
       const message = `🎮 ${player.hasFarcaster ? player.displayName || player.username : `Anon (${player.address.slice(0, 8)}...)`} is ranked #${rank} on the ScoreSquare leaderboard with ${Math.round(((player.points || 0) * 1000))} points! 🏆`;
-      
-      await sdk.actions.composeCast({
+      const signedMessage = await signCast({
         text: message,
-        embeds: ['https://fc-footy.vercel.app/?tab=contests']
+        embeds: ['https://fc-footy.vercel.app/?tab=contests'],
       });
+      await submitSignedMessage(signedMessage);
     } catch (error) {
-      console.error('Error composing cast:', error);
+      console.error('Error posting cast through Footy delegated signer:', error);
     }
   };
 

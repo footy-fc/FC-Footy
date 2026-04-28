@@ -16,9 +16,10 @@ type TeamLink = {
 
 interface ForYouTeamsFansProps {
   viewerFid?: number;
+  initialSelectedTeam?: string;
 }
 
-const ForYouTeamsFans: React.FC<ForYouTeamsFansProps> = ({ viewerFid }) => {
+const ForYouTeamsFans: React.FC<ForYouTeamsFansProps> = ({ viewerFid, initialSelectedTeam }) => {
   const [favoriteTeams, setFavoriteTeams] = useState<string[]>([]);
   const [currentFid, setCurrentFid] = useState<number | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
@@ -166,10 +167,19 @@ const ForYouTeamsFans: React.FC<ForYouTeamsFansProps> = ({ viewerFid }) => {
   }, [favoriteTeams, selectedTeam]);
 
   useEffect(() => {
-    if (!selectedTeam && favoriteTeams.length > 0) {
+    if (favoriteTeams.length === 0) {
+      return;
+    }
+
+    if (initialSelectedTeam && favoriteTeams.includes(initialSelectedTeam)) {
+      setSelectedTeam(initialSelectedTeam);
+      return;
+    }
+
+    if (!selectedTeam) {
       setSelectedTeam(favoriteTeams[0]);
     }
-  }, [favoriteTeams, selectedTeam]);
+  }, [favoriteTeams, initialSelectedTeam, selectedTeam]);
 
   const getTeamLogoUrl = (teamId: string): string => {
     const [league, abbr] = teamId.split("-");

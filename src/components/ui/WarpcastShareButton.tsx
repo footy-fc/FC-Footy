@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { sdk } from "@farcaster/miniapp-sdk";
 import { BASE_URL } from '~/lib/config';
+import { useFootyFarcaster } from '~/lib/farcaster/useFootyFarcaster';
 import { useCommentator } from '~/hooks/useCommentator';
 import { findMostSignificantEvent } from '~/utils/matchDataUtils';
 import { RichMatchEvent } from '~/types/commentatorTypes';
@@ -249,9 +250,24 @@ interface WarpcastShareButtonProps {
 
 export function WarpcastShareButton({ selectedMatch, compositeImage, leagueId, moneyGamesParams, ticketPriceEth, prizePoolEth }: WarpcastShareButtonProps) {
   const { isGenerating, currentCommentator } = useCommentator();
+  const { hasSigner, requestSigner, signCast, submitSignedMessage } = useFootyFarcaster();
   const [ethUsdPrice, setEthUsdPrice] = useState<number | null>(null);
   const [isCreatingRoom, setIsCreatingRoom] = useState<boolean>(false);
   const [messageIndex, setMessageIndex] = useState<number>(0);
+  const [personalCommentary, setPersonalCommentary] = useState('');
+  const [shareStatus, setShareStatus] = useState<'idle' | 'sent'>('idle');
+
+  useEffect(() => {
+    if (shareStatus !== 'sent') {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      setShareStatus('idle');
+    }, 4000);
+
+    return () => window.clearTimeout(timer);
+  }, [shareStatus]);
 
   useEffect(() => {
     if (!compositeImage) {
@@ -392,6 +408,9 @@ const generateCommentaryForMatch = async (
       const keyMomentsText = keyMoments && keyMoments.length > 0
         ? `\n\nKey Moments:\n${keyMoments.join('\n')}`
         : "";
+      const personalCommentaryText = personalCommentary.trim()
+        ? `\n\n${personalCommentary.trim()}`
+        : '';
 
       const search = new URLSearchParams();
 
@@ -476,7 +495,7 @@ const generateCommentaryForMatch = async (
 
       // Build the cast text
       const isMoneyGame = Boolean(moneyGamesParams);
-      let matchSummary = `${competitorsLong} ${keyMomentsText}\n\n@gabedev.eth @kmacb.eth are you in on this one?`;
+      let matchSummary = `${competitorsLong}${personalCommentaryText}${keyMomentsText}\n\n@gabedev.eth @kmacb.eth are you in on this one?`;
       
       if (isMoneyGame) {
         const ticketEthStr = typeof ticketPriceEth === 'number' && !isNaN(ticketPriceEth)
@@ -495,7 +514,7 @@ const generateCommentaryForMatch = async (
       } else if (commentary) {
         // Prepend commentary for regular matches with proper formatting
         const commentatorDisplay = currentCommentator?.displayName || 'Hattrick Homer';
-        matchSummary = `🎤 ${commentary} — ${commentatorDisplay} ai\n\n${competitorsLong} ${keyMomentsText}\n\n@gabedev.eth @kmacb.eth are you in on this one?`;
+        matchSummary = `🎤 ${commentary} — ${commentatorDisplay} ai\n\n${competitorsLong}${personalCommentaryText}${keyMomentsText}\n\n@gabedev.eth @kmacb.eth are you in on this one?`;
       }
 
       //let imageUrl = '';
@@ -503,33 +522,61 @@ const generateCommentaryForMatch = async (
       const embeds: [] | [string] | [string, string] = shareTarget.imageUrl
         ? [shareTarget.imageUrl, shareTarget.shareUrl]
         : [shareTarget.shareUrl];
-   
-      try {
-        await sdk.actions.ready({});
-        const result = await sdk.actions.composeCast({ text: matchSummary, embeds, channelKey: 'football' });
-        if (result?.cast === null) {
-          console.log('User cancelled the cast');
-        }
-      } catch (e) {
-        console.error('composeCast failed:', e);
+
+      if (!hasSigner) {
+        await requestSigner();
+        return;
       }
+
+      const signedMessage = await signCast({
+        text: matchSummary,
+        embeds,
+      });
+
+      await submitSignedMessage(signedMessage);
+      setShareStatus('sent');
       }
     } finally {
       // Reset creating room state
       setIsCreatingRoom(false);
     }
-  }, [selectedMatch, compositeImage, leagueId, moneyGamesParams, ticketPriceEth, prizePoolEth, ethUsdPrice, currentCommentator?.displayName]);
+  }, [
+    compositeImage,
+    currentCommentator?.displayName,
+    ethUsdPrice,
+    hasSigner,
+    leagueId,
+    moneyGamesParams,
+    personalCommentary,
+    prizePoolEth,
+    requestSigner,
+    selectedMatch,
+    signCast,
+    submitSignedMessage,
+    ticketPriceEth,
+  ]);
 
   return (
-    <button
-      onClick={openWarpcastUrl}
-      disabled={isGenerating || isCreatingRoom}
-      className="w-full sm:w-38 bg-deepPink text-white py-2 px-4 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-deepPink hover:bg-fontRed"
-    >
-      {isGenerating ? '🎤 Generating Commentary...' : 
-       isCreatingRoom ? getLoadingMessage() :
-       'Share Score'}
-    </button>
+    <div className="w-full space-y-3">
+      <textarea
+        value={personalCommentary}
+        onChange={(event) => setPersonalCommentary(event.target.value)}
+        placeholder="Add your commentary"
+        maxLength={220}
+        rows={3}
+        className="w-full rounded-lg border border-limeGreenOpacity/30 bg-darkPurple px-3 py-2 text-sm text-notWhite placeholder:text-lightPurple/60 focus:border-deepPink focus:outline-none"
+      />
+      <button
+        onClick={openWarpcastUrl}
+        disabled={isGenerating || isCreatingRoom || shareStatus === 'sent'}
+        className="w-full sm:w-38 bg-deepPink text-white py-2 px-4 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-deepPink hover:bg-fontRed"
+      >
+        {isGenerating ? '🎤 Generating Commentary...' :
+         isCreatingRoom ? getLoadingMessage() :
+         shareStatus === 'sent' ? 'Shared to Farcaster' :
+         'Share Score'}
+      </button>
+    </div>
   );
 }
 

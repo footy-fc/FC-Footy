@@ -2,6 +2,8 @@ import React from "react";
 import ForYouWhosPlaying from "./ForYouWhosPlaying";
 import { getTeamPreferences } from "../lib/kvPerferences";
 import { sdk } from "@farcaster/miniapp-sdk";
+import { usePrivy } from "@privy-io/react-auth";
+import { useFootyFarcaster } from "~/lib/farcaster/useFootyFarcaster";
 
 interface HomeTabProps {
   onNavigate: (tab: string) => void;
@@ -10,6 +12,8 @@ interface HomeTabProps {
 
 const HomeTab: React.FC<HomeTabProps> = ({ onNavigate, viewerFid }) => {
   const [hasChosenTeams, setHasChosenTeams] = React.useState(false);
+  const { ready, authenticated } = usePrivy();
+  const { hasFarcaster, requestSigner } = useFootyFarcaster();
 
   React.useEffect(() => {
     let cancelled = false;
@@ -28,7 +32,8 @@ const HomeTab: React.FC<HomeTabProps> = ({ onNavigate, viewerFid }) => {
         if (!cancelled) {
           setHasChosenTeams(Boolean(preferences && preferences.length > 0));
         }
-      } catch {
+      } catch (error) {
+        console.warn('HomeTab preference bootstrap skipped:', error);
         if (!cancelled) {
           setHasChosenTeams(false);
         }
@@ -46,8 +51,21 @@ const HomeTab: React.FC<HomeTabProps> = ({ onNavigate, viewerFid }) => {
     <div className="mb-4">
       <div className="mb-4">
         <div className="app-eyebrow mb-2">Home</div>
-        <h2 className="app-title">Football, built around your fandom</h2>
+        <h2 className="app-title">Footy App adapts to you</h2>
       </div>
+
+      {ready && authenticated && !hasFarcaster ? (
+        <div className="mb-4 rounded-[22px] border border-deepPink/30 bg-purplePanel p-4 text-lightPurple">
+          <div className="app-card-title mb-2">Personalize your fan experience</div>
+          <button
+            type="button"
+            onClick={() => void requestSigner()}
+            className="rounded-xl bg-deepPink px-4 py-3 text-sm font-semibold text-notWhite transition-colors hover:bg-deepPink/85"
+          >
+            Connect Farcaster
+          </button>
+        </div>
+      ) : null}
 
       {!hasChosenTeams && (
         <div className="grid grid-cols-3 gap-2 mb-4">
@@ -74,11 +92,12 @@ const HomeTab: React.FC<HomeTabProps> = ({ onNavigate, viewerFid }) => {
           </button>
         </div>
       )}
-
-      <div className="bg-purplePanel text-lightPurple rounded-lg p-2 overflow-hidden">
-        <h3 className="app-section-title mb-2 px-2">Your Club Matches</h3>
-        <ForYouWhosPlaying suppressFtue={false} suppressAffordances={false} viewerFid={viewerFid} />
-      </div>
+      <ForYouWhosPlaying
+        suppressFtue={false}
+        suppressAffordances={true}
+        viewerFid={viewerFid}
+        sectionTitle="Your Club Matches"
+      />
     </div>
   );
 };
