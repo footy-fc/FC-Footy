@@ -18,7 +18,7 @@ export default function Providers({children}: {children: React.ReactNode}) {
           accentColor: '#676FFF',
           logo: 'defifa_spinner.gif',
         },
-        loginMethods: ['email', 'wallet', 'farcaster'],
+        loginMethods: ['farcaster'],
       }}
     >
       <SmartWalletsProvider>{children}</SmartWalletsProvider>

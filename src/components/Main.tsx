@@ -116,19 +116,26 @@ function FarcasterLandingGate({
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [isWorking, setIsWorking] = useState(false);
   const { ready, authenticated } = usePrivy();
-  const { beginLogin, hasFarcaster, hasSigner, signerStatus, requestSigner } = useFootyFarcaster();
+  const {
+    beginLogin,
+    beginLinkFarcaster,
+    beginSignerAuthorization,
+    hasLinkedFarcaster,
+    canWrite,
+    signerStatus,
+  } = useFootyFarcaster();
 
   useEffect(() => {
-    if (ready && authenticated && hasFarcaster && hasSigner) {
+    if (ready && authenticated && canWrite) {
       setActionMessage(null);
     }
-  }, [authenticated, hasFarcaster, hasSigner, ready]);
+  }, [authenticated, canWrite, ready]);
 
-  if (selectedTab !== "home" || !ready || authenticated || (hasFarcaster && hasSigner)) {
+  if (selectedTab !== "home" || !ready || authenticated || canWrite) {
     return null;
   }
 
-  const currentStep = "Sign in to Footy";
+  const currentStep = "Sign in";
 
   const handleContinue = async () => {
     setActionMessage(null);
@@ -140,7 +147,13 @@ function FarcasterLandingGate({
 
     setIsWorking(true);
     try {
-      await requestSigner();
+      if (!hasLinkedFarcaster) {
+        await beginLinkFarcaster();
+        setActionMessage("Connect your Farcaster account to continue Footy setup.");
+        return;
+      }
+
+      await beginSignerAuthorization();
       setActionMessage("Continue the Footy authorization flow to finish Farcaster setup.");
     } catch (error) {
       setActionMessage(error instanceof Error ? error.message : "Unable to continue Footy Farcaster setup.");
@@ -153,10 +166,10 @@ function FarcasterLandingGate({
     <div className="mb-4 rounded-[24px] border border-deepPink/30 bg-[linear-gradient(135deg,rgba(255,0,102,0.12),rgba(18,12,36,0.96))] p-5 text-notWhite shadow-[0_18px_40px_rgba(0,0,0,0.28)]">
       <div className="mb-2 app-eyebrow">Footy App on Farcaster</div>
       <h2 className="mb-2 text-[30px] font-semibold leading-[1.02] text-notWhite">
-        Sign in to share matches from Footy.
+        Follow teams and connect with fans.
       </h2>
       <p className="mb-4 max-w-[34rem] text-sm leading-6 text-lightPurple">
-        Use your Footy account first. Once you are in, connecting Farcaster and approving the signer stays inside the normal app flow.
+        Footy App is a Farcaster app that helps you follow football teams, discover fans, and track Fantasy League results, and get goal notifications. Sign in with your Farcaster account to personalize your experience!
       </p>
       <button
         type="button"

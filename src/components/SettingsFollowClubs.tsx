@@ -38,7 +38,7 @@ const getSafeMiniAppContext = async () => {
 };
 
 const SettingsFollowClubs: React.FC<SettingsFollowClubsProps> = ({ onSave, viewerFid }) => {
-  const { hasFarcaster, requestSigner } = useFootyFarcaster();
+  const { hasLinkedFarcaster, advanceOnboarding } = useFootyFarcaster();
   const [teams, setTeams] = useState<Team[]>([]);
   const [favTeams, setFavTeams] = useState<string[]>([]);
   const [searchTerm, setSearchTerm] = useState<string>("");
@@ -82,8 +82,8 @@ const SettingsFollowClubs: React.FC<SettingsFollowClubsProps> = ({ onSave, viewe
     if (!fid) {
       console.error("User not authenticated");
       setTransactionError("Connect Farcaster to manage follows and alerts.");
-      if (!hasFarcaster) {
-        await requestSigner();
+      if (!hasLinkedFarcaster) {
+        await advanceOnboarding();
       }
       return;
     }
@@ -150,8 +150,8 @@ const SettingsFollowClubs: React.FC<SettingsFollowClubsProps> = ({ onSave, viewe
     if (!fid) {
       console.error("User not authenticated");
       setTransactionError("Connect Farcaster to manage favorites.");
-      if (!hasFarcaster) {
-        await requestSigner();
+      if (!hasLinkedFarcaster) {
+        await advanceOnboarding();
       }
       return;
     }

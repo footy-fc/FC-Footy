@@ -100,6 +100,15 @@ export async function fetchUsersByFids(fids: number[]): Promise<HypersnapUser[]>
   return Array.isArray(response.users) ? response.users : [];
 }
 
+export async function fetchUserByFid(fid: number): Promise<HypersnapUser | null> {
+  if (!Number.isFinite(fid) || fid <= 0) {
+    return null;
+  }
+
+  const users = await fetchUsersByFids([fid]);
+  return users[0] ?? null;
+}
+
 export async function fetchFollowingPage(
   fid: number,
   cursor?: string | null,

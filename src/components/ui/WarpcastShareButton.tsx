@@ -250,7 +250,14 @@ interface WarpcastShareButtonProps {
 
 export function WarpcastShareButton({ selectedMatch, compositeImage, leagueId, moneyGamesParams, ticketPriceEth, prizePoolEth }: WarpcastShareButtonProps) {
   const { isGenerating, currentCommentator } = useCommentator();
-  const { runtime, hasWalletSigner, hasSigner, requestSigner, signCast, submitSignedMessage } = useFootyFarcaster();
+  const {
+    runtime,
+    hasFootySession,
+    onboardingState,
+    advanceOnboarding,
+    signCast,
+    submitSignedMessage,
+  } = useFootyFarcaster();
   const [ethUsdPrice, setEthUsdPrice] = useState<number | null>(null);
   const [isCreatingRoom, setIsCreatingRoom] = useState<boolean>(false);
   const [messageIndex, setMessageIndex] = useState<number>(0);
@@ -331,8 +338,12 @@ export function WarpcastShareButton({ selectedMatch, compositeImage, leagueId, m
     isGenerating ? '🎤 Generating Commentary...' :
     isCreatingRoom ? getLoadingMessage() :
     shareStatus === 'sent' ? 'Shared to Farcaster' :
-    !hasWalletSigner && runtime === 'miniapp' ? 'Authorize Footy to cast' :
-    !hasSigner ? 'Authorize Footy to cast' :
+    !hasFootySession && runtime === 'miniapp' ? 'Authorize Footy to cast' :
+    onboardingState === 'needs_auth' ? 'Sign in to share' :
+    onboardingState === 'needs_email' ? 'Add email to share' :
+    onboardingState === 'needs_wallet' ? 'Create wallet to share' :
+    onboardingState === 'needs_farcaster_account' ? 'Continue with Farcaster' :
+    onboardingState === 'needs_farcaster_signer' ? 'Authorize Footy to cast' :
     'Share Score';
 
 const generateCommentaryForMatch = async (
@@ -534,8 +545,8 @@ const generateCommentaryForMatch = async (
         ? [shareTarget.imageUrl, shareTarget.shareUrl]
         : [shareTarget.shareUrl];
 
-      if (!hasSigner) {
-        await requestSigner();
+      if (onboardingState !== 'ready') {
+        await advanceOnboarding();
         return;
       }
 
@@ -554,14 +565,14 @@ const generateCommentaryForMatch = async (
     }
   }, [
     compositeImage,
+    advanceOnboarding,
     currentCommentator?.displayName,
     ethUsdPrice,
-    hasSigner,
     leagueId,
     moneyGamesParams,
+    onboardingState,
     personalCommentary,
     prizePoolEth,
-    requestSigner,
     selectedMatch,
     signCast,
     submitSignedMessage,

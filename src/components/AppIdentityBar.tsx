@@ -43,10 +43,15 @@ const AppIdentityBar: React.FC<AppIdentityBarProps> = ({
   isAdminFid,
   viewerFid,
 }) => {
-  const { hasSigner, pfpUrl, username, beginLogin, runtime } = useFootyFarcaster();
+  const { canWrite, pfpUrl, username, beginLogin, runtime } = useFootyFarcaster();
   const { ready, authenticated } = usePrivy();
   const [teams, setTeams] = React.useState<Team[]>([]);
   const [favTeams, setFavTeams] = React.useState<string[]>([]);
+  const [profileImageFailed, setProfileImageFailed] = React.useState(false);
+
+  React.useEffect(() => {
+    setProfileImageFailed(false);
+  }, [pfpUrl]);
 
   React.useEffect(() => {
     let cancelled = false;
@@ -183,19 +188,20 @@ const AppIdentityBar: React.FC<AppIdentityBarProps> = ({
             className={`relative flex h-10 w-10 items-center justify-center overflow-hidden rounded-2xl border transition-colors ${
               selectedTab === "profile"
                 ? "border-deepPink bg-deepPink/20 text-notWhite"
-                : hasSigner
+                : canWrite
                   ? "border-limeGreenOpacity/35 bg-darkPurple/70 text-lightPurple hover:bg-darkPurple"
                   : "border-limeGreenOpacity/20 bg-darkPurple/70 text-lightPurple hover:bg-darkPurple"
             }`}
             aria-label={username ? `Open profile for @${username}` : "Open profile"}
           >
-            {pfpUrl ? (
-              <Image
+            {pfpUrl && !profileImageFailed ? (
+              <img
                 src={pfpUrl}
                 alt={username || "Profile"}
                 width={40}
                 height={40}
                 className="h-full w-full object-cover"
+                onError={() => setProfileImageFailed(true)}
               />
             ) : (
               <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2">
@@ -203,7 +209,7 @@ const AppIdentityBar: React.FC<AppIdentityBarProps> = ({
                 <circle cx="12" cy="7" r="4" />
               </svg>
             )}
-            {hasSigner ? (
+            {canWrite ? (
               <span className="absolute bottom-0.5 right-0.5 flex h-4 w-4 items-center justify-center rounded-full border border-darkPurple bg-limeGreenOpacity text-darkPurple">
                 <svg viewBox="0 0 24 24" className="h-2.5 w-2.5" fill="none" stroke="currentColor" strokeWidth="3">
                   <path d="M5 12l4 4L19 6" />

@@ -13,7 +13,7 @@ interface HomeTabProps {
 const HomeTab: React.FC<HomeTabProps> = ({ onNavigate, viewerFid }) => {
   const [hasChosenTeams, setHasChosenTeams] = React.useState(false);
   const { ready, authenticated } = usePrivy();
-  const { hasFarcaster, requestSigner } = useFootyFarcaster();
+  const { hasLinkedFarcaster, advanceOnboarding, onboardingState, runtime } = useFootyFarcaster();
 
   React.useEffect(() => {
     let cancelled = false;
@@ -54,15 +54,19 @@ const HomeTab: React.FC<HomeTabProps> = ({ onNavigate, viewerFid }) => {
         <h2 className="app-title">Footy App adapts to you</h2>
       </div>
 
-      {ready && authenticated && !hasFarcaster ? (
+      {ready && authenticated && runtime !== "miniapp" && !hasLinkedFarcaster ? (
         <div className="mb-4 rounded-[22px] border border-deepPink/30 bg-purplePanel p-4 text-lightPurple">
           <div className="app-card-title mb-2">Personalize your fan experience</div>
           <button
             type="button"
-            onClick={() => void requestSigner()}
+            onClick={() => void advanceOnboarding()}
             className="rounded-xl bg-deepPink px-4 py-3 text-sm font-semibold text-notWhite transition-colors hover:bg-deepPink/85"
           >
-            Connect Farcaster
+            {onboardingState === "needs_email"
+              ? "Add email"
+              : onboardingState === "needs_wallet"
+                ? "Create wallet"
+                : "Connect Farcaster"}
           </button>
         </div>
       ) : null}

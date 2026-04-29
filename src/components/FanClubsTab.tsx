@@ -14,9 +14,9 @@ const FanClubsTab: React.FC<FanClubsTabProps> = ({ viewerFid }) => {
   const profileFid = searchParams?.get("profileFid");
   const teamId = searchParams?.get("teamId");
   const { ready, authenticated } = usePrivy();
-  const { hasFarcaster, requestSigner } = useFootyFarcaster();
+  const { hasLinkedFarcaster, advanceOnboarding, onboardingState, runtime } = useFootyFarcaster();
 
-  if (ready && authenticated && !hasFarcaster) {
+  if (ready && authenticated && runtime !== "miniapp" && !hasLinkedFarcaster) {
     return (
       <div className="mb-4">
         <div className="app-eyebrow mb-2">Fan Clubs</div>
@@ -28,10 +28,14 @@ const FanClubsTab: React.FC<FanClubsTabProps> = ({ viewerFid }) => {
         <div className="rounded-[22px] border border-deepPink/30 bg-purplePanel p-4 text-lightPurple">
           <button
             type="button"
-            onClick={() => void requestSigner()}
+            onClick={() => void advanceOnboarding()}
             className="rounded-xl bg-deepPink px-4 py-3 text-sm font-semibold text-notWhite transition-colors hover:bg-deepPink/85"
           >
-            Connect Farcaster
+            {onboardingState === "needs_email"
+              ? "Add email"
+              : onboardingState === "needs_wallet"
+                ? "Create wallet"
+                : "Connect Farcaster"}
           </button>
         </div>
       </div>

@@ -8,6 +8,7 @@ import { ExternalEd25519Signer } from '@standard-crypto/farcaster-js';
 import { CastAddBody, FarcasterNetwork, makeCastAdd } from '@farcaster/hub-web';
 import { detectFarcasterRuntime, type FarcasterRuntime } from '~/lib/farcaster/runtime';
 import type { FootyDelegatedApp, FootySignerCustody, FootySignerProvider, FootySignerStatus, FootyWalletProvider } from '~/lib/farcaster/types';
+import { fetchUserByFid } from '~/lib/hypersnap';
 
 type FootyCastInput = {
   text: string;
@@ -21,12 +22,41 @@ type FootySignedCastPayload = {
   message: unknown;
 };
 
+type FootyFarcasterProfile = {
+  username?: string;
+  displayName?: string;
+  pfpUrl?: string;
+  followerCount?: number;
+  followingCount?: number;
+};
+
+export type FootyOnboardingState =
+  | 'needs_auth'
+  | 'needs_email'
+  | 'needs_wallet'
+  | 'needs_farcaster_account'
+  | 'needs_farcaster_signer'
+  | 'ready';
+
 export type FootyFarcasterState = {
   runtime: 'miniapp' | 'standalone';
+  identityFid?: number;
+  linkedFid?: number;
+  activeFid?: number;
+  hasHostContext: boolean;
+  hasFootySession: boolean;
+  hasEmail: boolean;
+  hasWallet: boolean;
+  hasLinkedFarcaster: boolean;
+  canWrite: boolean;
+  onboardingState: FootyOnboardingState;
+  profile: FootyFarcasterProfile;
   fid?: number;
   username?: string;
   displayName?: string;
   pfpUrl?: string;
+  followerCount?: number;
+  followingCount?: number;
   signerPublicKey?: string;
   hasFarcaster: boolean;
   hasWalletSigner: boolean;
@@ -37,6 +67,11 @@ export type FootyFarcasterState = {
   signerCustody?: FootySignerCustody;
   walletProvider?: FootyWalletProvider;
   beginLogin: () => Promise<void>;
+  beginLinkEmail: () => Promise<void>;
+  beginCreateWallet: () => Promise<void>;
+  beginLinkFarcaster: () => Promise<void>;
+  beginSignerAuthorization: () => Promise<void>;
+  advanceOnboarding: () => Promise<void>;
   requestSigner: () => Promise<void>;
   signCast: (input: string | FootyCastInput) => Promise<unknown>;
   submitSignedMessage: (message: unknown) => Promise<unknown>;
@@ -48,6 +83,7 @@ type PrivyLinkedAccount = {
   username?: string;
   displayName?: string;
   display_name?: string;
+  pfp?: string | null;
   pfpUrl?: string;
   pfp_url?: string;
   signerPublicKey?: string;
@@ -74,12 +110,25 @@ function normalizeDisplayName(value?: string) {
   return value && value.trim().length > 0 ? value : undefined;
 }
 
+function isAlreadyLinkedFarcasterError(error: unknown) {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+
+  const message = error.message.toLowerCase();
+  return (
+    message.includes('another user has already linked this farcaster account') ||
+    (message.includes('already linked') && message.includes('farcaster'))
+  );
+}
+
 export function useFootyFarcaster(): FootyFarcasterState {
   const initialRuntime = useMemo(() => detectFarcasterRuntime(), []);
   const [runtime, setRuntime] = useState<FarcasterRuntime>(initialRuntime);
   const [miniAppContext, setMiniAppContext] = useState<MiniAppContext | null>(null);
   const [isRequestingSigner, setIsRequestingSigner] = useState(false);
-  const { ready, authenticated, user, login } = usePrivy();
+  const [freshProfile, setFreshProfile] = useState<FootyFarcasterProfile>({});
+  const { ready, authenticated, user, login, logout, linkEmail, createWallet } = usePrivy();
   const { initLoginToMiniApp, loginToMiniApp } = useLoginToMiniApp();
   const { linkFarcaster } = useLinkAccount();
   const { getFarcasterSignerPublicKey, requestFarcasterSignerFromWarpcast, signFarcasterMessage } = useFarcasterSigner();
@@ -116,25 +165,97 @@ export function useFootyFarcaster(): FootyFarcasterState {
   }, [runtime]);
 
   const privyFarcaster = getPrivyFarcasterAccount(user?.linkedAccounts as PrivyLinkedAccount[] | undefined);
-  const fid = runtime === 'miniapp' ? miniAppContext?.user?.fid : privyFarcaster?.fid;
-  const username =
+  const identityFid = miniAppContext?.user?.fid;
+  const linkedFid = privyFarcaster?.fid;
+  const activeFid = runtime === 'miniapp' ? identityFid : linkedFid;
+  const fallbackUsername =
     runtime === 'miniapp'
       ? normalizeDisplayName(miniAppContext?.user?.username)
       : normalizeDisplayName(privyFarcaster?.username);
-  const displayName =
+  const fallbackDisplayName =
     runtime === 'miniapp'
       ? normalizeDisplayName(miniAppContext?.user?.displayName || miniAppContext?.user?.display_name)
       : normalizeDisplayName(privyFarcaster?.displayName || privyFarcaster?.display_name);
-  const pfpUrl =
+  const fallbackPfpUrl =
     runtime === 'miniapp'
       ? normalizeDisplayName(miniAppContext?.user?.pfpUrl || miniAppContext?.user?.pfp_url)
-      : normalizeDisplayName(privyFarcaster?.pfpUrl || privyFarcaster?.pfp_url);
+      : normalizeDisplayName(
+          privyFarcaster?.pfp ?? privyFarcaster?.pfpUrl ?? privyFarcaster?.pfp_url ?? (user as { farcaster?: { pfp?: string | null } } | undefined)?.farcaster?.pfp ?? undefined
+        );
   const signerPublicKey = privyFarcaster?.signerPublicKey;
-
-  const hasFarcaster = Boolean(fid);
-  const hasWalletSigner = Boolean(authenticated);
+  const hasHostContext = Boolean(identityFid);
+  const hasFootySession = Boolean(authenticated);
+  const hasEmail = Boolean(user?.email?.address);
+  const hasWallet = Boolean(user?.wallet?.address);
+  const hasLinkedFarcaster = Boolean(linkedFid);
+  const hasFarcaster = Boolean(activeFid);
+  const hasWalletSigner = hasFootySession;
   const hasSigner = Boolean(signerPublicKey);
+  const canWrite = hasFootySession && hasLinkedFarcaster && hasSigner;
+  const onboardingState: FootyOnboardingState = !hasFootySession
+    ? 'needs_auth'
+    : !hasEmail
+      ? 'needs_email'
+      : !hasWallet
+        ? 'needs_wallet'
+        : !hasLinkedFarcaster
+          ? 'needs_farcaster_account'
+          : !hasSigner
+            ? 'needs_farcaster_signer'
+            : 'ready';
   const signerStatus: FootySignerStatus = hasSigner ? 'authorized' : isRequestingSigner ? 'pending' : 'none';
+  const profile = useMemo<FootyFarcasterProfile>(
+    () => ({
+      username: freshProfile.username || fallbackUsername,
+      displayName: freshProfile.displayName || fallbackDisplayName,
+      pfpUrl: freshProfile.pfpUrl || fallbackPfpUrl,
+      followerCount: freshProfile.followerCount,
+      followingCount: freshProfile.followingCount,
+    }),
+    [fallbackDisplayName, fallbackPfpUrl, fallbackUsername, freshProfile]
+  );
+  const username = profile.username;
+  const displayName = profile.displayName;
+  const pfpUrl = profile.pfpUrl;
+  const followerCount = profile.followerCount;
+  const followingCount = profile.followingCount;
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadProfile = async () => {
+      if (!activeFid) {
+        if (!cancelled) {
+          setFreshProfile({});
+        }
+        return;
+      }
+
+      try {
+        const userProfile = await fetchUserByFid(activeFid);
+        if (!cancelled) {
+          setFreshProfile({
+            username: normalizeDisplayName(userProfile?.username),
+            displayName: normalizeDisplayName(userProfile?.display_name || userProfile?.displayName),
+            pfpUrl: normalizeDisplayName(userProfile?.pfp_url),
+            followerCount: typeof userProfile?.follower_count === 'number' ? userProfile.follower_count : undefined,
+            followingCount: typeof userProfile?.following_count === 'number' ? userProfile.following_count : undefined,
+          });
+        }
+      } catch (error) {
+        if (!cancelled) {
+          console.warn('Footy Farcaster profile fetch skipped:', error);
+          setFreshProfile({});
+        }
+      }
+    };
+
+    void loadProfile();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeFid]);
 
   const getAuthorizationHeaders = useCallback(async (): Promise<FootyAuthHeaders> => {
     if (runtime === 'miniapp') {
@@ -158,9 +279,9 @@ export function useFootyFarcaster(): FootyFarcasterState {
     return {
       'x-footy-runtime': 'standalone',
       'x-footy-user-id': `privy:${user.id}`,
-      ...(fid ? { 'x-footy-fid': String(fid) } : {}),
+      ...(linkedFid ? { 'x-footy-fid': String(linkedFid) } : {}),
     };
-  }, [fid, runtime, user?.id]);
+  }, [linkedFid, runtime, user?.id]);
 
   useEffect(() => {
     let cancelled = false;
@@ -184,7 +305,7 @@ export function useFootyFarcaster(): FootyFarcasterState {
           },
           body: JSON.stringify({
             runtime,
-            fid,
+            fid: activeFid,
             username,
             displayName,
             signerPublicKey: signerPublicKey || null,
@@ -212,7 +333,7 @@ export function useFootyFarcaster(): FootyFarcasterState {
     return () => {
       cancelled = true;
     };
-  }, [authenticated, displayName, fid, getAuthorizationHeaders, hasFarcaster, ready, runtime, signerPublicKey, signerStatus, username]);
+  }, [activeFid, authenticated, displayName, getAuthorizationHeaders, hasFarcaster, ready, runtime, signerPublicKey, signerStatus, username]);
 
   const beginLogin = useCallback(async () => {
     if (authenticated) {
@@ -236,14 +357,74 @@ export function useFootyFarcaster(): FootyFarcasterState {
     login();
   }, [authenticated, initLoginToMiniApp, login, loginToMiniApp, ready, runtime]);
 
-  const requestSigner = useCallback(async () => {
+  const beginStandaloneFarcasterLogin = useCallback(async () => {
+    if (authenticated) {
+      await logout();
+    }
+
+    login({ loginMethods: ['farcaster'] });
+  }, [authenticated, login, logout]);
+
+  const beginLinkEmail = useCallback(async () => {
+    if (!authenticated) {
+      await beginLogin();
+      return;
+    }
+
+    if (!user?.email?.address) {
+      linkEmail();
+    }
+  }, [authenticated, beginLogin, linkEmail, user?.email?.address]);
+
+  const beginCreateWallet = useCallback(async () => {
+    if (!authenticated) {
+      await beginLogin();
+      return;
+    }
+
+    if (!user?.wallet?.address) {
+      await createWallet();
+    }
+  }, [authenticated, beginLogin, createWallet, user?.wallet?.address]);
+
+  const beginLinkFarcaster = useCallback(async () => {
     if (!authenticated) {
       await beginLogin();
       return;
     }
 
     if (!privyFarcaster?.fid) {
-      await linkFarcaster();
+      try {
+        await linkFarcaster();
+      } catch (error) {
+        if (runtime === 'standalone' && isAlreadyLinkedFarcasterError(error)) {
+          await beginStandaloneFarcasterLogin();
+          return;
+        }
+
+        throw error;
+      }
+    }
+  }, [authenticated, beginLogin, beginStandaloneFarcasterLogin, linkFarcaster, privyFarcaster?.fid, runtime]);
+
+  const beginSignerAuthorization = useCallback(async () => {
+    if (!authenticated) {
+      await beginLogin();
+      return;
+    }
+
+    if (!user?.email?.address) {
+      await beginLinkEmail();
+      return;
+    }
+
+    if (!user?.wallet?.address) {
+      await beginCreateWallet();
+      return;
+    }
+
+    if (!privyFarcaster?.fid) {
+      await beginLinkFarcaster();
       return;
     }
 
@@ -253,7 +434,48 @@ export function useFootyFarcaster(): FootyFarcasterState {
     } finally {
       setIsRequestingSigner(false);
     }
-  }, [authenticated, beginLogin, linkFarcaster, privyFarcaster?.fid, requestFarcasterSignerFromWarpcast]);
+  }, [
+    authenticated,
+    beginCreateWallet,
+    beginLinkEmail,
+    beginLinkFarcaster,
+    beginLogin,
+    privyFarcaster?.fid,
+    requestFarcasterSignerFromWarpcast,
+    user?.email?.address,
+    user?.wallet?.address,
+  ]);
+
+  const advanceOnboarding = useCallback(async () => {
+    switch (onboardingState) {
+      case 'needs_auth':
+        await beginLogin();
+        return;
+      case 'needs_email':
+        await beginLinkEmail();
+        return;
+      case 'needs_wallet':
+        await beginCreateWallet();
+        return;
+      case 'needs_farcaster_account':
+        await beginLinkFarcaster();
+        return;
+      case 'needs_farcaster_signer':
+        await beginSignerAuthorization();
+        return;
+      case 'ready':
+        return;
+    }
+  }, [
+    beginCreateWallet,
+    beginLinkEmail,
+    beginLinkFarcaster,
+    beginLogin,
+    beginSignerAuthorization,
+    onboardingState,
+  ]);
+
+  const requestSigner = beginSignerAuthorization;
 
   const signCast = useCallback(
     async (input: string | FootyCastInput) => {
@@ -264,7 +486,7 @@ export function useFootyFarcaster(): FootyFarcasterState {
         throw new Error('Cast text is required');
       }
 
-      if (!fid) {
+      if (!linkedFid) {
         throw new Error('Connect Farcaster before posting');
       }
 
@@ -282,7 +504,7 @@ export function useFootyFarcaster(): FootyFarcasterState {
       const messageResult = await makeCastAdd(
         body,
         {
-          fid,
+          fid: linkedFid,
           network: FarcasterNetwork.MAINNET,
         },
         signer
@@ -293,13 +515,13 @@ export function useFootyFarcaster(): FootyFarcasterState {
       }
 
       return {
-        fid,
+        fid: linkedFid,
         text,
         embeds,
         message: messageResult.value,
       } satisfies FootySignedCastPayload;
     },
-    [fid, getFarcasterSignerPublicKey, hasSigner, signFarcasterMessage]
+    [getFarcasterSignerPublicKey, hasSigner, linkedFid, signFarcasterMessage]
   );
 
   const submitSignedMessage = useCallback(
@@ -336,10 +558,23 @@ export function useFootyFarcaster(): FootyFarcasterState {
 
   return {
     runtime,
-    fid,
+    identityFid,
+    linkedFid,
+    activeFid,
+    hasHostContext,
+    hasFootySession,
+    hasEmail,
+    hasWallet,
+    hasLinkedFarcaster,
+    canWrite,
+    onboardingState,
+    profile,
+    fid: activeFid,
     username,
     displayName,
     pfpUrl,
+    followerCount,
+    followingCount,
     signerPublicKey,
     hasFarcaster,
     hasWalletSigner,
@@ -350,6 +585,11 @@ export function useFootyFarcaster(): FootyFarcasterState {
     signerCustody: runtime === 'miniapp' ? 'miniapp-hosted' : 'client-delegated',
     walletProvider: runtime === 'miniapp' ? 'miniapp' : 'privy',
     beginLogin,
+    beginLinkEmail,
+    beginCreateWallet,
+    beginLinkFarcaster,
+    beginSignerAuthorization,
+    advanceOnboarding,
     requestSigner,
     signCast,
     submitSignedMessage,
