@@ -43,7 +43,7 @@ const AppIdentityBar: React.FC<AppIdentityBarProps> = ({
   isAdminFid,
   viewerFid,
 }) => {
-  const { hasSigner, pfpUrl, username, beginLogin } = useFootyFarcaster();
+  const { hasSigner, pfpUrl, username, beginLogin, runtime } = useFootyFarcaster();
   const { ready, authenticated } = usePrivy();
   const [teams, setTeams] = React.useState<Team[]>([]);
   const [favTeams, setFavTeams] = React.useState<string[]>([]);
@@ -95,7 +95,7 @@ const AppIdentityBar: React.FC<AppIdentityBarProps> = ({
     .slice(1)
     .map((teamId) => teams.find((team) => getTeamId(team) === teamId))
     .filter((team): team is Team => Boolean(team));
-  const showLoginButton = ready && !authenticated;
+  const showLoginButton = ready && !authenticated && runtime !== "miniapp";
 
   return (
     <div className="mb-3 flex items-center gap-2 overflow-hidden rounded-[20px] border border-limeGreenOpacity/20 bg-purplePanel/80 px-3 py-2 shadow-[0_10px_28px_rgba(0,0,0,0.22)]">

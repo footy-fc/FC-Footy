@@ -250,7 +250,7 @@ interface WarpcastShareButtonProps {
 
 export function WarpcastShareButton({ selectedMatch, compositeImage, leagueId, moneyGamesParams, ticketPriceEth, prizePoolEth }: WarpcastShareButtonProps) {
   const { isGenerating, currentCommentator } = useCommentator();
-  const { hasSigner, requestSigner, signCast, submitSignedMessage } = useFootyFarcaster();
+  const { runtime, hasWalletSigner, hasSigner, requestSigner, signCast, submitSignedMessage } = useFootyFarcaster();
   const [ethUsdPrice, setEthUsdPrice] = useState<number | null>(null);
   const [isCreatingRoom, setIsCreatingRoom] = useState<boolean>(false);
   const [messageIndex, setMessageIndex] = useState<number>(0);
@@ -326,6 +326,14 @@ export function WarpcastShareButton({ selectedMatch, compositeImage, leagueId, m
     ];
     return messages[messageIndex];
   };
+
+  const shareButtonLabel =
+    isGenerating ? '🎤 Generating Commentary...' :
+    isCreatingRoom ? getLoadingMessage() :
+    shareStatus === 'sent' ? 'Shared to Farcaster' :
+    !hasWalletSigner && runtime === 'miniapp' ? 'Authorize Footy to cast' :
+    !hasSigner ? 'Authorize Footy to cast' :
+    'Share Score';
 
 const generateCommentaryForMatch = async (
     homeTeam: string,
@@ -466,18 +474,21 @@ const generateCommentaryForMatch = async (
                 clock
               );
               const uploadRes = await fetch('/api/upload', { method: 'POST', body: blob });
-              const uploadResult: { objectKey: string; publicUrl: string } = await uploadRes.json();
-              if (!uploadRes.ok) throw new Error('Image upload failed');
+              const uploadResult: { objectKey?: string; publicUrl?: string; error?: string; details?: string } = await uploadRes.json();
+              if (!uploadRes.ok) {
+                const message = uploadResult.details || uploadResult.error || 'Image upload failed';
+                throw new Error(message);
+              }
 
               if (uploadResult?.objectKey) {
                 console.log('Composite image uploaded. Key:', uploadResult.objectKey);
               }
 
               const urlObj = new URL(miniAppUrl);
-              urlObj.searchParams.set('imageKey', uploadResult.objectKey);
+              urlObj.searchParams.set('imageKey', uploadResult.objectKey || '');
               return {
                 shareUrl: urlObj.toString(),
-                imageUrl: uploadResult.publicUrl,
+                imageUrl: uploadResult.publicUrl || null,
               };
             })().catch((error) => {
               console.error("Error generating composite image:", error);
@@ -572,10 +583,7 @@ const generateCommentaryForMatch = async (
         disabled={isGenerating || isCreatingRoom || shareStatus === 'sent'}
         className="w-full sm:w-38 bg-deepPink text-white py-2 px-4 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-deepPink hover:bg-fontRed"
       >
-        {isGenerating ? '🎤 Generating Commentary...' :
-         isCreatingRoom ? getLoadingMessage() :
-         shareStatus === 'sent' ? 'Shared to Farcaster' :
-         'Share Score'}
+        {shareButtonLabel}
       </button>
     </div>
   );

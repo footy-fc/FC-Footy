@@ -176,8 +176,8 @@ function FarcasterLandingGate({
 export default function Main() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const { ready, authenticated } = usePrivy();
-  const { fid: footyFarcasterFid } = useFootyFarcaster();
+  const { authenticated } = usePrivy();
+  const { fid: footyFarcasterFid, runtime: farcasterRuntime } = useFootyFarcaster();
   const [customSearchParams, setCustomSearchParams] = useState<URLSearchParams | null>(null);
   const [miniAppChecked, setMiniAppChecked] = useState(false);
   const [verifiedFid, setVerifiedFid] = useState<number | null>(null);
@@ -436,7 +436,7 @@ export default function Main() {
               Testing Mode - Bypassing Connection Check
             </div>
           )}
-          {!ready || !authenticated ? (
+          {!authenticated && farcasterRuntime !== "miniapp" ? (
             <FarcasterLandingGate selectedTab="home" />
           ) : (
             <>
