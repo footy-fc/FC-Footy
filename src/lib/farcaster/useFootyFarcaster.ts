@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { sdk } from '@farcaster/miniapp-sdk';
 import { useFarcasterSigner, useLinkAccount, usePrivy } from '@privy-io/react-auth';
+import { useLoginToMiniApp } from '@privy-io/react-auth/farcaster';
 import { ExternalEd25519Signer } from '@standard-crypto/farcaster-js';
 import { CastAddBody, FarcasterNetwork, makeCastAdd } from '@farcaster/hub-web';
 import { detectFarcasterRuntime, type FarcasterRuntime } from '~/lib/farcaster/runtime';
@@ -35,6 +36,7 @@ export type FootyFarcasterState = {
   signerProvider?: FootySignerProvider;
   signerCustody?: FootySignerCustody;
   walletProvider?: FootyWalletProvider;
+  beginLogin: () => Promise<void>;
   requestSigner: () => Promise<void>;
   signCast: (input: string | FootyCastInput) => Promise<unknown>;
   submitSignedMessage: (message: unknown) => Promise<unknown>;
@@ -78,6 +80,7 @@ export function useFootyFarcaster(): FootyFarcasterState {
   const [miniAppContext, setMiniAppContext] = useState<MiniAppContext | null>(null);
   const [isRequestingSigner, setIsRequestingSigner] = useState(false);
   const { ready, authenticated, user, login } = usePrivy();
+  const { initLoginToMiniApp, loginToMiniApp } = useLoginToMiniApp();
   const { linkFarcaster } = useLinkAccount();
   const { getFarcasterSignerPublicKey, requestFarcasterSignerFromWarpcast, signFarcasterMessage } = useFarcasterSigner();
 
@@ -211,9 +214,31 @@ export function useFootyFarcaster(): FootyFarcasterState {
     };
   }, [authenticated, displayName, fid, getAuthorizationHeaders, hasFarcaster, ready, runtime, signerPublicKey, signerStatus, username]);
 
+  const beginLogin = useCallback(async () => {
+    if (authenticated) {
+      return;
+    }
+
+    if (runtime === 'miniapp' && ready) {
+      try {
+        const { nonce } = await initLoginToMiniApp();
+        const result = await sdk.actions.signIn({ nonce });
+        await loginToMiniApp({
+          message: result.message,
+          signature: result.signature,
+        });
+        return;
+      } catch (error) {
+        console.warn('Mini app Privy login fell back to modal login:', error);
+      }
+    }
+
+    login();
+  }, [authenticated, initLoginToMiniApp, login, loginToMiniApp, ready, runtime]);
+
   const requestSigner = useCallback(async () => {
     if (!authenticated) {
-      login();
+      await beginLogin();
       return;
     }
 
@@ -228,7 +253,7 @@ export function useFootyFarcaster(): FootyFarcasterState {
     } finally {
       setIsRequestingSigner(false);
     }
-  }, [authenticated, linkFarcaster, login, privyFarcaster?.fid, requestFarcasterSignerFromWarpcast]);
+  }, [authenticated, beginLogin, linkFarcaster, privyFarcaster?.fid, requestFarcasterSignerFromWarpcast]);
 
   const signCast = useCallback(
     async (input: string | FootyCastInput) => {
@@ -324,6 +349,7 @@ export function useFootyFarcaster(): FootyFarcasterState {
     signerProvider: runtime === 'miniapp' ? 'miniapp' : 'privy',
     signerCustody: runtime === 'miniapp' ? 'miniapp-hosted' : 'client-delegated',
     walletProvider: runtime === 'miniapp' ? 'miniapp' : 'privy',
+    beginLogin,
     requestSigner,
     signCast,
     submitSignedMessage,

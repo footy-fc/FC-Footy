@@ -115,8 +115,8 @@ function FarcasterLandingGate({
 }) {
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [isWorking, setIsWorking] = useState(false);
-  const { ready, authenticated, login } = usePrivy();
-  const { hasFarcaster, hasSigner, signerStatus, requestSigner } = useFootyFarcaster();
+  const { ready, authenticated } = usePrivy();
+  const { beginLogin, hasFarcaster, hasSigner, signerStatus, requestSigner } = useFootyFarcaster();
 
   useEffect(() => {
     if (ready && authenticated && hasFarcaster && hasSigner) {
@@ -134,7 +134,7 @@ function FarcasterLandingGate({
     setActionMessage(null);
 
     if (!ready || !authenticated) {
-      login();
+      await beginLogin();
       return;
     }
 

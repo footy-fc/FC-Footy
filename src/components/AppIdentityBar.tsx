@@ -43,8 +43,8 @@ const AppIdentityBar: React.FC<AppIdentityBarProps> = ({
   isAdminFid,
   viewerFid,
 }) => {
-  const { ready, authenticated, login } = usePrivy();
-  const { hasSigner, pfpUrl, username } = useFootyFarcaster();
+  const { hasSigner, pfpUrl, username, beginLogin } = useFootyFarcaster();
+  const { ready, authenticated } = usePrivy();
   const [teams, setTeams] = React.useState<Team[]>([]);
   const [favTeams, setFavTeams] = React.useState<string[]>([]);
 
@@ -171,7 +171,7 @@ const AppIdentityBar: React.FC<AppIdentityBarProps> = ({
         {showLoginButton ? (
           <button
             type="button"
-            onClick={login}
+            onClick={() => void beginLogin()}
             className="rounded-2xl border border-deepPink/35 bg-deepPink/18 px-4 py-2 text-sm font-semibold text-notWhite transition-colors hover:bg-deepPink/28"
           >
             Sign in

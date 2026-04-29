@@ -534,6 +534,7 @@ const generateCommentaryForMatch = async (
       });
 
       await submitSignedMessage(signedMessage);
+      setPersonalCommentary('');
       setShareStatus('sent');
       }
     } finally {
