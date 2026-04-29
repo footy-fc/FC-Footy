@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { authenticateFootyUser } from '~/lib/farcaster/serverAuth';
 import { appendFarcasterActionLog } from '~/lib/farcaster/store';
 
+const HAATZ_SUBMIT_TIMEOUT_MS = 12000;
+
 type CastSubmitPayload = {
   fid?: number;
   text?: string;
@@ -121,13 +123,37 @@ async function submitSignedMessageToHaatz(message: unknown) {
     normalizedMessage as Parameters<typeof Message.encode>[0]
   ).finish();
 
-  const response = await fetch(submitUrl, {
-    method: 'POST',
-    headers: {
-      'content-type': 'application/octet-stream',
-    },
-    body: Buffer.from(encodedMessage),
-  });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), HAATZ_SUBMIT_TIMEOUT_MS);
+  const startedAt = Date.now();
+
+  let response: Response;
+  try {
+    response = await fetch(submitUrl, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/octet-stream',
+      },
+      body: Buffer.from(encodedMessage),
+      signal: controller.signal,
+      cache: 'no-store',
+    });
+  } catch (error) {
+    const durationMs = Date.now() - startedAt;
+    console.error('[api/farcaster/cast] haatz submit failed', {
+      submitUrl,
+      durationMs,
+      error: formatError(error),
+    });
+
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new Error(`Haatz submit timed out after ${HAATZ_SUBMIT_TIMEOUT_MS}ms`);
+    }
+
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
 
   const rawText = await response.text().catch(() => '');
   let payload: unknown = null;
@@ -138,6 +164,12 @@ async function submitSignedMessageToHaatz(message: unknown) {
   }
 
   if (!response.ok) {
+    console.error('[api/farcaster/cast] haatz submit rejected', {
+      submitUrl,
+      status: response.status,
+      payload: typeof payload === 'string' ? payload : payload && typeof payload === 'object' ? JSON.stringify(payload) : null,
+    });
+
     if (typeof payload === 'string' && payload.trim().length > 0) {
       throw new Error(`Haatz submit failed (${response.status}): ${payload}`);
     }
@@ -152,9 +184,19 @@ async function submitSignedMessageToHaatz(message: unknown) {
   }
 
   if (typeof payload === 'string' && payload.trim().length > 0) {
+    console.log('[api/farcaster/cast] haatz submit ok', {
+      submitUrl,
+      status: response.status,
+      durationMs: Date.now() - startedAt,
+    });
     return { ok: true, raw: payload };
   }
 
+  console.log('[api/farcaster/cast] haatz submit ok', {
+    submitUrl,
+    status: response.status,
+    durationMs: Date.now() - startedAt,
+  });
   return payload;
 }
 
@@ -217,3 +259,4 @@ export async function POST(request: NextRequest) {
 }
 
 export const runtime = 'nodejs';
+export const maxDuration = 60;
