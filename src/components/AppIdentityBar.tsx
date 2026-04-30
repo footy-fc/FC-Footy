@@ -7,6 +7,7 @@ import { usePrivy } from "@privy-io/react-auth";
 import { fetchTeamLogos } from "./utils/fetchTeamLogos";
 import { getTeamPreferences } from "../lib/kvPerferences";
 import { useFootyFarcaster } from "~/lib/farcaster/useFootyFarcaster";
+import BadgedProfileAvatar from "./BadgedProfileAvatar";
 
 interface Team {
   name: string;
@@ -47,11 +48,6 @@ const AppIdentityBar: React.FC<AppIdentityBarProps> = ({
   const { ready, authenticated } = usePrivy();
   const [teams, setTeams] = React.useState<Team[]>([]);
   const [favTeams, setFavTeams] = React.useState<string[]>([]);
-  const [profileImageFailed, setProfileImageFailed] = React.useState(false);
-
-  React.useEffect(() => {
-    setProfileImageFailed(false);
-  }, [pfpUrl]);
 
   React.useEffect(() => {
     let cancelled = false;
@@ -194,21 +190,15 @@ const AppIdentityBar: React.FC<AppIdentityBarProps> = ({
             }`}
             aria-label={username ? `Open profile for @${username}` : "Open profile"}
           >
-            {pfpUrl && !profileImageFailed ? (
-              <img
-                src={pfpUrl}
-                alt={username || "Profile"}
-                width={40}
-                height={40}
-                className="h-full w-full object-cover"
-                onError={() => setProfileImageFailed(true)}
-              />
-            ) : (
-              <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-                <circle cx="12" cy="7" r="4" />
-              </svg>
-            )}
+            <BadgedProfileAvatar
+              pfpUrl={pfpUrl}
+              alt={username || "Profile"}
+              badgeLogoUrl={favoriteTeam?.logoUrl}
+              badgeAlt={favoriteTeam?.name}
+              sizeClassName="h-full w-full"
+              badgeSize={14}
+              fallbackClassName="text-lightPurple"
+            />
             {canWrite ? (
               <span className="absolute bottom-0.5 right-0.5 flex h-4 w-4 items-center justify-center rounded-full border border-darkPurple bg-limeGreenOpacity text-darkPurple">
                 <svg viewBox="0 0 24 24" className="h-2.5 w-2.5" fill="none" stroke="currentColor" strokeWidth="3">

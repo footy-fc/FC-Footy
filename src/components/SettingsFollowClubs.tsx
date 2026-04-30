@@ -19,6 +19,7 @@ interface Team {
 interface SettingsFollowClubsProps {
   onSave?: (newFavorites: string[]) => void;
   viewerFid?: number;
+  favoriteTeamIds?: string[] | null;
 }
 
 const appUrl = process.env.NEXT_PUBLIC_URL;
@@ -37,7 +38,11 @@ const getSafeMiniAppContext = async () => {
   }
 };
 
-const SettingsFollowClubs: React.FC<SettingsFollowClubsProps> = ({ onSave, viewerFid }) => {
+const SettingsFollowClubs: React.FC<SettingsFollowClubsProps> = ({
+  onSave,
+  viewerFid,
+  favoriteTeamIds: favoriteTeamIdsOverride,
+}) => {
   const { hasLinkedFarcaster, advanceOnboarding } = useFootyFarcaster();
   const [teams, setTeams] = useState<Team[]>([]);
   const [favTeams, setFavTeams] = useState<string[]>([]);
@@ -68,6 +73,12 @@ const SettingsFollowClubs: React.FC<SettingsFollowClubsProps> = ({ onSave, viewe
     fetchContext();
     fetchTeamLogos().then((data) => setTeams(data));
   }, [viewerFid]);
+
+  useEffect(() => {
+    if (favoriteTeamIdsOverride) {
+      setFavTeams(favoriteTeamIdsOverride);
+    }
+  }, [favoriteTeamIdsOverride]);
 
   const savePreferences = async (fid: number, updatedFavTeams: string[]) => {
     await setTeamPreferences(fid, updatedFavTeams);
@@ -189,47 +200,72 @@ const SettingsFollowClubs: React.FC<SettingsFollowClubsProps> = ({ onSave, viewe
         })
       : filteredTeams;
 
-  // Lookup the full team object for the first favorite team (if any).
-  const favTeamObj =
-    favTeams.length > 0
-      ? teams.find((team) => getTeamId(team) === favTeams[0])
-      : null;
+  const followedTeams = favTeams
+    .slice(1)
+    .map((teamId) => teams.find((team) => getTeamId(team) === teamId))
+    .filter((team): team is Team => Boolean(team));
+
+  const renderAlertsToggle = (isOn: boolean, isBusy: boolean) => (
+    <div
+      className={`relative inline-flex h-7 w-12 items-center rounded-full border transition-colors ${
+        isOn
+          ? "border-limeGreenOpacity/35 bg-limeGreenOpacity/20"
+          : "border-limeGreenOpacity/18 bg-darkPurple"
+      } ${isBusy ? "opacity-60" : ""}`}
+      aria-hidden="true"
+    >
+      <span
+        className={`inline-block h-5 w-5 transform rounded-full bg-notWhite shadow-sm transition-transform ${
+          isOn ? "translate-x-6" : "translate-x-1"
+        }`}
+      />
+    </div>
+  );
 
   return (
     <div className="w-full h-full overflow-y-auto">
-      {favTeams.length > 0 && (
-        <div className="mb-3 rounded-lg border border-limeGreenOpacity bg-purplePanel p-3">
-          <div className="text-notWhite font-semibold mb-1">Favorite team</div>
-          <div className="text-sm text-lightPurple mb-2">
-            Your favorite team anchors your profile. Every followed team still receives score alerts.
-          </div>
-          <div className="flex items-center gap-2 text-notWhite font-semibold">
-            <span>{favTeamObj ? favTeamObj.name : favTeams[0]}</span>
-            {favTeamObj && (
-              <Image
-                src={favTeamObj.logoUrl || altImage}
-                alt={favTeamObj.name}
-                width={30}
-                height={30}
-                className="inline-block"
-              />
-            )}
-          </div>
-        </div>
-      )}
+      <div className="mb-4 space-y-3">
 
-      {/* Search input */}
-      <div className="mb-4 w-full">
+        {followedTeams.length > 0 ? (
+          <div className="rounded-[20px] border border-limeGreenOpacity/20 bg-darkPurple/55 p-3">
+            <div className="mb-2 text-[11px] uppercase tracking-[0.18em] text-lightPurple/75">Alerts on now</div>
+            <div className="flex flex-wrap gap-2">
+              {followedTeams.slice(0, 6).map((team) => (
+                <button
+                  key={getTeamId(team)}
+                  type="button"
+                  onClick={() => void handleRowClick(team)}
+                  disabled={loadingTeamIds.length > 0}
+                  className="flex items-center gap-2 rounded-full border border-limeGreenOpacity/20 bg-purplePanel px-3 py-2 text-xs font-medium text-lightPurple transition-colors hover:border-limeGreenOpacity/40 hover:bg-darkPurple disabled:cursor-wait disabled:opacity-60"
+                >
+                  <Image
+                    src={team.logoUrl || altImage}
+                    alt={team.name}
+                    width={18}
+                    height={18}
+                    className="rounded-full"
+                  />
+                  <span className="truncate">{team.name}</span>
+                </button>
+              ))}
+              {followedTeams.length > 6 ? (
+                <div className="rounded-full border border-limeGreenOpacity/20 bg-purplePanel px-3 py-2 text-xs font-medium text-lightPurple">
+                  +{followedTeams.length - 6} more
+                </div>
+              ) : null}
+            </div>
+          </div>
+        ) : null}
+
         <input
           type="text"
           placeholder="Search clubs or countries..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-          className="w-full bg-darkPurple p-2 border rounded-md border-limeGreenOpacity focus:outline-none focus:ring-2 focus:ring-darkPurple"
+          className="w-full rounded-[16px] border border-limeGreenOpacity/20 bg-darkPurple px-4 py-3 text-sm text-notWhite placeholder:text-lightPurple/60 focus:outline-none focus:ring-2 focus:ring-deepPink/30"
         />
-        {/* Notification affordance when not installed */}
         {favTeams.length > 0 && !isInstalled && (
-          <div className="mt-2 p-2 bg-gray-800/70 border border-gray-700 rounded">
+          <div className="rounded-[16px] border border-limeGreenOpacity/20 bg-gray-800/70 p-3">
             <div className="text-xs text-gray-300">
               Turn on match notifications by adding Footy to your Mini‑Apps.
             </div>
@@ -246,95 +282,101 @@ const SettingsFollowClubs: React.FC<SettingsFollowClubsProps> = ({ onSave, viewe
           </div>
         )}
         {transactionError && (
-          <div className="text-center text-red-500 text-sm mb-2">
+          <div className="text-center text-red-500 text-sm">
             {transactionError}
           </div>
         )}
       </div>
 
-      {/* Scrollable table container */}
-      <div className="w-full h-[500px] overflow-y-auto">
-        <table className="w-full bg-darkPurple">
-          {favTeams.length === 0 && (
-            <thead className="bg-darkPurple">
-              <tr className="text-fontRed text-center border-b border-limeGreenOpacity">
-                <th className="py-1 text-left font-medium">
-                  Select your favorite team first
-                </th>
-                <th className="py-1 text-center font-medium"></th>
-                <th className="py-1 text-right font-medium"></th>
-              </tr>
-            </thead>
-          )}
-          <tbody>
-            {orderedTeams.map((team) => {
-              const teamId = getTeamId(team);
-              const isLoading = loadingTeamIds.includes(teamId);
-              const isFollowed = favTeams.includes(teamId);
-              const isFavorite = favTeams[0] === teamId;
-              return (
-                <tr
-                  key={teamId}
-                  onClick={async () => {
-                    if (!isLoading && loadingTeamIds.length === 0) {
-                      try {
-                        await sdk.haptics.impactOccurred('medium');
-                      } catch {
-                        // ignore haptics errors
-                      }
-                      handleRowClick(team);
-                    }
-                  }}
-                  className={`hover:bg-purplePanel transition-colors text-lightPurple text-sm cursor-pointer ${
-                    isFollowed ? "bg-purplePanel" : ""
-                  }`}
-                >
-                  <td className="py-1 px-4 border-b border-limeGreenOpacity text-left">
-                    <div className="flex items-center space-x-2">
-                      <span>{team.name}</span>
-                      {isFavorite && <span className="text-yellow-300 text-xs">★ Favorite</span>}
-                      {isFollowed && !isFavorite && <span className="text-xs text-lightPurple">Alerts on</span>}
+      <div className="h-[500px] space-y-2 overflow-y-auto pr-1">
+        {favTeams.length === 0 && searchTerm.trim() === "" ? (
+          <div className="rounded-[18px] border border-dashed border-limeGreenOpacity/25 bg-darkPurple/60 px-4 py-5 text-sm text-lightPurple">
+            Search for a club or country below, turn on alerts, then promote one to your primary badge.
+          </div>
+        ) : null}
+
+        {orderedTeams.map((team) => {
+          const teamId = getTeamId(team);
+          const isLoading = loadingTeamIds.includes(teamId);
+          const isFollowed = favTeams.includes(teamId);
+          const isFavorite = favTeams[0] === teamId;
+
+          return (
+            <div
+              key={teamId}
+              className={`rounded-[18px] border px-4 py-3 transition-colors ${
+                isFavorite
+                  ? "border-yellow-300/30 bg-[linear-gradient(135deg,rgba(255,215,0,0.08),rgba(30,22,48,0.92))] shadow-[0_0_0_1px_rgba(255,215,0,0.08)]"
+                  : isFollowed
+                    ? "border-limeGreenOpacity/30 bg-purplePanel"
+                    : "border-limeGreenOpacity/15 bg-darkPurple/70"
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <div className="flex min-w-0 flex-1 items-center gap-3 text-left">
+                  {isLoading ? (
+                    <Image
+                      src="/defifa_spinner.gif"
+                      alt="loading"
+                      width={34}
+                      height={34}
+                    />
+                  ) : (
+                    <Image
+                      src={team.logoUrl || altImage}
+                      alt={team.name}
+                      width={34}
+                      height={34}
+                    />
+                  )}
+                  <div className="min-w-0">
+                    <div className="truncate text-sm font-semibold text-notWhite">{team.name}</div>
+                    {team.league ? (
+                      <div className="mt-1 text-[11px] uppercase tracking-[0.16em] text-lightPurple/60">
+                        {team.league}
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+
+                <div className="flex shrink-0 items-center gap-3">
+                  {isFavorite ? (
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full border border-yellow-300/25 bg-yellow-300/10 text-xs font-semibold text-yellow-300">
+                      <span aria-hidden="true">★</span>
                     </div>
-                  </td>
-                  <td className="py-1 px-4 border-b border-limeGreenOpacity text-center">
-                    {isLoading ? (
-                      <Image
-                        src="/defifa_spinner.gif"
-                        alt="loading"
-                        width={30}
-                        height={30}
-                      />
-                    ) : (
-                      <Image
-                        src={team.logoUrl || altImage}
-                        alt={team.name}
-                        width={30}
-                        height={30}
-                      />
-                    )}
-                  </td>
-                  <td className="py-1 px-4 border-b border-limeGreenOpacity text-right">
-                    {isFollowed && !isFavorite ? (
-                      <button
-                        onClick={async (e) => {
-                          e.stopPropagation();
-                          await handleMakeFavorite(team);
-                        }}
-                        className="text-xs rounded border border-limeGreenOpacity px-2 py-1 hover:bg-deepPink hover:text-white transition-colors"
-                      >
-                        Make favorite
-                      </button>
-                    ) : isFavorite ? (
-                      <span className="text-xs text-yellow-300">Primary</span>
-                    ) : (
-                      <span className="text-xs text-gray-500">Follow</span>
-                    )}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+                  ) : isFollowed ? (
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        await handleMakeFavorite(team);
+                      }}
+                      disabled={loadingTeamIds.length > 0}
+                      aria-label={`Set ${team.name} as primary team`}
+                      className="flex h-10 w-10 items-center justify-center rounded-full border border-limeGreenOpacity/25 text-xs font-medium text-lightPurple transition-colors hover:bg-darkPurple disabled:cursor-wait disabled:opacity-60"
+                    >
+                      <span className="text-yellow-300" aria-hidden="true">★</span>
+                    </button>
+                  ) : (
+                    <div className="w-10" />
+                  )}
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      if (!isLoading && loadingTeamIds.length === 0) {
+                        await handleRowClick(team);
+                      }
+                    }}
+                    disabled={loadingTeamIds.length > 0}
+                    className="flex items-center rounded-full px-1 py-1 text-xs font-semibold text-lightPurple transition-opacity disabled:cursor-wait disabled:opacity-60"
+                    aria-label={isFollowed ? `Turn alerts off for ${team.name}` : `Turn alerts on for ${team.name}`}
+                  >
+                    {renderAlertsToggle(isFollowed, isLoading)}
+                  </button>
+                </div>
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

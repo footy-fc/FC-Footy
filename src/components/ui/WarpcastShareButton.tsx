@@ -429,7 +429,7 @@ const generateCommentaryForMatch = async (
 
     if (onboardingState !== 'ready') {
       if (runtime === 'miniapp' && onboardingState === 'needs_auth') {
-        setShareMessage('Sign in to Footy with Privy to enable casting from the mini app.');
+        setShareMessage('Sign in to Footy to enable casting.');
         setIsAdvancingOnboarding(true);
         try {
           await beginPrivyLogin();
@@ -657,7 +657,7 @@ const generateCommentaryForMatch = async (
         placeholder="Add your commentary"
         maxLength={220}
         rows={3}
-        className="w-full rounded-lg border border-limeGreenOpacity/30 bg-darkPurple px-3 py-2 text-sm text-notWhite placeholder:text-lightPurple/60 focus:border-deepPink focus:outline-none"
+        className="w-full rounded-lg border border-limeGreenOpacity/30 bg-darkPurple px-3 py-2 text-[16px] text-notWhite placeholder:text-lightPurple/60 focus:border-deepPink focus:outline-none"
       />
       <button
         onClick={openWarpcastUrl}

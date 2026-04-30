@@ -1,4 +1,5 @@
 import React from "react";
+import ProfileIdentityCard from "./ProfileIdentityCard";
 import SettingsFollowClubs from "./SettingsFollowClubs";
 
 interface ProfileTabProps {
@@ -6,6 +7,8 @@ interface ProfileTabProps {
 }
 
 const ProfileTab: React.FC<ProfileTabProps> = ({ viewerFid }) => {
+  const [favoriteTeamIds, setFavoriteTeamIds] = React.useState<string[] | null>(null);
+
   return (
     <div className="mb-4">
       <div className="app-eyebrow mb-2">Profile</div>
@@ -14,8 +17,14 @@ const ProfileTab: React.FC<ProfileTabProps> = ({ viewerFid }) => {
         Pick clubs and countries and turn on notifications.
       </p>
 
+      <ProfileIdentityCard viewerFid={viewerFid} favoriteTeamIds={favoriteTeamIds} />
+
       <div className="bg-purplePanel text-lightPurple rounded-lg p-2 overflow-hidden">
-        <SettingsFollowClubs viewerFid={viewerFid} />
+        <SettingsFollowClubs
+          viewerFid={viewerFid}
+          favoriteTeamIds={favoriteTeamIds}
+          onSave={(updatedFavorites) => setFavoriteTeamIds(updatedFavorites)}
+        />
       </div>
     </div>
   );
