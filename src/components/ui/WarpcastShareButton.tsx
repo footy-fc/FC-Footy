@@ -263,6 +263,8 @@ export function WarpcastShareButton({ selectedMatch, compositeImage, leagueId, m
   const [messageIndex, setMessageIndex] = useState<number>(0);
   const [personalCommentary, setPersonalCommentary] = useState('');
   const [shareStatus, setShareStatus] = useState<'idle' | 'sent'>('idle');
+  const [shareMessage, setShareMessage] = useState<string | null>(null);
+  const [isAdvancingOnboarding, setIsAdvancingOnboarding] = useState(false);
 
   useEffect(() => {
     if (shareStatus !== 'sent') {
@@ -336,6 +338,7 @@ export function WarpcastShareButton({ selectedMatch, compositeImage, leagueId, m
 
   const shareButtonLabel =
     isGenerating ? '🎤 Generating Commentary...' :
+    isAdvancingOnboarding ? 'Opening Footy sign in...' :
     isCreatingRoom ? getLoadingMessage() :
     shareStatus === 'sent' ? 'Shared to Farcaster' :
     !hasFootySession && runtime === 'miniapp' ? 'Authorize Footy to cast' :
@@ -345,6 +348,25 @@ export function WarpcastShareButton({ selectedMatch, compositeImage, leagueId, m
     onboardingState === 'needs_farcaster_account' ? 'Continue with Farcaster' :
     onboardingState === 'needs_farcaster_signer' ? 'Authorize Footy to cast' :
     'Share Score';
+
+  const onboardingMessage = (() => {
+    switch (onboardingState) {
+      case 'needs_auth':
+        return runtime === 'miniapp'
+          ? 'Sign in to Footy so your Privy-backed Farcaster signer can cast from the mini app.'
+          : 'Sign in to Footy before sharing this match to Farcaster.';
+      case 'needs_email':
+        return 'Add your email to your Footy account before sharing this match.';
+      case 'needs_wallet':
+        return 'Create your Privy wallet before sharing this match to Farcaster.';
+      case 'needs_farcaster_account':
+        return 'Connect your Farcaster account to Footy before sharing this match.';
+      case 'needs_farcaster_signer':
+        return 'Authorize Footy to use your Farcaster signer before sharing this match.';
+      case 'ready':
+        return null;
+    }
+  })();
 
 const generateCommentaryForMatch = async (
     homeTeam: string,
@@ -393,6 +415,21 @@ const generateCommentaryForMatch = async (
   };
 
   const openWarpcastUrl = useCallback(async () => {
+    setShareMessage(null);
+
+    if (onboardingState !== 'ready') {
+      setShareMessage(onboardingMessage);
+      setIsAdvancingOnboarding(true);
+      try {
+        await advanceOnboarding();
+      } catch (error) {
+        setShareMessage(error instanceof Error ? error.message : 'Unable to continue Footy sign in.');
+      } finally {
+        setIsAdvancingOnboarding(false);
+      }
+      return;
+    }
+
     // Set creating room state for loading message
     setIsCreatingRoom(true);
     
@@ -545,11 +582,6 @@ const generateCommentaryForMatch = async (
         ? [shareTarget.imageUrl, shareTarget.shareUrl]
         : [shareTarget.shareUrl];
 
-      if (onboardingState !== 'ready') {
-        await advanceOnboarding();
-        return;
-      }
-
       const signedMessage = await signCast({
         text: matchSummary,
         embeds,
@@ -558,7 +590,10 @@ const generateCommentaryForMatch = async (
       await submitSignedMessage(signedMessage);
       setPersonalCommentary('');
       setShareStatus('sent');
+      setShareMessage('Cast sent from Footy.');
       }
+    } catch (error) {
+      setShareMessage(error instanceof Error ? error.message : 'Unable to share this match right now.');
     } finally {
       // Reset creating room state
       setIsCreatingRoom(false);
@@ -571,6 +606,7 @@ const generateCommentaryForMatch = async (
     leagueId,
     moneyGamesParams,
     onboardingState,
+    onboardingMessage,
     personalCommentary,
     prizePoolEth,
     selectedMatch,
@@ -591,11 +627,14 @@ const generateCommentaryForMatch = async (
       />
       <button
         onClick={openWarpcastUrl}
-        disabled={isGenerating || isCreatingRoom || shareStatus === 'sent'}
+        disabled={isGenerating || isCreatingRoom || isAdvancingOnboarding || shareStatus === 'sent'}
         className="w-full sm:w-38 bg-deepPink text-white py-2 px-4 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-deepPink hover:bg-fontRed"
       >
         {shareButtonLabel}
       </button>
+      {shareMessage ? (
+        <p className="text-sm text-lightPurple">{shareMessage}</p>
+      ) : null}
     </div>
   );
 }
