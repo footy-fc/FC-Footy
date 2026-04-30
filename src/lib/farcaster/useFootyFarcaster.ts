@@ -259,6 +259,14 @@ export function useFootyFarcaster(): FootyFarcasterState {
   }, [activeFid]);
 
   const getAuthorizationHeaders = useCallback(async (): Promise<FootyAuthHeaders> => {
+    if (user?.id) {
+      return {
+        'x-footy-runtime': 'standalone',
+        'x-footy-user-id': `privy:${user.id}`,
+        ...(linkedFid ? { 'x-footy-fid': String(linkedFid) } : {}),
+      };
+    }
+
     if (runtime === 'miniapp') {
       const quickAuth = (sdk as typeof sdk & { experimental?: { quickAuth?: (opts?: { force?: boolean }) => Promise<string> } }).experimental;
       const token = quickAuth?.quickAuth ? await quickAuth.quickAuth({ force: false }) : null;
@@ -277,11 +285,7 @@ export function useFootyFarcaster(): FootyFarcasterState {
       throw new Error('Sign in to use Footy as a Farcaster client');
     }
 
-    return {
-      'x-footy-runtime': 'standalone',
-      'x-footy-user-id': `privy:${user.id}`,
-      ...(linkedFid ? { 'x-footy-fid': String(linkedFid) } : {}),
-    };
+    throw new Error('Unable to resolve Footy authentication headers');
   }, [linkedFid, runtime, user?.id]);
 
   useEffect(() => {
