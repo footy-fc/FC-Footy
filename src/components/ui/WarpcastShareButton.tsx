@@ -253,9 +253,12 @@ export function WarpcastShareButton({ selectedMatch, compositeImage, leagueId, m
   const {
     runtime,
     hasFootySession,
+    hasLinkedFarcaster,
+    hasSigner,
     onboardingState,
-    advanceOnboarding,
     beginPrivyLogin,
+    beginLinkFarcaster,
+    beginSignerAuthorization,
     signCast,
     submitSignedMessage,
   } = useFootyFarcaster();
@@ -343,28 +346,34 @@ export function WarpcastShareButton({ selectedMatch, compositeImage, leagueId, m
     isCreatingRoom ? getLoadingMessage() :
     shareStatus === 'sent' ? 'Shared to Farcaster' :
     !hasFootySession && runtime === 'miniapp' ? 'Authorize Footy to cast' :
-    onboardingState === 'needs_auth' ? 'Sign in to share' :
+    !hasFootySession ? 'Sign in to share' :
+    !hasLinkedFarcaster ? 'Continue with Farcaster' :
+    !hasSigner ? 'Authorize Footy to cast' :
     onboardingState === 'needs_email' ? 'Add email to share' :
     onboardingState === 'needs_wallet' ? 'Create wallet to share' :
-    onboardingState === 'needs_farcaster_account' ? 'Continue with Farcaster' :
-    onboardingState === 'needs_farcaster_signer' ? 'Authorize Footy to cast' :
     'Share Score';
 
   const onboardingMessage = (() => {
+    if (!hasFootySession) {
+      return runtime === 'miniapp'
+        ? 'Sign in to Footy with Privy so your Farcaster signer can cast from the mini app.'
+        : 'Sign in to Footy App before sharing this match on Farcaster.';
+    }
+
+    if (!hasLinkedFarcaster) {
+      return 'Connect your Farcaster account to Footy before sharing this match.';
+    }
+
+    if (!hasSigner) {
+      return 'Authorize Footy to use your Farcaster signer before sharing this match.';
+    }
+
     switch (onboardingState) {
-      case 'needs_auth':
-        return runtime === 'miniapp'
-          ? 'Approve to cast from Footy App.'
-          : 'Sign in to Footy App before sharing this match on Farcaster.';
       case 'needs_email':
         return 'Add your email to your Footy account before sharing this match.';
       case 'needs_wallet':
         return 'Create your wallet before sharing this match to Farcaster.';
-      case 'needs_farcaster_account':
-        return 'Connect your Farcaster account to Footy before sharing this match.';
-      case 'needs_farcaster_signer':
-        return 'Authorize Footy to use your Farcaster signer before sharing this match.';
-      case 'ready':
+      default:
         return null;
     }
   })();
@@ -432,16 +441,22 @@ const generateCommentaryForMatch = async (
         return;
       }
 
-      setShareMessage(onboardingMessage);
-      setIsAdvancingOnboarding(true);
-      try {
-        await advanceOnboarding();
-      } catch (error) {
-        setShareMessage(error instanceof Error ? error.message : 'Unable to continue Footy sign in.');
-      } finally {
-        setIsAdvancingOnboarding(false);
+      if (!hasLinkedFarcaster || !hasSigner) {
+        setShareMessage(onboardingMessage);
+        setIsAdvancingOnboarding(true);
+        try {
+          if (!hasLinkedFarcaster) {
+            await beginLinkFarcaster();
+          } else {
+            await beginSignerAuthorization();
+          }
+        } catch (error) {
+          setShareMessage(error instanceof Error ? error.message : 'Unable to continue Footy sign in.');
+        } finally {
+          setIsAdvancingOnboarding(false);
+        }
+        return;
       }
-      return;
     }
 
     // Set creating room state for loading message
@@ -614,10 +629,13 @@ const generateCommentaryForMatch = async (
     }
   }, [
     compositeImage,
-    advanceOnboarding,
+    beginLinkFarcaster,
     beginPrivyLogin,
+    beginSignerAuthorization,
     currentCommentator?.displayName,
     ethUsdPrice,
+    hasLinkedFarcaster,
+    hasSigner,
     leagueId,
     moneyGamesParams,
     onboardingState,
