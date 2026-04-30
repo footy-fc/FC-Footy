@@ -67,6 +67,7 @@ export type FootyFarcasterState = {
   signerCustody?: FootySignerCustody;
   walletProvider?: FootyWalletProvider;
   beginLogin: () => Promise<void>;
+  beginPrivyLogin: () => Promise<void>;
   beginLinkEmail: () => Promise<void>;
   beginCreateWallet: () => Promise<void>;
   beginLinkFarcaster: () => Promise<void>;
@@ -357,6 +358,14 @@ export function useFootyFarcaster(): FootyFarcasterState {
     login();
   }, [authenticated, initLoginToMiniApp, login, loginToMiniApp, ready, runtime]);
 
+  const beginPrivyLogin = useCallback(async () => {
+    if (authenticated) {
+      return;
+    }
+
+    login({ loginMethods: ['email', 'wallet', 'farcaster'] });
+  }, [authenticated, login]);
+
   const beginStandaloneFarcasterLogin = useCallback(async () => {
     if (authenticated) {
       await logout();
@@ -585,6 +594,7 @@ export function useFootyFarcaster(): FootyFarcasterState {
     signerCustody: runtime === 'miniapp' ? 'miniapp-hosted' : 'client-delegated',
     walletProvider: runtime === 'miniapp' ? 'miniapp' : 'privy',
     beginLogin,
+    beginPrivyLogin,
     beginLinkEmail,
     beginCreateWallet,
     beginLinkFarcaster,

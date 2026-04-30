@@ -255,6 +255,7 @@ export function WarpcastShareButton({ selectedMatch, compositeImage, leagueId, m
     hasFootySession,
     onboardingState,
     advanceOnboarding,
+    beginPrivyLogin,
     signCast,
     submitSignedMessage,
   } = useFootyFarcaster();
@@ -353,12 +354,12 @@ export function WarpcastShareButton({ selectedMatch, compositeImage, leagueId, m
     switch (onboardingState) {
       case 'needs_auth':
         return runtime === 'miniapp'
-          ? 'Sign in to Footy so your Privy-backed Farcaster signer can cast from the mini app.'
-          : 'Sign in to Footy before sharing this match to Farcaster.';
+          ? 'Approve to cast from Footy App.'
+          : 'Sign in to Footy App before sharing this match on Farcaster.';
       case 'needs_email':
         return 'Add your email to your Footy account before sharing this match.';
       case 'needs_wallet':
-        return 'Create your Privy wallet before sharing this match to Farcaster.';
+        return 'Create your wallet before sharing this match to Farcaster.';
       case 'needs_farcaster_account':
         return 'Connect your Farcaster account to Footy before sharing this match.';
       case 'needs_farcaster_signer':
@@ -418,6 +419,19 @@ const generateCommentaryForMatch = async (
     setShareMessage(null);
 
     if (onboardingState !== 'ready') {
+      if (runtime === 'miniapp' && onboardingState === 'needs_auth') {
+        setShareMessage('Sign in to Footy with Privy to enable casting from the mini app.');
+        setIsAdvancingOnboarding(true);
+        try {
+          await beginPrivyLogin();
+        } catch (error) {
+          setShareMessage(error instanceof Error ? error.message : 'Unable to open Footy sign in.');
+        } finally {
+          setIsAdvancingOnboarding(false);
+        }
+        return;
+      }
+
       setShareMessage(onboardingMessage);
       setIsAdvancingOnboarding(true);
       try {
@@ -601,6 +615,7 @@ const generateCommentaryForMatch = async (
   }, [
     compositeImage,
     advanceOnboarding,
+    beginPrivyLogin,
     currentCommentator?.displayName,
     ethUsdPrice,
     leagueId,
@@ -609,6 +624,7 @@ const generateCommentaryForMatch = async (
     onboardingMessage,
     personalCommentary,
     prizePoolEth,
+    runtime,
     selectedMatch,
     signCast,
     submitSignedMessage,
