@@ -376,29 +376,41 @@ export function useFootyFarcaster(): FootyFarcasterState {
 
   const beginLinkEmail = useCallback(async () => {
     if (!authenticated) {
-      await beginLogin();
+      if (runtime === 'miniapp') {
+        await beginPrivyLogin();
+      } else {
+        await beginLogin();
+      }
       return;
     }
 
     if (!user?.email?.address) {
       linkEmail();
     }
-  }, [authenticated, beginLogin, linkEmail, user?.email?.address]);
+  }, [authenticated, beginLogin, beginPrivyLogin, linkEmail, runtime, user?.email?.address]);
 
   const beginCreateWallet = useCallback(async () => {
     if (!authenticated) {
-      await beginLogin();
+      if (runtime === 'miniapp') {
+        await beginPrivyLogin();
+      } else {
+        await beginLogin();
+      }
       return;
     }
 
     if (!user?.wallet?.address) {
       await createWallet();
     }
-  }, [authenticated, beginLogin, createWallet, user?.wallet?.address]);
+  }, [authenticated, beginLogin, beginPrivyLogin, createWallet, runtime, user?.wallet?.address]);
 
   const beginLinkFarcaster = useCallback(async () => {
     if (!authenticated) {
-      await beginLogin();
+      if (runtime === 'miniapp') {
+        await beginPrivyLogin();
+      } else {
+        await beginLogin();
+      }
       return;
     }
 
@@ -414,11 +426,15 @@ export function useFootyFarcaster(): FootyFarcasterState {
         throw error;
       }
     }
-  }, [authenticated, beginLogin, beginStandaloneFarcasterLogin, linkFarcaster, privyFarcaster?.fid, runtime]);
+  }, [authenticated, beginLogin, beginPrivyLogin, beginStandaloneFarcasterLogin, linkFarcaster, privyFarcaster?.fid, runtime]);
 
   const beginSignerAuthorization = useCallback(async () => {
     if (!authenticated) {
-      await beginLogin();
+      if (runtime === 'miniapp') {
+        await beginPrivyLogin();
+      } else {
+        await beginLogin();
+      }
       return;
     }
 
@@ -449,8 +465,10 @@ export function useFootyFarcaster(): FootyFarcasterState {
     beginLinkEmail,
     beginLinkFarcaster,
     beginLogin,
+    beginPrivyLogin,
     privyFarcaster?.fid,
     requestFarcasterSignerFromWarpcast,
+    runtime,
     user?.email?.address,
     user?.wallet?.address,
   ]);
