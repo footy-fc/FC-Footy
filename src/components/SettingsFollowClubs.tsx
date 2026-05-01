@@ -4,6 +4,8 @@ import { fetchTeamLogos } from "./utils/fetchTeamLogos";
 import {
   getTeamPreferences,
   setTeamPreferences,
+  isCountryTeamId,
+  isClubTeamId,
 } from "../lib/kvPerferences";
 import { sdk } from "@farcaster/miniapp-sdk";
 import { useMiniAppDetection } from "../hooks/useMiniAppDetection";
@@ -27,6 +29,21 @@ const altImage =`${appUrl}/512.png`
 
 // Helper function to generate a unique ID for each team.
 const getTeamId = (team: Team) => `${team.league}-${team.abbreviation}`;
+
+const getPrimaryByType = (teamIds: string[], type: "club" | "country") =>
+  teamIds.find((teamId) => (type === "club" ? isClubTeamId(teamId) : isCountryTeamId(teamId))) ?? null;
+
+const promoteWithinType = (teamIds: string[], targetTeamId: string) => {
+  const targetIsCountry = isCountryTeamId(targetTeamId);
+  const sameType = teamIds.filter((teamId) =>
+    targetIsCountry ? isCountryTeamId(teamId) : isClubTeamId(teamId)
+  );
+  const otherType = teamIds.filter((teamId) =>
+    targetIsCountry ? isClubTeamId(teamId) : isCountryTeamId(teamId)
+  );
+  const reorderedSameType = [targetTeamId, ...sameType.filter((teamId) => teamId !== targetTeamId)];
+  return targetIsCountry ? [...otherType, ...reorderedSameType] : [...reorderedSameType, ...otherType];
+};
 
 const getSafeMiniAppContext = async () => {
   try {
@@ -52,6 +69,8 @@ const SettingsFollowClubs: React.FC<SettingsFollowClubsProps> = ({
   const [hasPromptedMiniApp, setHasPromptedMiniApp] = useState<boolean>(false);
   const [isInstalled, setIsInstalled] = useState<boolean>(false);
   const { isLoading: isMiniAppLoading } = useMiniAppDetection();
+  const primaryClubId = getPrimaryByType(favTeams, "club");
+  const primaryCountryId = getPrimaryByType(favTeams, "country");
 
   useEffect(() => {
     const fetchContext = async () => {
@@ -155,35 +174,6 @@ const SettingsFollowClubs: React.FC<SettingsFollowClubsProps> = ({
     }
   };
 
-  const handleMakeFavorite = async (team: Team) => {
-    const context = viewerFid ? null : await getSafeMiniAppContext();
-    const fid = viewerFid ?? context?.user?.fid;
-    if (!fid) {
-      console.error("User not authenticated");
-      setTransactionError("Connect Farcaster to manage favorites.");
-      if (!hasLinkedFarcaster) {
-        await advanceOnboarding();
-      }
-      return;
-    }
-
-    const teamId = getTeamId(team);
-    if (!favTeams.includes(teamId) || favTeams[0] === teamId || loadingTeamIds.length > 0) {
-      return;
-    }
-
-    setLoadingTeamIds((prev) => [...prev, teamId]);
-    try {
-      const reordered = [teamId, ...favTeams.filter((id) => id !== teamId)];
-      await savePreferences(fid, reordered);
-    } catch (error) {
-      console.error("Error updating favorite team:", error);
-      setTransactionError("Could not update favorite team.");
-    } finally {
-      setLoadingTeamIds((prev) => prev.filter((id) => id !== teamId));
-    }
-  };
-
   // Filter teams based on the search term (case-insensitive)
   const filteredTeams = teams.filter((team) =>
     team.name.toLowerCase().includes(searchTerm.toLowerCase())
@@ -201,7 +191,7 @@ const SettingsFollowClubs: React.FC<SettingsFollowClubsProps> = ({
       : filteredTeams;
 
   const followedTeams = favTeams
-    .slice(1)
+    .filter((teamId) => teamId !== getPrimaryByType(favTeams, "club") && teamId !== getPrimaryByType(favTeams, "country"))
     .map((teamId) => teams.find((team) => getTeamId(team) === teamId))
     .filter((team): team is Team => Boolean(team));
 
@@ -291,7 +281,7 @@ const SettingsFollowClubs: React.FC<SettingsFollowClubsProps> = ({
       <div className="h-[500px] space-y-2 overflow-y-auto pr-1">
         {favTeams.length === 0 && searchTerm.trim() === "" ? (
           <div className="rounded-[18px] border border-dashed border-limeGreenOpacity/25 bg-darkPurple/60 px-4 py-5 text-sm text-lightPurple">
-            Search for a club or country below, turn on alerts, then promote one to your primary badge.
+            Choose one club as My Club, then follow extra clubs or countries for alerts.
           </div>
         ) : null}
 
@@ -299,7 +289,9 @@ const SettingsFollowClubs: React.FC<SettingsFollowClubsProps> = ({
           const teamId = getTeamId(team);
           const isLoading = loadingTeamIds.includes(teamId);
           const isFollowed = favTeams.includes(teamId);
-          const isFavorite = favTeams[0] === teamId;
+          const isCountry = isCountryTeamId(teamId);
+          const isFavorite = isCountry ? primaryCountryId === teamId : primaryClubId === teamId;
+          const favoriteLabel = isCountry ? "Favorite Country" : "My Club";
 
           return (
             <div
@@ -348,10 +340,23 @@ const SettingsFollowClubs: React.FC<SettingsFollowClubsProps> = ({
                     <button
                       type="button"
                       onClick={async () => {
-                        await handleMakeFavorite(team);
+                        if (loadingTeamIds.length > 0) return;
+                        const context = viewerFid ? null : await getSafeMiniAppContext();
+                        const fid = viewerFid ?? context?.user?.fid;
+                        if (!fid) return;
+                        const reordered = promoteWithinType(favTeams, teamId);
+                        setLoadingTeamIds((prev) => [...prev, teamId]);
+                        try {
+                          await savePreferences(fid, reordered);
+                        } catch (error) {
+                          console.error("Error updating favorite team:", error);
+                          setTransactionError(`Could not update ${isCountry ? "favorite country" : "club badge"}.`);
+                        } finally {
+                          setLoadingTeamIds((prev) => prev.filter((id) => id !== teamId));
+                        }
                       }}
                       disabled={loadingTeamIds.length > 0}
-                      aria-label={`Set ${team.name} as primary team`}
+                      aria-label={`Set ${team.name} as ${favoriteLabel}`}
                       className="flex h-10 w-10 items-center justify-center rounded-full border border-limeGreenOpacity/25 text-xs font-medium text-lightPurple transition-colors hover:bg-darkPurple disabled:cursor-wait disabled:opacity-60"
                     >
                       <span className="text-yellow-300" aria-hidden="true">★</span>
@@ -373,6 +378,14 @@ const SettingsFollowClubs: React.FC<SettingsFollowClubsProps> = ({
                     {renderAlertsToggle(isFollowed, isLoading)}
                   </button>
                 </div>
+              </div>
+              <div className="mt-3 flex items-center justify-between text-[11px] uppercase tracking-[0.14em] text-lightPurple/65">
+                <span>{isFavorite ? favoriteLabel : isFollowed ? "Following" : "Not following"}</span>
+                {!isFavorite && isFollowed ? (
+                  <span className="text-yellow-300/85">
+                    Tap star to make {isCountry ? "Favorite Country" : "My Club"}
+                  </span>
+                ) : null}
               </div>
             </div>
           );

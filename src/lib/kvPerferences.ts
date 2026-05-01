@@ -9,6 +9,29 @@ function getTeamPreferencesKey(fid: number): string {
   return `fc-footy:preference:${fid}`;
 }
 
+function getPrimaryTeamKey(fid: number): string {
+  return `fc-footy:primary-team:${fid}`;
+}
+
+function getPrimaryTeamFansKey(teamId: string): string {
+  return `fc-footy:primary-team-fans:${teamId}`;
+}
+
+const COUNTRY_LEAGUE_PREFIXES = [
+  "fifa.worldq.",
+  "caf.nations",
+  "uefa.nations",
+];
+
+export function isCountryTeamId(teamId: string): boolean {
+  const [leagueId] = teamId.split("-");
+  return COUNTRY_LEAGUE_PREFIXES.some((prefix) => leagueId.startsWith(prefix));
+}
+
+export function isClubTeamId(teamId: string): boolean {
+  return !isCountryTeamId(teamId);
+}
+
 /**
  * Get the team preferences for a user.
  * The returned array contains unique team IDs (e.g. "eng.1-ars").
@@ -24,30 +47,35 @@ export async function getTeamPreferences(fid: number): Promise<string[] | null> 
  * The teams array contains unique team IDs (e.g. "eng.1-ars").
  */
 export async function setTeamPreferences(fid: number, teams: string[]): Promise<void> {
-  // console.log("setTeamPreferences", teams, fid);
-
-  // Remove the user from existing team-fans index first.
   const oldPreferences = await getTeamPreferences(fid);
+  const oldPrimaryTeam = oldPreferences?.[0] ?? null;
+  const newPrimaryTeam = teams[0] ?? null;
+
   if (oldPreferences && oldPreferences.length > 0) {
-    // Batch the SREM operations
     const pipeline = redis.pipeline();
     for (const teamId of oldPreferences) {
       pipeline.srem(`fc-footy:team-fans:${teamId}`, fid);
     }
+    if (oldPrimaryTeam) {
+      pipeline.srem(getPrimaryTeamFansKey(oldPrimaryTeam), fid);
+    }
     await pipeline.exec();
   }
 
-  // Update the preferences for the user.
   await redis.set(getTeamPreferencesKey(fid), teams);
 
-  // Add the user to the new team-fans index for each unique team ID.
   if (teams.length > 0) {
-    // Batch the SADD operations
     const pipeline = redis.pipeline();
     for (const teamId of teams) {
       pipeline.sadd(`fc-footy:team-fans:${teamId}`, fid);
     }
+    if (newPrimaryTeam) {
+      pipeline.set(getPrimaryTeamKey(fid), newPrimaryTeam);
+      pipeline.sadd(getPrimaryTeamFansKey(newPrimaryTeam), fid);
+    }
     await pipeline.exec();
+  } else {
+    await redis.del(getPrimaryTeamKey(fid));
   }
 }
 
@@ -55,7 +83,38 @@ export async function setTeamPreferences(fid: number, teams: string[]): Promise<
  * Delete the team preferences for a user.
  */
 export async function deleteTeamPreferences(fid: number): Promise<void> {
-  await redis.del(getTeamPreferencesKey(fid));
+  const oldPreferences = await getTeamPreferences(fid);
+  const oldPrimaryTeam = oldPreferences?.[0] ?? null;
+  const pipeline = redis.pipeline();
+  pipeline.del(getTeamPreferencesKey(fid));
+  pipeline.del(getPrimaryTeamKey(fid));
+  if (oldPreferences?.length) {
+    for (const teamId of oldPreferences) {
+      pipeline.srem(`fc-footy:team-fans:${teamId}`, fid);
+    }
+  }
+  if (oldPrimaryTeam) {
+    pipeline.srem(getPrimaryTeamFansKey(oldPrimaryTeam), fid);
+  }
+  await pipeline.exec();
+}
+
+export async function getPrimaryTeam(fid: number): Promise<string | null> {
+  const primaryTeam = await redis.get<string>(getPrimaryTeamKey(fid));
+  if (primaryTeam) return primaryTeam;
+
+  const preferences = await getTeamPreferences(fid);
+  return preferences?.[0] ?? null;
+}
+
+export async function getPrimaryClub(fid: number): Promise<string | null> {
+  const preferences = await getTeamPreferences(fid);
+  return preferences?.find((teamId) => isClubTeamId(teamId)) ?? null;
+}
+
+export async function getPrimaryCountry(fid: number): Promise<string | null> {
+  const preferences = await getTeamPreferences(fid);
+  return preferences?.find((teamId) => isCountryTeamId(teamId)) ?? null;
 }
 
 /**
@@ -63,6 +122,51 @@ export async function deleteTeamPreferences(fid: number): Promise<void> {
  */
 export async function getFansForTeam(uniqueTeamId: string): Promise<number[]> {
   return await getFansForTeams([uniqueTeamId]);
+}
+
+export async function getPrimaryFansForTeam(teamId: string): Promise<number[]> {
+  const normalizedTeamId = teamId.toLowerCase();
+  const fanFidsSet = new Set<number>();
+
+  try {
+    const members = await redis.smembers<number[] | string[]>(getPrimaryTeamFansKey(normalizedTeamId));
+    members
+      .map((value) => (typeof value === "string" ? Number(value) : value))
+      .filter((value) => !Number.isNaN(value))
+      .forEach((fid) => fanFidsSet.add(fid));
+  } catch (err) {
+    console.error("SMEMBERS failed in getPrimaryFansForTeam", err);
+  }
+
+  // Backfill from the legacy preference array so old users still show up as true fans.
+  const allFollowers = await getFansForTeams([normalizedTeamId]);
+  if (allFollowers.length === 0) {
+    return Array.from(fanFidsSet);
+  }
+
+  const checks = await Promise.all(
+    allFollowers.map(async (fid) => {
+      const preferences = await getTeamPreferences(fid);
+      return preferences?.[0]?.toLowerCase() === normalizedTeamId ? fid : null;
+    })
+  );
+
+  const pipeline = redis.pipeline();
+  let hasBackfill = false;
+  checks.forEach((fid) => {
+    if (typeof fid === "number" && !Number.isNaN(fid)) {
+      fanFidsSet.add(fid);
+      pipeline.sadd(getPrimaryTeamFansKey(normalizedTeamId), fid);
+      pipeline.set(getPrimaryTeamKey(fid), normalizedTeamId);
+      hasBackfill = true;
+    }
+  });
+
+  if (hasBackfill) {
+    await pipeline.exec();
+  }
+
+  return Array.from(fanFidsSet);
 }
 
 /**
@@ -183,6 +287,11 @@ export async function getFansForTeamAbbr(teamAbbr: string): Promise<number[]> {
 export async function getFanCountForTeam(teamId: string): Promise<number> {
   const count = await redis.scard(`fc-footy:team-fans:${teamId}`);
   return count;
+}
+
+export async function getPrimaryFanCountForTeam(teamId: string): Promise<number> {
+  const fans = await getPrimaryFansForTeam(teamId);
+  return fans.length;
 }
 
 /**

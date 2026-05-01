@@ -22,7 +22,7 @@ const FanClubsTab: React.FC<FanClubsTabProps> = ({ viewerFid }) => {
         <div className="app-eyebrow mb-2">Fan Clubs</div>
         <h2 className="app-title mb-2">Find fellow fans</h2>
         <p className="app-copy mb-4">
-          Footy requires a Farcaster ID to favorite clubs, follow countries, and receive match alerts.
+          Footy requires a Farcaster ID to pick your club badge, follow countries, and receive match alerts.
         </p>
 
         <div className="rounded-[22px] border border-deepPink/30 bg-purplePanel p-4 text-lightPurple">
@@ -45,9 +45,9 @@ const FanClubsTab: React.FC<FanClubsTabProps> = ({ viewerFid }) => {
   return (
     <div className="mb-4">
       <div className="app-eyebrow mb-2">Fan Clubs</div>
-      <h2 className="app-title mb-2">Build your football graph</h2>
+      <h2 className="app-title mb-2">Wear your badge</h2>
       <p className="app-copy mb-4">
-        Set your favorite club, follow others for alerts, and discover fans who back the same badge.
+        Pick one club as your identity, follow more for alerts, and discover the fans who wear the same badge.
       </p>
 
       <div className="bg-purplePanel text-lightPurple rounded-lg p-2 overflow-hidden">

@@ -239,12 +239,12 @@ const UserProfile: React.FC<ForYouProfileProps> = ({ profileFid, viewerFid }) =>
       ) : favoriteTeams.length === 0 && profileFid ? (
         <div className="p-4 border border-dashed border-limeGreen rounded-lg text-center">
           <h2 className="text-notWhite mb-2">@{userData.username} hasn&apos;t joined Footy yet!</h2>
-          <p className="text-lightPurple">They haven&apos;t picked any favorite teams yet.</p>
+          <p className="text-lightPurple">They haven&apos;t chosen a club badge yet.</p>
         </div>
       ) : (
         <>
           <h2 className="text-notWhite text-lg font-semibold mb-2">
-            {favoriteTeams.length === 0 ? 'Select Team' : 'Follows'}
+            {favoriteTeams.length === 0 ? 'Choose My Club' : 'Club Identity'}
           </h2>
           <div className="flex overflow-x-auto gap-4 mb-4">
             {favoriteTeams.map(teamId => (
@@ -262,7 +262,9 @@ const UserProfile: React.FC<ForYouProfileProps> = ({ profileFid, viewerFid }) =>
                   alt={teamId}
                   className="w-[60px] h-[60px] object-contain mb-2 mx-auto"
                 />
-                <span className="text-xs text-lightPurple">{teamId.split('-')[1].toUpperCase()}</span>
+                <span className="text-xs text-lightPurple">
+                  {teamId === favoriteTeams[0] ? 'My Club' : 'Following'}
+                </span>
               </div>
             ))}
             {/* Only show Add Team button when viewing own profile */}
@@ -272,7 +274,7 @@ const UserProfile: React.FC<ForYouProfileProps> = ({ profileFid, viewerFid }) =>
                 className="flex-none w-[120px] border border-dashed border-limeGreenOpacity rounded-lg p-2 text-center bg-purplePanel cursor-pointer flex flex-col items-center justify-center"
               >
                 <span className="text-2xl text-limeGreen">+</span>
-                <span className="text-xs text-lightPurple">Add Team</span>
+                <span className="text-xs text-lightPurple">Manage</span>
               </div>
             )}
           </div>
