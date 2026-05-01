@@ -33,6 +33,7 @@ const ForYouTeamsFans: React.FC<ForYouTeamsFansProps> = ({ viewerFid, initialSel
   const [cachedTeamFollowers, setCachedTeamFollowers] = useState<Record<string, Array<{ fid: number; pfp: string; youFollow: boolean; username?: string }>>>({});
   const [showMatchUps, setShowMatchUps] = useState(false);
   const [matchUps, setMatchUps] = useState<FanPair[]>([]);
+  const lastAppliedInitialTeamRef = React.useRef<string | null>(null);
   const primaryClub = favoriteTeams.find((teamId) => isClubTeamId(teamId)) ?? null;
   const primaryCountry = favoriteTeams.find((teamId) => isCountryTeamId(teamId)) ?? null;
   const followingTeams = favoriteTeams.filter((teamId) => teamId !== primaryClub && teamId !== primaryCountry);
@@ -173,8 +174,13 @@ const ForYouTeamsFans: React.FC<ForYouTeamsFansProps> = ({ viewerFid, initialSel
       return;
     }
 
-    if (initialSelectedTeam && favoriteTeams.includes(initialSelectedTeam)) {
+    if (
+      initialSelectedTeam &&
+      favoriteTeams.includes(initialSelectedTeam) &&
+      lastAppliedInitialTeamRef.current !== initialSelectedTeam
+    ) {
       setSelectedTeam(initialSelectedTeam);
+      lastAppliedInitialTeamRef.current = initialSelectedTeam;
       return;
     }
 
@@ -182,6 +188,12 @@ const ForYouTeamsFans: React.FC<ForYouTeamsFansProps> = ({ viewerFid, initialSel
       setSelectedTeam(primaryClub ?? primaryCountry ?? favoriteTeams[0]);
     }
   }, [favoriteTeams, initialSelectedTeam, primaryClub, primaryCountry, selectedTeam]);
+
+  useEffect(() => {
+    if (!initialSelectedTeam) {
+      lastAppliedInitialTeamRef.current = null;
+    }
+  }, [initialSelectedTeam]);
 
   const getTeamLogoUrl = (teamId: string): string => {
     const [league, abbr] = teamId.split("-");
@@ -223,10 +235,10 @@ const ForYouTeamsFans: React.FC<ForYouTeamsFansProps> = ({ viewerFid, initialSel
           <h2 className="text-notWhite text-xl sm:text-2xl font-bold">Choose your club</h2>
         </div>
         <div className="mb-4">
-          <ul className="list-disc list-inside space-y-2 text-base text-lightPurple">
-            <li>⭐ Pick one club to wear as your badge on Footy</li>
+          <ul className="list-inside space-y-2 text-base text-lightPurple">
+            <li>⭐ Pick one club to wear as your badge</li>
             <li>🤝 Meet other fans who wear the same badge</li>
-            <li>🔔 Follow more clubs or countries for alerts</li>
+            <li>🔔 Follow more clubs or countries for match alerts</li>
           </ul>
         </div>
         <SettingsFollowClubs viewerFid={viewerFid} onSave={(newFavorites: string[]) => {

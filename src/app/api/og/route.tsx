@@ -1,5 +1,7 @@
 import { ImageResponse } from "next/og";
 
+export const dynamic = "force-dynamic";
+
 const size = {
   width: 600,
   height: 400,
@@ -43,6 +45,28 @@ const statCardStyle = {
   boxShadow: "inset 0 1px 0 rgba(255,255,255,0.03)",
 } as const;
 
+type OgMatchContext = {
+  homeTeam: string;
+  awayTeam: string;
+  homeScore: string;
+  awayScore: string;
+  clock: string;
+  label: string;
+};
+
+type EspnEventLike = {
+  id?: string;
+  date?: string;
+  status?: { type?: { state?: string; detail?: string }; displayClock?: string };
+  competitions?: Array<{
+    competitors?: Array<{
+      homeAway?: string;
+      score?: number | string;
+      team?: { abbreviation?: string };
+    }>;
+  }>;
+};
+
 function Dot({ color }: { color: string }) {
   return (
     <div
@@ -57,7 +81,115 @@ function Dot({ color }: { color: string }) {
   );
 }
 
-export async function GET() {
+function parseLeagueFromEventId(eventId: string | null): string | null {
+  if (!eventId) return null;
+  const parts = eventId.split("_");
+  if (parts.length < 3) return null;
+  return parts.slice(0, parts.length - 2).join(".");
+}
+
+function parseTeamsFromEventId(eventId: string | null): { homeTeam: string | null; awayTeam: string | null } {
+  if (!eventId) return { homeTeam: null, awayTeam: null };
+  const parts = eventId.split("_");
+  if (parts.length < 3) return { homeTeam: null, awayTeam: null };
+  return {
+    homeTeam: parts[parts.length - 2] ?? null,
+    awayTeam: parts[parts.length - 1] ?? null,
+  };
+}
+
+function formatFallbackClock(dateString?: string): string {
+  if (!dateString) return "Matchday";
+  const date = new Date(dateString);
+  if (Number.isNaN(date.getTime())) return "Matchday";
+  return date.toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+function formatScore(score?: number | string): string {
+  if (typeof score === "number") return String(score);
+  if (typeof score === "string" && score.trim().length > 0) return score;
+  return "0";
+}
+
+async function resolveMatchContext(request: Request): Promise<OgMatchContext | null> {
+  const { searchParams } = new URL(request.url);
+  const eventId = searchParams.get("eventId");
+  const league = searchParams.get("league") || parseLeagueFromEventId(eventId);
+  const fallbackTeams = parseTeamsFromEventId(eventId);
+  const fallbackHomeTeam = searchParams.get("homeTeam") || fallbackTeams.homeTeam;
+  const fallbackAwayTeam = searchParams.get("awayTeam") || fallbackTeams.awayTeam;
+  const fallbackHomeScore = searchParams.get("homeScore") || "0";
+  const fallbackAwayScore = searchParams.get("awayScore") || "0";
+  const fallbackClock = searchParams.get("clock") || "Matchday";
+
+  if (!league || !fallbackHomeTeam || !fallbackAwayTeam) {
+    return null;
+  }
+
+  const upcomingDates = Array.from({ length: 5 }, (_, index) => {
+    const date = new Date();
+    date.setDate(date.getDate() + index);
+    const year = date.getFullYear();
+    const month = `${date.getMonth() + 1}`.padStart(2, "0");
+    const day = `${date.getDate()}`.padStart(2, "0");
+    return `${year}${month}${day}`;
+  });
+
+  try {
+    for (const dateKey of upcomingDates) {
+      const response = await fetch(
+        `https://site.api.espn.com/apis/site/v2/sports/soccer/${league}/scoreboard?dates=${dateKey}`,
+        { cache: "no-store" }
+      );
+      if (!response.ok) {
+        continue;
+      }
+
+      const data = (await response.json()) as { events?: EspnEventLike[] };
+      const events = Array.isArray(data.events) ? data.events : [];
+      const matched = events.find((event) => {
+        const competitors = event.competitions?.[0]?.competitors || [];
+        const homeTeam = competitors.find((competitor) => competitor.homeAway === "home")?.team?.abbreviation?.toUpperCase();
+        const awayTeam = competitors.find((competitor) => competitor.homeAway === "away")?.team?.abbreviation?.toUpperCase();
+        return homeTeam === fallbackHomeTeam.toUpperCase() && awayTeam === fallbackAwayTeam.toUpperCase();
+      });
+
+      if (matched) {
+        const competitors = matched.competitions?.[0]?.competitors || [];
+        const homeCompetitor = competitors.find((competitor) => competitor.homeAway === "home");
+        const awayCompetitor = competitors.find((competitor) => competitor.homeAway === "away");
+        return {
+          homeTeam: homeCompetitor?.team?.abbreviation?.toUpperCase() || fallbackHomeTeam.toUpperCase(),
+          awayTeam: awayCompetitor?.team?.abbreviation?.toUpperCase() || fallbackAwayTeam.toUpperCase(),
+          homeScore: formatScore(homeCompetitor?.score),
+          awayScore: formatScore(awayCompetitor?.score),
+          clock: matched.status?.type?.detail || matched.status?.displayClock || formatFallbackClock(matched.date),
+          label: matched.status?.type?.state === "in" ? "LIVE NOW" : "UP NEXT",
+        };
+      }
+    }
+  } catch (error) {
+    console.error("[api/og] failed to resolve live match context", error);
+  }
+
+  return {
+    homeTeam: fallbackHomeTeam.toUpperCase(),
+    awayTeam: fallbackAwayTeam.toUpperCase(),
+    homeScore: fallbackHomeScore,
+    awayScore: fallbackAwayScore,
+    clock: fallbackClock,
+    label: "MATCHDAY",
+  };
+}
+
+export async function GET(request: Request) {
+  const matchContext = await resolveMatchContext(request);
+
   return new ImageResponse(
     (
       <div
@@ -268,7 +400,7 @@ export async function GET() {
                     letterSpacing: "0.18em",
                   }}
                 >
-                  LIVE NOW
+                  {matchContext?.label || "LIVE NOW"}
                 </div>
                 <Dot color={colors.lime} />
               </div>
@@ -289,9 +421,9 @@ export async function GET() {
                     letterSpacing: "-0.06em",
                   }}
                 >
-                  <span>2</span>
+                  <span>{matchContext?.homeScore || "2"}</span>
                   <span style={{ color: colors.muted, fontSize: 16 }}>-</span>
-                  <span>1</span>
+                  <span>{matchContext?.awayScore || "1"}</span>
                 </div>
                 <div
                   style={{
@@ -302,9 +434,9 @@ export async function GET() {
                     fontWeight: 700,
                   }}
                 >
-                  <span>LIV</span>
-                  <span>81&apos;</span>
-                  <span>ARS</span>
+                  <span>{matchContext?.homeTeam || "LIV"}</span>
+                  <span>{matchContext?.clock || "81'"}</span>
+                  <span>{matchContext?.awayTeam || "ARS"}</span>
                 </div>
               </div>
             </div>

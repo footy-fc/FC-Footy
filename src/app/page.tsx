@@ -1,6 +1,5 @@
 import { Metadata } from "next";
 import App from "./app";
-import { buildQStoragePublicUrl } from "~/lib/qstorage";
 
 const appUrl = process.env.NEXT_PUBLIC_URL ?? 'http://localhost:3000';
 
@@ -12,21 +11,17 @@ type Props = {
 
 export async function generateMetadata({ searchParams }: Props): Promise<Metadata> {
   const url = new URL('/', appUrl);
-  let imgUrl = `${appUrl}/api/og`;
-  
+  const ogUrl = new URL('/api/og', appUrl);
+
   Object.entries(await searchParams).forEach(([key, value]) => {
     if (typeof value === 'string') {
       url.searchParams.append(key, value);
+      if (key !== 'imageUrl' && key !== 'imageKey') {
+        ogUrl.searchParams.append(key, value);
+      }
     }
   });
-
-  const imageUrl = url.searchParams.get('imageUrl');
-  const imageKey = url.searchParams.get('imageKey');
-  if (imageUrl) {
-    imgUrl = imageUrl;
-  } else if (imageKey) {
-    imgUrl = buildQStoragePublicUrl(imageKey);
-  }
+  const imgUrl = ogUrl.toString();
 
       // Removed debug console.log
   const frame = {

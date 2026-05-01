@@ -483,8 +483,6 @@ const generateCommentaryForMatch = async (
         homeScore,
         awayScore,
         clock,
-        homeLogo,
-        awayLogo,
         keyMoments,
         matchEvents,
         competition,
@@ -517,11 +515,6 @@ const generateCommentaryForMatch = async (
         }
       }
 
-      const currentQuery = search.toString() ? `?${search.toString()}` : "";
-
-      // Build the base mini app URL from frameUrl and current query string.
-      const miniAppUrl = `${frameUrl}${currentQuery}`;
-
       const commentaryPromise =
         matchEvents && matchEvents.length > 0 && !moneyGamesParams
           ? withTimeout(
@@ -538,48 +531,19 @@ const generateCommentaryForMatch = async (
             )
           : Promise.resolve('');
 
-      const shareTargetPromise =
-        compositeImage
-          ? (async () => {
-              const blob = await generateCompositeImageBlob(
-                homeLogo,
-                awayLogo,
-                selectedMatch.homeTeam,
-                selectedMatch.awayTeam,
-                homeScore,
-                awayScore,
-                clock
-              );
-              const uploadRes = await fetch('/api/upload', { method: 'POST', body: blob });
-              const uploadResult: { objectKey?: string; publicUrl?: string; error?: string; details?: string } = await uploadRes.json();
-              if (!uploadRes.ok) {
-                const message = uploadResult.details || uploadResult.error || 'Image upload failed';
-                throw new Error(message);
-              }
+      if (!moneyGamesParams) {
+        if (selectedMatch.eventId) {
+          search.set("eventId", selectedMatch.eventId);
+        }
+        search.set("homeTeam", selectedMatch.homeTeam);
+        search.set("awayTeam", selectedMatch.awayTeam);
+        search.set("homeScore", String(homeScore));
+        search.set("awayScore", String(awayScore));
+        search.set("clock", clock);
+      }
 
-              if (uploadResult?.objectKey) {
-                console.log('Composite image uploaded. Key:', uploadResult.objectKey);
-              }
-
-              const urlObj = new URL(miniAppUrl);
-              urlObj.searchParams.set('imageKey', uploadResult.objectKey || '');
-              return {
-                shareUrl: urlObj.toString(),
-                imageUrl: uploadResult.publicUrl || null,
-              };
-            })().catch((error) => {
-              console.error("Error generating composite image:", error);
-              return {
-                shareUrl: miniAppUrl,
-                imageUrl: null,
-              };
-            })
-          : Promise.resolve({
-              shareUrl: miniAppUrl,
-              imageUrl: null,
-            });
-
-      const [commentary, shareTarget] = await Promise.all([commentaryPromise, shareTargetPromise]);
+      const shareUrl = `${frameUrl}${search.toString() ? `?${search.toString()}` : ""}`;
+      const [commentary] = await Promise.all([commentaryPromise]);
 
       // Build the cast text
       const isMoneyGame = Boolean(moneyGamesParams);
@@ -607,13 +571,9 @@ const generateCommentaryForMatch = async (
 
       //let imageUrl = '';
 
-      const embeds: [] | [string] | [string, string] = shareTarget.imageUrl
-        ? [shareTarget.imageUrl, shareTarget.shareUrl]
-        : [shareTarget.shareUrl];
-
       const signedMessage = await signCast({
         text: matchSummary,
-        embeds,
+        embeds: [shareUrl],
       });
 
       await submitSignedMessage(signedMessage);

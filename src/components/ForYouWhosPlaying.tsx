@@ -17,6 +17,13 @@ interface Props {
   sectionTitle?: string;
 }
 
+const formatEspnDate = (date: Date): string => {
+  const year = date.getFullYear();
+  const month = `${date.getMonth() + 1}`.padStart(2, "0");
+  const day = `${date.getDate()}`.padStart(2, "0");
+  return `${year}${month}${day}`;
+};
+
 const ForYouWhosPlaying: React.FC<Props> = ({ eventId, suppressAffordances = false, viewerFid, sectionTitle }) => {
   const [favoriteTeams, setFavoriteTeams] = useState<string[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -147,35 +154,60 @@ const ForYouWhosPlaying: React.FC<Props> = ({ eventId, suppressAffordances = fal
     });
 
     const fetchAllMatches = async () => {
-      try {
-        const allMatches: MatchEvent[] = [];
-        await Promise.all(
-          Object.entries(leagueMap).map(async ([league]) => {
-            const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${league}/scoreboard`);
-            const dataJson: unknown = await res.json();
-            const events: unknown[] =
-              dataJson && typeof dataJson === 'object' && Array.isArray((dataJson as Record<string, unknown>).events)
-                ? ((dataJson as Record<string, unknown>).events as unknown[])
-                : [];
-            // Prefer robust extraction from competitors over brittle shortName slicing
-            const filtered = events.filter((event: unknown) => {
-              const ev = event as EventLike;
-              const comps: Competitor[] = ev?.competitions?.[0]?.competitors || [];
-              const homeAbbr = comps.find((c: Competitor) => c.homeAway === 'home')?.team?.abbreviation?.toLowerCase();
-              const awayAbbr = comps.find((c: Competitor) => c.homeAway === 'away')?.team?.abbreviation?.toLowerCase();
-              return (homeAbbr && leagueMap[league].includes(homeAbbr)) || (awayAbbr && leagueMap[league].includes(awayAbbr));
-            });
-            const eventsWithLeague = filtered.map((event: unknown) => ({
-              ...(event as EventLike),
-              league,
-            }));
-            allMatches.push(...(eventsWithLeague as unknown as MatchEvent[]));
-          })
-        );
-        setMatchData(allMatches);
-      } catch (err) {
-        console.error("Error fetching match data", err);
-      }
+      const allMatches: MatchEvent[] = [];
+      const today = new Date();
+      const upcomingDates = Array.from({ length: 5 }, (_, index) => {
+        const nextDate = new Date(today);
+        nextDate.setDate(today.getDate() + index);
+        return formatEspnDate(nextDate);
+      });
+
+      await Promise.all(
+        Object.entries(leagueMap).map(async ([league, teamAbbrs]) => {
+          try {
+            const leagueEvents = new Map<string, MatchEvent>();
+
+            await Promise.all(
+              upcomingDates.map(async (dateKey) => {
+                const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${league}/scoreboard?dates=${dateKey}`);
+                if (!res.ok) {
+                  throw new Error(`Scoreboard request failed for ${league} on ${dateKey} with ${res.status}`);
+                }
+
+                const dataJson: unknown = await res.json();
+                const events: unknown[] =
+                  dataJson && typeof dataJson === 'object' && Array.isArray((dataJson as Record<string, unknown>).events)
+                    ? ((dataJson as Record<string, unknown>).events as unknown[])
+                    : [];
+
+                const filtered = events.filter((event: unknown) => {
+                  const ev = event as EventLike;
+                  const comps: Competitor[] = ev?.competitions?.[0]?.competitors || [];
+                  const homeAbbr = comps.find((c: Competitor) => c.homeAway === 'home')?.team?.abbreviation?.toLowerCase();
+                  const awayAbbr = comps.find((c: Competitor) => c.homeAway === 'away')?.team?.abbreviation?.toLowerCase();
+                  return (homeAbbr && teamAbbrs.includes(homeAbbr)) || (awayAbbr && teamAbbrs.includes(awayAbbr));
+                });
+
+                filtered.forEach((event: unknown) => {
+                  const eventWithLeague = {
+                    ...(event as EventLike),
+                    league,
+                  } as MatchEvent;
+                  if (eventWithLeague.id) {
+                    leagueEvents.set(eventWithLeague.id, eventWithLeague);
+                  }
+                });
+              })
+            );
+
+            allMatches.push(...Array.from(leagueEvents.values()));
+          } catch (err) {
+            console.error(`Error fetching match data for ${league}`, err);
+          }
+        })
+      );
+
+      setMatchData(allMatches);
     };
     fetchAllMatches();
   }, [favoriteTeams]);
