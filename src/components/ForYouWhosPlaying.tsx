@@ -192,7 +192,7 @@ const ForYouWhosPlaying: React.FC<Props> = ({ eventId, suppressAffordances = fal
                   const eventWithLeague = {
                     ...(event as EventLike),
                     league,
-                  } as MatchEvent;
+                  } as unknown as MatchEvent;
                   if (eventWithLeague.id) {
                     leagueEvents.set(eventWithLeague.id, eventWithLeague);
                   }
