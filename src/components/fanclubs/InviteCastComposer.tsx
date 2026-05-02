@@ -9,14 +9,14 @@ type InviteCastComposerProps = {
     fid: number;
     username?: string;
   };
-  shareUrl: string;
+  launchUrl: string;
   imageUrl: string;
   defaultMessage: string;
 };
 
 export function InviteCastComposer({
   target,
-  shareUrl,
+  launchUrl,
   imageUrl,
   defaultMessage,
 }: InviteCastComposerProps) {
@@ -97,7 +97,7 @@ export function InviteCastComposer({
       setStatus("posting");
       const signedMessage = await signCast({
         text: preview.text,
-        embeds: [shareUrl, imageUrl],
+        embeds: [launchUrl, imageUrl],
         mentions: preview.mentions,
         mentionsPositions: preview.mentionsPositions,
       });
@@ -115,7 +115,7 @@ export function InviteCastComposer({
       <div className="mb-2 app-eyebrow">Public Invite</div>
       <h4 className="text-xl font-semibold text-notWhite">Make it a cast, not a whisper</h4>
       <p className="mt-2 text-sm text-lightPurple">
-        This posts publicly from Footy inside the client app and opens the same invite flow when they tap in.
+        This posts publicly from Footy inside the client app and opens the main Footy entry when people tap in.
       </p>
 
       <textarea

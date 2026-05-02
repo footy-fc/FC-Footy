@@ -252,7 +252,7 @@ const SettingsFollowClubs: React.FC<SettingsFollowClubsProps> = ({
           placeholder="Search clubs or countries..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-          className="w-full rounded-[16px] border border-limeGreenOpacity/20 bg-darkPurple px-4 py-3 text-sm text-notWhite placeholder:text-lightPurple/60 focus:outline-none focus:ring-2 focus:ring-deepPink/30"
+          className="w-full rounded-[16px] border border-limeGreenOpacity/20 bg-darkPurple px-4 py-3 text-base text-notWhite placeholder:text-lightPurple/60 focus:outline-none focus:ring-2 focus:ring-deepPink/30"
         />
         {favTeams.length > 0 && !isInstalled && (
           <div className="rounded-[16px] border border-limeGreenOpacity/20 bg-gray-800/70 p-3">

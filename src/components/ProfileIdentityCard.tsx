@@ -5,7 +5,8 @@ import React from "react";
 import Image from "next/image";
 import { sdk } from "@farcaster/miniapp-sdk";
 import { useFootyFarcaster } from "~/lib/farcaster/useFootyFarcaster";
-import { getTeamPreferences, setTeamPreferences } from "../lib/kvPerferences";
+import { resolveFanTier } from "~/lib/fanclubs/fanTier";
+import { getTeamPreferences } from "../lib/kvPerferences";
 import { fetchTeamLogos } from "./utils/fetchTeamLogos";
 import BadgedProfileAvatar from "./BadgedProfileAvatar";
 
@@ -18,8 +19,6 @@ interface Team {
 
 interface ProfileIdentityCardProps {
   viewerFid?: number;
-  favoriteTeamIds?: string[] | null;
-  onFavoritesChange?: (favoriteTeamIds: string[]) => void;
 }
 
 const getTeamId = (team: Team) => `${team.league}-${team.abbreviation}`;
@@ -49,11 +48,7 @@ const formatFollowerCount = (count?: number) => {
   return count.toString();
 };
 
-const ProfileIdentityCard: React.FC<ProfileIdentityCardProps> = ({
-  viewerFid,
-  favoriteTeamIds: favoriteTeamIdsOverride,
-  onFavoritesChange,
-}) => {
+const ProfileIdentityCard: React.FC<ProfileIdentityCardProps> = ({ viewerFid }) => {
   const {
     username,
     displayName,
@@ -63,7 +58,6 @@ const ProfileIdentityCard: React.FC<ProfileIdentityCardProps> = ({
   } = useFootyFarcaster();
   const [teams, setTeams] = React.useState<Team[]>([]);
   const [favoriteTeamIds, setFavoriteTeamIds] = React.useState<string[]>([]);
-  const [removingTeamId, setRemovingTeamId] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     let cancelled = false;
@@ -79,16 +73,12 @@ const ProfileIdentityCard: React.FC<ProfileIdentityCardProps> = ({
 
         if (!cancelled) {
           setTeams(teamData);
-          if (!favoriteTeamIdsOverride) {
-            setFavoriteTeamIds(preferences ?? []);
-          }
+          setFavoriteTeamIds(preferences ?? []);
         }
       } catch {
         if (!cancelled) {
           setTeams([]);
-          if (!favoriteTeamIdsOverride) {
-            setFavoriteTeamIds([]);
-          }
+          setFavoriteTeamIds([]);
         }
       }
     };
@@ -98,49 +88,15 @@ const ProfileIdentityCard: React.FC<ProfileIdentityCardProps> = ({
     return () => {
       cancelled = true;
     };
-  }, [favoriteTeamIdsOverride, viewerFid]);
-
-  React.useEffect(() => {
-    if (favoriteTeamIdsOverride) {
-      setFavoriteTeamIds(favoriteTeamIdsOverride);
-    }
-  }, [favoriteTeamIdsOverride]);
+  }, [viewerFid]);
 
   const favoriteTeamId = favoriteTeamIds[0];
   const favoriteTeam = favoriteTeamId
     ? teams.find((team) => getTeamId(team) === favoriteTeamId)
     : null;
-  const followedTeams = favoriteTeamIds
-    .slice(1)
-    .map((teamId) => teams.find((team) => getTeamId(team) === teamId))
-    .filter((team): team is Team => Boolean(team));
-  const visibleFollowedTeams = followedTeams.slice(0, 8);
-  const hiddenFollowedTeamCount = Math.max(0, followedTeams.length - visibleFollowedTeams.length);
 
   const headlineName = displayName || username || "Footy supporter";
-
-  const handleRemoveFollowedTeam = React.useCallback(async (teamId: string) => {
-    const context = viewerFid ? null : await getSafeMiniAppContext();
-    const fid = viewerFid ?? context?.user?.fid;
-    if (!fid || removingTeamId) {
-      return;
-    }
-
-    setRemovingTeamId(teamId);
-    try {
-      const updatedFavoriteTeamIds = favoriteTeamIds.filter((id) => id !== teamId);
-      await setTeamPreferences(fid, updatedFavoriteTeamIds);
-      setFavoriteTeamIds(updatedFavoriteTeamIds);
-      onFavoritesChange?.(updatedFavoriteTeamIds);
-      try {
-        await sdk.haptics.impactOccurred("light");
-      } catch {
-        // ignore haptics errors
-      }
-    } finally {
-      setRemovingTeamId(null);
-    }
-  }, [favoriteTeamIds, onFavoritesChange, removingTeamId, viewerFid]);
+  const fanTier = resolveFanTier(canWrite, favoriteTeamIds.length);
 
   return (
     <div className="mb-4 overflow-hidden rounded-[24px] border border-limeGreenOpacity/25 bg-[radial-gradient(circle_at_top_left,rgba(255,0,102,0.14),transparent_34%),linear-gradient(145deg,rgba(4,8,24,0.98),rgba(24,18,44,0.96))] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.28)]">
@@ -153,9 +109,13 @@ const ProfileIdentityCard: React.FC<ProfileIdentityCardProps> = ({
           ) : null}
         </div>
         <div className={`shrink-0 rounded-full px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] ${
-          canWrite ? "bg-limeGreenOpacity/20 text-limeGreen" : "bg-deepPink/20 text-notWhite"
+          fanTier.tone === "active"
+            ? "bg-limeGreenOpacity/20 text-limeGreen"
+            : fanTier.tone === "starter"
+              ? "bg-[#fea282]/15 text-[#fea282]"
+              : "bg-deepPink/20 text-notWhite"
         }`}>
-          {canWrite ? "True Fan" : "Approve Footy App"}
+          {fanTier.label}
         </div>
       </div>
 

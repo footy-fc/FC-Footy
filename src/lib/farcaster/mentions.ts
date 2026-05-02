@@ -4,7 +4,9 @@ export function buildMentionedCastText(
   message: string
 ): { text: string; mentions: number[]; mentionsPositions: number[] } {
   const normalizedUsername = username.replace(/^@+/, "").trim();
-  const normalizedMessage = message.trim();
+  const escapedUsername = normalizedUsername.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const leadingMentionPattern = new RegExp(`^@${escapedUsername}(?:\\b|\\s|[:,.!?-])`, "i");
+  const normalizedMessage = message.trim().replace(leadingMentionPattern, "").trimStart();
 
   if (!normalizedUsername) {
     return {

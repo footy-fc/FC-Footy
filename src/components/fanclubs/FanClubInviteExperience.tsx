@@ -8,7 +8,6 @@ import { InviteTargetCard } from "~/components/fanclubs/InviteTargetCard";
 import { getTeamPreferences } from "~/lib/kvPerferences";
 import { summarizePreferences } from "~/lib/fanclubs/preferencesSummary";
 import { getFootyShareContext } from "~/lib/farcaster/shareContext";
-import { buildInviteShareUrl } from "~/lib/farcaster/inviteShareUrl";
 import { BASE_URL } from "~/lib/config";
 
 type Team = {
@@ -123,17 +122,9 @@ export function FanClubInviteExperience({
           ? "you need a country on Footy for the World Cup run. Pick one and get in."
           : "you are already in Footy. Come compare badges and countries with me.";
 
-  const shareUrl = useMemo(
-    () =>
-      buildInviteShareUrl({
-        profileFid,
-        castHash,
-        inviteUsername: targetUser.username,
-      }),
-    [castHash, profileFid, targetUser.username]
-  );
-
-  const imageUrl = `${BASE_URL || "https://fc-footy.vercel.app"}/og.png`;
+  const appOrigin = BASE_URL || "https://fc-footy.vercel.app";
+  const launchUrl = `${appOrigin}/`;
+  const imageUrl = `${appOrigin}/og.png`;
 
   if (loading) {
     return <div className="p-6 text-center text-lightPurple">Preparing invite flow...</div>;
@@ -170,7 +161,7 @@ export function FanClubInviteExperience({
       {isMiniApp && isShareEntry ? (
         <InviteCastComposer
           target={targetUser}
-          shareUrl={shareUrl}
+          launchUrl={launchUrl}
           imageUrl={imageUrl}
           defaultMessage={defaultMessage}
         />

@@ -4,9 +4,8 @@ import React, { useEffect, useState } from 'react';
 import { sdk } from '@farcaster/miniapp-sdk';
 import { getTeamPreferences } from '../lib/kvPerferences';
 import { getTeamLogo } from './utils/fetchTeamLogos';
-import SettingsFollowClubs from './SettingsFollowClubs';
 import { fetchFanUserData } from './utils/fetchFCProfile';
-import { useMiniAppDetection } from "../hooks/useMiniAppDetection";
+import { useRouter } from "next/navigation";
 
 type TeamLink = {
   href: string;
@@ -26,11 +25,9 @@ const UserProfile: React.FC<ForYouProfileProps> = ({ profileFid, viewerFid }) =>
   const [error, setError] = useState<string | null>(null);
   const [teamLinks, setTeamLinks] = useState<Record<string, TeamLink[]>>({});
   const [selectedTeam, setSelectedTeam] = useState<string | null>(null);
-  const [showSettings, setShowSettings] = useState(false);
   const [viewingOwnProfile, setViewingOwnProfile] = useState<boolean>(!profileFid);
   const [currentProfileFid, setCurrentProfileFid] = useState<number | undefined>(profileFid);
-  const [hasPromptedMiniApp, setHasPromptedMiniApp] = useState<boolean>(false);
-  const { isMiniApp, isLoading: isMiniAppLoading } = useMiniAppDetection();
+  const router = useRouter();
 
   // Initialize SDK and fetch user context
   useEffect(() => {
@@ -90,14 +87,9 @@ const UserProfile: React.FC<ForYouProfileProps> = ({ profileFid, viewerFid }) =>
       if (preferences && preferences.length > 0) {
         setFavoriteTeams(preferences);
         setSelectedTeam(preferences[0]);
-        setShowSettings(false);
       } else {
-        // If viewing someone else's profile and they have no teams, keep settings hidden
-        if (currentProfileFid && currentProfileFid !== (viewerFid || context?.user?.fid)) {
-          setShowSettings(false); // Don't show settings for other users
-        } else {
-          setShowSettings(true);
-        }
+        setFavoriteTeams([]);
+        setSelectedTeam(null);
       }
     } catch (err) {
       console.error('Error fetching team preferences:', err);
@@ -208,43 +200,27 @@ const UserProfile: React.FC<ForYouProfileProps> = ({ profileFid, viewerFid }) =>
       </div>
 
       {/* Favorite Teams Section */}
-      {showSettings ? (
-        <div className="p-4 border border-dashed border-limeGreen rounded-lg">
-          <h2 className="text-notWhite mb-2">Select Your Favorite Teams</h2>
-          <SettingsFollowClubs
-            viewerFid={viewerFid}
-            onSave={async (newFavorites: string[]) => {
-              setFavoriteTeams(newFavorites);
-              setSelectedTeam(newFavorites[0] ?? null);
-              setShowSettings(false);
-              
-              // Prompt to add mini app if this is their first team and they're not already in a mini app
-              if (
-                !hasPromptedMiniApp && 
-                newFavorites.length === 1 && 
-                !isMiniApp && 
-                !isMiniAppLoading
-              ) {
-                try {
-                  await sdk.actions.addMiniApp();
-                  setHasPromptedMiniApp(true);
-                } catch (error) {
-                  console.log('User rejected mini app prompt or already has it added');
-                  setHasPromptedMiniApp(true);
-                }
-              }
-            }}
-          />
-        </div>
-      ) : favoriteTeams.length === 0 && profileFid ? (
+      {favoriteTeams.length === 0 && profileFid ? (
         <div className="p-4 border border-dashed border-limeGreen rounded-lg text-center">
           <h2 className="text-notWhite mb-2">@{userData.username} hasn&apos;t joined Footy yet!</h2>
           <p className="text-lightPurple">They haven&apos;t chosen a club badge yet.</p>
         </div>
+      ) : favoriteTeams.length === 0 ? (
+        <div className="p-4 border border-dashed border-limeGreen rounded-lg text-center">
+          <h2 className="text-notWhite mb-2">No badge yet</h2>
+          <p className="text-lightPurple">Manage your club and country from the Fan Clubs tab.</p>
+          <button
+            type="button"
+            onClick={() => router.push("/?tab=fanClubs")}
+            className="mt-3 rounded-xl bg-deepPink px-4 py-3 text-sm font-semibold text-notWhite transition-colors hover:bg-deepPink/85"
+          >
+            Open Fan Clubs
+          </button>
+        </div>
       ) : (
         <>
           <h2 className="text-notWhite text-lg font-semibold mb-2">
-            {favoriteTeams.length === 0 ? 'Choose My Club' : 'Club Identity'}
+            Club Identity
           </h2>
           <div className="flex overflow-x-auto gap-4 mb-4">
             {favoriteTeams.map(teamId => (
@@ -267,17 +243,19 @@ const UserProfile: React.FC<ForYouProfileProps> = ({ profileFid, viewerFid }) =>
                 </span>
               </div>
             ))}
-            {/* Only show Add Team button when viewing own profile */}
-            {viewingOwnProfile && (
-              <div
-                onClick={() => setShowSettings(true)}
-                className="flex-none w-[120px] border border-dashed border-limeGreenOpacity rounded-lg p-2 text-center bg-purplePanel cursor-pointer flex flex-col items-center justify-center"
-              >
-                <span className="text-2xl text-limeGreen">+</span>
-                <span className="text-xs text-lightPurple">Manage</span>
-              </div>
-            )}
           </div>
+          {viewingOwnProfile ? (
+            <div className="mb-4 rounded-[18px] border border-limeGreenOpacity/20 bg-darkPurple/60 px-4 py-3 text-sm text-lightPurple">
+              Want to change your badge or follows? Do it in Fan Clubs.
+              <button
+                type="button"
+                onClick={() => router.push("/?tab=fanClubs")}
+                className="ml-3 rounded-lg bg-deepPink px-3 py-2 text-xs font-semibold text-notWhite transition-colors hover:bg-deepPink/85"
+              >
+                Open Fan Clubs
+              </button>
+            </div>
+          ) : null}
 
           {/* Trophy Case Section */}
           {selectedTeam && (

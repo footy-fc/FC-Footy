@@ -78,6 +78,7 @@ export type FootyFarcasterState = {
   requestSigner: () => Promise<void>;
   signCast: (input: string | FootyCastInput) => Promise<unknown>;
   submitSignedMessage: (message: unknown) => Promise<unknown>;
+  getAuthorizationHeaders: () => Promise<FootyAuthHeaders>;
 };
 
 type PrivyLinkedAccount = {
@@ -633,5 +634,6 @@ export function useFootyFarcaster(): FootyFarcasterState {
     requestSigner,
     signCast,
     submitSignedMessage,
+    getAuthorizationHeaders,
   };
 }

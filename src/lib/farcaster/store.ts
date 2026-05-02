@@ -92,6 +92,10 @@ export async function appendFarcasterActionLog(log: FarcasterActionLog): Promise
   await redis.set(key, next);
 }
 
+export async function getFarcasterActionLogs(userId: string): Promise<FarcasterActionLog[]> {
+  return (await redis.get<FarcasterActionLog[]>(actionLogKey(userId))) || [];
+}
+
 export async function setSignerSecret(userId: string, signerPublicKey: string, encryptedPrivateKey: string): Promise<void> {
   await redis.set(signerSecretKey(userId, signerPublicKey), encryptedPrivateKey);
 }
