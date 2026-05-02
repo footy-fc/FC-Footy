@@ -16,10 +16,9 @@ export function buildMentionedCastText(
     };
   }
 
-  // Farcaster structured mentions are rendered from metadata. The raw text should
-  // contain the username token without a literal "@" at the mention position.
-  const mentionToken = normalizedUsername;
-  const text = normalizedMessage ? `${mentionToken} ${normalizedMessage}` : mentionToken;
+  // Farcaster mentions are reconstructed by clients from fid + byte offset.
+  // The raw text must exclude the mention token entirely.
+  const text = normalizedMessage ? ` ${normalizedMessage}` : "";
   const mentionPosition = 0;
 
   return {
