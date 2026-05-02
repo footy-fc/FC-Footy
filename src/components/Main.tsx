@@ -20,29 +20,8 @@ import ProfileTab from "./ProfileTab";
 import { tabDisplayMap } from "../lib/navigation";
 import { Pingem } from 'pingem-sdk';
 import { IS_TESTING } from "../lib/config";
+import { getFootyShareContext } from "~/lib/farcaster/shareContext";
 import { useFootyFarcaster } from "~/lib/farcaster/useFootyFarcaster";
-
-interface SharedCast {
-  author: {
-    fid: number;
-    username?: string;
-    displayName?: string;
-    pfpUrl?: string;
-  };
-  hash: string;
-  parentHash?: string;
-  parentFid?: number;
-  timestamp?: number;
-  mentions?: Array<{
-    fid: number;
-    username?: string;
-    displayName?: string;
-    pfpUrl?: string;
-  }>;
-  text: string;
-  embeds?: string[];
-  channelKey?: string;
-}
 
 function BrowserAuthFallback({
   authError,
@@ -348,31 +327,48 @@ export default function Main() {
         const castHash = effectiveSearchParams?.get('castHash');
         const castFid = effectiveSearchParams?.get('castFid');
         const profileFid = effectiveSearchParams?.get('profileFid');
+        const shareContext = effectiveSearchParams?.get('shareContext');
+        const inviteUsername = effectiveSearchParams?.get('inviteUsername');
 
         // Check URL parameters for share extension
 
         if (castHash && castFid) {
-          // Redirect to ForYou profile tab with cast author's FID
-          router.push(`/?tab=fanClubs&profileFid=${castFid}`);
+          const params = new URLSearchParams({
+            tab: "fanClubs",
+            profileFid: castFid,
+            castHash,
+            shareContext: "invite",
+          });
+          if (inviteUsername) {
+            params.set("inviteUsername", inviteUsername);
+          }
+          router.push(`/?${params.toString()}`);
           shareHandledRef.current = true;
           return;
         } 
         
         // If profileFid already present, consider handled
-        if (profileFid) {
+        if (profileFid && shareContext === "invite") {
           shareHandledRef.current = true;
           return;
         }
 
         // Check SDK context for share
-        await sdk.actions.ready();
-        const context = await sdk.context;
+        const context = await getFootyShareContext();
         
-        if (context?.location?.type === 'cast_share') {
-          const cast = context.location.cast as SharedCast;
-          // Redirect to ForYou profile tab with cast author's FID and cast hash
-          const hashParam = cast?.hash ? `&castHash=${encodeURIComponent(cast.hash)}` : '';
-          router.push(`/?tab=fanClubs&profileFid=${cast.author.fid}${hashParam}`);
+        if (context.entry === 'cast_share' && context.sourceAuthor.fid) {
+          const params = new URLSearchParams({
+            tab: "fanClubs",
+            profileFid: String(context.sourceAuthor.fid),
+            shareContext: "invite",
+          });
+          if (context.sourceCastHash) {
+            params.set("castHash", context.sourceCastHash);
+          }
+          if (context.sourceAuthor.username) {
+            params.set("inviteUsername", context.sourceAuthor.username);
+          }
+          router.push(`/?${params.toString()}`);
           shareHandledRef.current = true;
         }
       } catch (error) {

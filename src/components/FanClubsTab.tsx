@@ -3,6 +3,7 @@ import { useSearchParams } from "next/navigation";
 import { usePrivy } from "@privy-io/react-auth";
 import ForYouProfile from "./ForYouProfile";
 import ForYouTeamsFans from "./ForYouTeamsFans";
+import { FanClubInviteExperience } from "./fanclubs/FanClubInviteExperience";
 import { useFootyFarcaster } from "~/lib/farcaster/useFootyFarcaster";
 
 interface FanClubsTabProps {
@@ -13,6 +14,9 @@ const FanClubsTab: React.FC<FanClubsTabProps> = ({ viewerFid }) => {
   const searchParams = useSearchParams();
   const profileFid = searchParams?.get("profileFid");
   const teamId = searchParams?.get("teamId");
+  const shareContext = searchParams?.get("shareContext");
+  const castHash = searchParams?.get("castHash");
+  const inviteUsername = searchParams?.get("inviteUsername");
   const { ready, authenticated } = usePrivy();
   const { hasLinkedFarcaster, advanceOnboarding, onboardingState, runtime } = useFootyFarcaster();
 
@@ -51,7 +55,14 @@ const FanClubsTab: React.FC<FanClubsTabProps> = ({ viewerFid }) => {
       </p>
 
       <div className="bg-purplePanel text-lightPurple rounded-lg p-2 overflow-hidden">
-        {profileFid ? (
+        {profileFid && shareContext === "invite" ? (
+          <FanClubInviteExperience
+            profileFid={Number(profileFid)}
+            viewerFid={viewerFid}
+            castHash={castHash || undefined}
+            inviteUsername={inviteUsername || undefined}
+          />
+        ) : profileFid ? (
           <ForYouProfile profileFid={Number(profileFid)} viewerFid={viewerFid} />
         ) : (
           <ForYouTeamsFans viewerFid={viewerFid} initialSelectedTeam={teamId || undefined} />

@@ -13,6 +13,8 @@ import { fetchUserByFid } from '~/lib/hypersnap';
 type FootyCastInput = {
   text: string;
   embeds?: string[];
+  mentions?: number[];
+  mentionsPositions?: number[];
 };
 
 type FootySignedCastPayload = {
@@ -512,9 +514,15 @@ export function useFootyFarcaster(): FootyFarcasterState {
     async (input: string | FootyCastInput) => {
       const text = typeof input === 'string' ? input : input.text;
       const embeds = typeof input === 'string' ? [] : (input.embeds || []);
+      const mentions = typeof input === 'string' ? [] : (input.mentions || []);
+      const mentionsPositions = typeof input === 'string' ? [] : (input.mentionsPositions || []);
 
       if (!text.trim()) {
         throw new Error('Cast text is required');
+      }
+
+      if (mentions.length !== mentionsPositions.length) {
+        throw new Error('Cast mentions are invalid');
       }
 
       if (!linkedFid) {
@@ -529,8 +537,8 @@ export function useFootyFarcaster(): FootyFarcasterState {
       const body = CastAddBody.create({
         text,
         embeds: embeds.map((url) => ({ url })),
-        mentions: [],
-        mentionsPositions: [],
+        mentions,
+        mentionsPositions,
       });
       const messageResult = await makeCastAdd(
         body,
