@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { authenticateFootyUser } from '~/lib/farcaster/serverAuth';
 import { appendFarcasterActionLog } from '~/lib/farcaster/store';
 
-const HAATZ_SUBMIT_TIMEOUT_MS = 12000;
+const HAATZ_SUBMIT_TIMEOUT_MS = 30000;
 
 type CastSubmitPayload = {
   fid?: number;
