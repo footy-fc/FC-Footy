@@ -28,7 +28,7 @@ function formatTimestamp(value: string) {
 }
 
 const ProfileCastFeed: React.FC = () => {
-  const { canWrite, getAuthorizationHeaders } = useFootyFarcaster();
+  const { canWrite, fid, getAuthorizationHeaders } = useFootyFarcaster();
   const [logs, setLogs] = React.useState<FarcasterActionLog[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
@@ -45,7 +45,7 @@ const ProfileCastFeed: React.FC = () => {
 
       try {
         const headers = await getAuthorizationHeaders();
-        const response = await fetch("/api/farcaster/account/activity", {
+        const response = await fetch(`/api/farcaster/account/activity${fid ? `?fid=${fid}` : ""}`, {
           method: "GET",
           headers,
         });
@@ -79,7 +79,7 @@ const ProfileCastFeed: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, [canWrite, getAuthorizationHeaders]);
+  }, [canWrite, fid, getAuthorizationHeaders]);
 
   return (
     <div className="mt-4 rounded-[22px] border border-limeGreenOpacity/20 bg-purplePanel p-4 text-lightPurple">
