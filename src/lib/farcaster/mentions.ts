@@ -17,9 +17,11 @@ export function buildMentionedCastText(
   }
 
   // Farcaster mentions are reconstructed by clients from fid + byte offset.
-  // The raw text must exclude the mention token entirely.
-  const text = normalizedMessage ? ` ${normalizedMessage}` : "";
-  const mentionPosition = 0;
+  // Keep natural surrounding text and leave a "hole" where the mention belongs.
+  const prefix = "hey ";
+  const suffix = normalizedMessage ? ` ${normalizedMessage}` : "";
+  const text = `${prefix}${suffix}`;
+  const mentionPosition = new TextEncoder().encode(prefix).length;
 
   return {
     text,
