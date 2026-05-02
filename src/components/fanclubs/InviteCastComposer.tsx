@@ -12,6 +12,7 @@ type InviteCastComposerProps = {
   launchUrl: string;
   imageUrl: string;
   defaultMessage: string;
+  suggestions: string[];
 };
 
 export function InviteCastComposer({
@@ -19,6 +20,7 @@ export function InviteCastComposer({
   launchUrl,
   imageUrl,
   defaultMessage,
+  suggestions,
 }: InviteCastComposerProps) {
   const {
     runtime,
@@ -47,12 +49,13 @@ export function InviteCastComposer({
 
     return buildMentionedCastText(target.username, target.fid, message);
   }, [message, target.fid, target.username]);
+  const previewBytes = useMemo(() => new TextEncoder().encode(preview.text).length, [preview.text]);
 
   const buttonLabel =
     status === "posting"
-      ? "Posting invite..."
+      ? "Posting banter..."
       : status === "posted"
-        ? "Invite sent"
+        ? "Banter sent"
         : !hasFootySession && runtime === "miniapp"
           ? "Authorize Footy to cast"
           : !hasFootySession
@@ -61,7 +64,7 @@ export function InviteCastComposer({
               ? "Connect Farcaster"
               : !hasSigner || onboardingState === "needs_farcaster_signer"
                 ? "Authorize signer"
-                : "Cast invite";
+                : "Cast banter";
 
   const handlePost = async () => {
     setFeedback(null);
@@ -103,32 +106,59 @@ export function InviteCastComposer({
       });
       await submitSignedMessage(signedMessage);
       setStatus("posted");
-      setFeedback("Invite cast sent from Footy.");
+      setFeedback("Banter cast sent from Footy.");
     } catch (error) {
       setStatus("idle");
-      setFeedback(error instanceof Error ? error.message : "Unable to post the invite right now.");
+      setFeedback(error instanceof Error ? error.message : "Unable to post the banter right now.");
     }
   };
 
   return (
     <div className="rounded-[24px] border border-deepPink/25 bg-[linear-gradient(180deg,rgba(37,21,56,0.95),rgba(10,10,24,0.96))] p-4">
-      <div className="mb-2 app-eyebrow">Public Invite</div>
-      <h4 className="text-xl font-semibold text-notWhite">Make it a cast, not a whisper</h4>
+      <div className="mb-2 app-eyebrow">Banter Composer</div>
+      <h4 className="text-xl font-semibold text-notWhite">Cast the line, not the life story</h4>
       <p className="mt-2 text-sm text-lightPurple">
-        This posts publicly from Footy inside the client app and opens the main Footy entry when people tap in.
+        This posts publicly from Footy inside the client app. Keep it sharp, short, and aimed at the badge story you just looked up.
       </p>
+
+      <div className="mt-4 flex flex-wrap gap-2">
+        {suggestions.map((suggestion) => (
+          <button
+            key={suggestion}
+            type="button"
+            onClick={() => setMessage(suggestion)}
+            className="rounded-full border border-limeGreenOpacity/20 bg-darkPurple/70 px-3 py-2 text-xs font-medium text-lightPurple transition-colors hover:border-limeGreenOpacity/40 hover:bg-darkPurple"
+          >
+            {suggestion}
+          </button>
+        ))}
+      </div>
 
       <textarea
         value={message}
         onChange={(event) => setMessage(event.target.value)}
         rows={4}
         maxLength={260}
+        placeholder="Write your banter"
         className="mt-4 w-full rounded-[18px] border border-limeGreenOpacity/25 bg-darkPurple px-3 py-3 text-[16px] text-notWhite placeholder:text-lightPurple/50 focus:border-deepPink focus:outline-none"
       />
 
+      <div className="mt-4 rounded-[20px] border border-limeGreenOpacity/20 bg-black/20 p-4">
+        <div className="mb-3 flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-deepPink/20 text-sm font-semibold text-[#fea282]">
+            F
+          </div>
+          <div className="min-w-0">
+            <div className="text-sm font-semibold text-notWhite">Footy cast preview</div>
+            <div className="text-xs text-lightPurple">Public post from the miniapp</div>
+          </div>
+        </div>
+        <p className="whitespace-pre-wrap text-[15px] leading-6 text-notWhite">{preview.text || "Write your banter"}</p>
+      </div>
+
       <div className="mt-2 flex items-center justify-between text-xs text-lightPurple/75">
         <span>{preview.mentions.length > 0 ? `Will mention @${target.username}` : "No mention target available"}</span>
-        <span>{preview.text.length}/320</span>
+        <span>{previewBytes}/320 bytes</span>
       </div>
 
       <button

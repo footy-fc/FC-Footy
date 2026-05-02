@@ -13,7 +13,7 @@ export function buildInviteShareUrl({ profileFid, castHash, inviteUsername }: In
   const url = new URL("/", origin);
   url.searchParams.set("tab", "fanClubs");
   url.searchParams.set("profileFid", String(profileFid));
-  url.searchParams.set("shareContext", "invite");
+  url.searchParams.set("shareContext", "lookup");
 
   if (castHash) {
     url.searchParams.set("castHash", castHash);

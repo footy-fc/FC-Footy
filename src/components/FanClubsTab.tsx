@@ -55,7 +55,7 @@ const FanClubsTab: React.FC<FanClubsTabProps> = ({ viewerFid }) => {
       </p>
 
       <div className="bg-purplePanel text-lightPurple rounded-lg p-2 overflow-hidden">
-        {profileFid && shareContext === "invite" ? (
+        {profileFid && (shareContext === "invite" || shareContext === "lookup") ? (
           <FanClubInviteExperience
             profileFid={Number(profileFid)}
             viewerFid={viewerFid}

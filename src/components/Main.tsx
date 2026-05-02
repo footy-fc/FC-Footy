@@ -337,7 +337,7 @@ export default function Main() {
             tab: "fanClubs",
             profileFid: castFid,
             castHash,
-            shareContext: "invite",
+            shareContext: "lookup",
           });
           if (inviteUsername) {
             params.set("inviteUsername", inviteUsername);
@@ -348,7 +348,7 @@ export default function Main() {
         } 
         
         // If profileFid already present, consider handled
-        if (profileFid && shareContext === "invite") {
+        if (profileFid && (shareContext === "invite" || shareContext === "lookup")) {
           shareHandledRef.current = true;
           return;
         }
@@ -360,7 +360,7 @@ export default function Main() {
           const params = new URLSearchParams({
             tab: "fanClubs",
             profileFid: String(context.sourceAuthor.fid),
-            shareContext: "invite",
+            shareContext: "lookup",
           });
           if (context.sourceCastHash) {
             params.set("castHash", context.sourceCastHash);
