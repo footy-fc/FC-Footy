@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { FOOTBALL_PARENT_URL } from '~/lib/farcaster/channels';
 import { getHypersnapBaseUrl } from '~/lib/hypersnap';
-
-const FOOTBALL_PARENT_URL = 'chain://eip155:1/erc721:0x7abfe142031532e1ad0e46f971cc0ef7cf4b98b0';
 
 type ParentUrlFeedCast = {
   hash?: string;

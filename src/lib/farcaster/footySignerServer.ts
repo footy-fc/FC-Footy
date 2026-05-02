@@ -14,6 +14,7 @@ import { bytesToHex, createPublicClient, createWalletClient, http } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { optimism } from 'viem/chains';
 import type { CastAddMessage } from '@farcaster/hub-web';
+import { FOOTBALL_PARENT_URL } from '~/lib/farcaster/channels';
 import type { PendingFootySignerRequest, UserFarcasterAccount } from '~/lib/farcaster/store';
 
 function getRpcUrl() {
@@ -192,6 +193,7 @@ export async function signFootyCast(account: UserFarcasterAccount, encryptedPriv
   const signer = new NobleEd25519Signer(decryptPrivateKey(encryptedPrivateKey));
   const body = CastAddBody.create({
     text: input.text,
+    parentUrl: FOOTBALL_PARENT_URL,
     embeds: (input.embeds || []).map((url) => ({ url })),
     mentions: [],
     mentionsPositions: [],

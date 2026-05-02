@@ -6,6 +6,7 @@ import { useFarcasterSigner, useLinkAccount, usePrivy } from '@privy-io/react-au
 import { useLoginToMiniApp } from '@privy-io/react-auth/farcaster';
 import { ExternalEd25519Signer } from '@standard-crypto/farcaster-js';
 import { CastAddBody, FarcasterNetwork, makeCastAdd } from '@farcaster/hub-web';
+import { FOOTBALL_PARENT_URL } from '~/lib/farcaster/channels';
 import { detectFarcasterRuntime, type FarcasterRuntime } from '~/lib/farcaster/runtime';
 import type { FootyDelegatedApp, FootySignerCustody, FootySignerProvider, FootySignerStatus, FootyWalletProvider } from '~/lib/farcaster/types';
 import { fetchUserByFid } from '~/lib/hypersnap';
@@ -537,6 +538,7 @@ export function useFootyFarcaster(): FootyFarcasterState {
       const signer = new ExternalEd25519Signer(signFarcasterMessage, getFarcasterSignerPublicKey);
       const body = CastAddBody.create({
         text,
+        parentUrl: FOOTBALL_PARENT_URL,
         embeds: embeds.map((url) => ({ url })),
         mentions,
         mentionsPositions,
