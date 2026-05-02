@@ -50,6 +50,15 @@ export function InviteCastComposer({
     return buildMentionedCastText(target.username, target.fid, message);
   }, [message, target.fid, target.username]);
   const previewBytes = useMemo(() => new TextEncoder().encode(preview.text).length, [preview.text]);
+  const renderPreviewText = useMemo(() => {
+    if (!target.username) {
+      return preview.text;
+    }
+
+    return preview.text.startsWith(target.username)
+      ? `@${target.username}${preview.text.slice(target.username.length)}`
+      : `@${target.username} ${message.trim()}`.trim();
+  }, [message, preview.text, target.username]);
 
   const buttonLabel =
     status === "posting"
@@ -153,7 +162,7 @@ export function InviteCastComposer({
             <div className="text-xs text-lightPurple">Public post from the miniapp</div>
           </div>
         </div>
-        <p className="whitespace-pre-wrap text-[15px] leading-6 text-notWhite">{preview.text || "Write your banter"}</p>
+        <p className="whitespace-pre-wrap text-[15px] leading-6 text-notWhite">{renderPreviewText || "Write your banter"}</p>
       </div>
 
       <div className="mt-2 flex items-center justify-between text-xs text-lightPurple/75">

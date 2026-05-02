@@ -16,11 +16,11 @@ export function buildMentionedCastText(
     };
   }
 
-  const mentionToken = `@${normalizedUsername}`;
+  // Farcaster structured mentions are rendered from metadata. The raw text should
+  // contain the username token without a literal "@" at the mention position.
+  const mentionToken = normalizedUsername;
   const text = normalizedMessage ? `${mentionToken} ${normalizedMessage}` : mentionToken;
-  const mentionStart = text.indexOf(mentionToken);
-  const mentionPrefix = text.slice(0, mentionStart);
-  const mentionPosition = new TextEncoder().encode(mentionPrefix).length;
+  const mentionPosition = 0;
 
   return {
     text,
