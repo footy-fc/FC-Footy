@@ -8,6 +8,7 @@ import { RichMatchEvent } from '~/types/commentatorTypes';
 import { CommentaryPipeline, CommentaryContext } from '~/services/CommentaryPipeline';
 
 const imageLoadCache = new Map<string, Promise<HTMLImageElement>>();
+const FARCASTER_CAST_MAX_BYTES = 320;
 
 function getInitials(name: string) {
   const parts = name
@@ -57,6 +58,72 @@ function canvasToBlob(canvas: HTMLCanvasElement, type = 'image/png') {
       resolve(blob);
     }, type);
   });
+}
+
+function getUtf8ByteLength(value: string) {
+  return new TextEncoder().encode(value).length;
+}
+
+function truncateToUtf8Bytes(value: string, maxBytes: number) {
+  if (maxBytes <= 0) {
+    return '';
+  }
+
+  if (getUtf8ByteLength(value) <= maxBytes) {
+    return value;
+  }
+
+  let low = 0;
+  let high = value.length;
+
+  while (low < high) {
+    const mid = Math.ceil((low + high) / 2);
+    const slice = value.slice(0, mid);
+    if (getUtf8ByteLength(slice) <= maxBytes) {
+      low = mid;
+    } else {
+      high = mid - 1;
+    }
+  }
+
+  return value.slice(0, low).trimEnd();
+}
+
+function fitCastText(parts: string[]) {
+  const normalized = parts
+    .map((part) => part.trim())
+    .filter((part) => part.length > 0);
+
+  let text = normalized.join('\n\n');
+  if (getUtf8ByteLength(text) <= FARCASTER_CAST_MAX_BYTES) {
+    return text;
+  }
+
+  const lastIndex = normalized.length - 1;
+  if (lastIndex < 0) {
+    return '';
+  }
+
+  const head = normalized.slice(0, lastIndex);
+  const tail = normalized[lastIndex];
+  const prefix = head.length > 0 ? `${head.join('\n\n')}\n\n` : '';
+  const prefixBytes = getUtf8ByteLength(prefix);
+  const ellipsis = '…';
+  const ellipsisBytes = getUtf8ByteLength(ellipsis);
+  const remainingBytes = FARCASTER_CAST_MAX_BYTES - prefixBytes - ellipsisBytes;
+
+  if (remainingBytes <= 0) {
+    return truncateToUtf8Bytes(text, FARCASTER_CAST_MAX_BYTES - ellipsisBytes) + ellipsis;
+  }
+
+  const truncatedTail = truncateToUtf8Bytes(tail, remainingBytes);
+  text = `${prefix}${truncatedTail}${ellipsis}`;
+
+  if (getUtf8ByteLength(text) <= FARCASTER_CAST_MAX_BYTES) {
+    return text;
+  }
+
+  return truncateToUtf8Bytes(text, FARCASTER_CAST_MAX_BYTES);
 }
 
 function withTimeout<T>(promise: Promise<T>, timeoutMs: number, fallback: T): Promise<T> {
@@ -547,7 +614,10 @@ const generateCommentaryForMatch = async (
 
       // Build the cast text
       const isMoneyGame = Boolean(moneyGamesParams);
-      let matchSummary = `${competitorsLong}${personalCommentaryText}${keyMomentsText}\n\n@gabedev.eth @kmacb.eth are you in on this one?`;
+      let matchSummary = fitCastText([
+        `${competitorsLong}${personalCommentaryText}${keyMomentsText}`,
+        '@gabedev.eth @kmacb.eth are you in on this one?',
+      ]);
       
       if (isMoneyGame) {
         const ticketEthStr = typeof ticketPriceEth === 'number' && !isNaN(ticketPriceEth)
@@ -562,11 +632,17 @@ const generateCommentaryForMatch = async (
         const prizeUsdStr = ethUsdPrice && typeof prizePoolEth === 'number'
           ? ` (~$${(prizePoolEth * ethUsdPrice).toFixed(2)})`
           : '';
-        matchSummary = `${selectedMatch.homeTeam} v ${selectedMatch.awayTeam} ScoreSquare 🎟️ 25 squares, 2 winners\nTicket: ${ticketEthStr}${ticketUsdStr} \nPrize: ${prizeEthStr}${prizeUsdStr}`;
+        matchSummary = fitCastText([
+          `${selectedMatch.homeTeam} v ${selectedMatch.awayTeam} ScoreSquare 🎟️ 25 squares, 2 winners\nTicket: ${ticketEthStr}${ticketUsdStr} \nPrize: ${prizeEthStr}${prizeUsdStr}`,
+        ]);
       } else if (commentary) {
         // Prepend commentary for regular matches with proper formatting
         const commentatorDisplay = currentCommentator?.displayName || 'Hattrick Homer';
-        matchSummary = `🎤 ${commentary} — ${commentatorDisplay} ai\n\n${competitorsLong}${personalCommentaryText}${keyMomentsText}\n\n@gabedev.eth @kmacb.eth are you in on this one?`;
+        matchSummary = fitCastText([
+          `🎤 ${commentary} — ${commentatorDisplay} ai`,
+          `${competitorsLong}${personalCommentaryText}${keyMomentsText}`,
+          '@gabedev.eth @kmacb.eth are you in on this one?',
+        ]);
       }
 
       //let imageUrl = '';
