@@ -1,36 +1,37 @@
 import React, { useEffect, useState } from 'react';
 import Image from 'next/image';
 import { sdk } from '@farcaster/miniapp-sdk';
-import { getTeamPreferences, getPrimaryFanCountForTeam, getPrimaryFansForTeam, isCountryTeamId, isClubTeamId } from "../lib/kvPerferences";
+import { getTeamPreferences, getPrimaryFansForTeam, isCountryTeamId, isClubTeamId } from "../lib/kvPerferences";
 import { getTeamLogo } from "./utils/fetchTeamLogos";
 import { fetchFollowingStatuses } from './utils/fetchCheckIfFollowing';
 import SettingsFollowClubs from './SettingsFollowClubs';
 import type { FanPair } from "./utils/getAlikeFanMatches";
-import { fetchFanUserData } from './utils/fetchFCProfile';
-
-type TeamLink = {
-  href: string;
-  text?: string;
-  shortText?: string;
-};
+import { fetchFanUserDataBulk } from './utils/fetchFCProfile';
 
 interface ForYouTeamsFansProps {
   viewerFid?: number;
   initialSelectedTeam?: string;
 }
 
+type TeamFan = {
+  fid: number;
+  pfp: string;
+  youFollow: boolean | null;
+  username?: string;
+};
+
 const ForYouTeamsFans: React.FC<ForYouTeamsFansProps> = ({ viewerFid, initialSelectedTeam }) => {
   const [favoriteTeams, setFavoriteTeams] = useState<string[]>([]);
   const [currentFid, setCurrentFid] = useState<number | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  const [teamLinks, setTeamLinks] = useState<Record<string, TeamLink[]>>({});
   const [selectedTeam, setSelectedTeam] = useState<string | null>(null);
-  const [favoriteTeamFans, setFavoriteTeamFans] = useState<Array<{ fid: number; pfp: string; youFollow: boolean; username?: string }>>([]);
+  const [favoriteTeamFans, setFavoriteTeamFans] = useState<TeamFan[]>([]);
   const [fanCount, setFanCount] = useState<number>(0);
   const [loadingFollowers, setLoadingFollowers] = useState<boolean>(false);
+  const [loadingFollowState, setLoadingFollowState] = useState<boolean>(false);
   const [showSettings, setShowSettings] = useState(false);
-  const [cachedTeamFollowers, setCachedTeamFollowers] = useState<Record<string, Array<{ fid: number; pfp: string; youFollow: boolean; username?: string }>>>({});
+  const [cachedTeamFollowers, setCachedTeamFollowers] = useState<Record<string, TeamFan[]>>({});
   const [showMatchUps, setShowMatchUps] = useState(false);
   const [matchUps, setMatchUps] = useState<FanPair[]>([]);
   const lastAppliedInitialTeamRef = React.useRef<string | null>(null);
@@ -77,18 +78,49 @@ const ForYouTeamsFans: React.FC<ForYouTeamsFansProps> = ({ viewerFid, initialSel
     if (!selectedTeam) return;
     let cancelled = false;
 
-    getPrimaryFanCountForTeam(selectedTeam.toLowerCase())
-      .then(count => {
-        if (!cancelled) {
-          setFanCount(count);
-        }
-      })
-      .catch(err => console.error('Error fetching fan count:', err));
+    const currentViewerFid = viewerFid ?? currentFid;
+    const cachedFans = cachedTeamFollowers[selectedTeam];
 
-    // If we have cached followers for this team, use them and avoid refetching
-    if (cachedTeamFollowers[selectedTeam]) {
-      setFavoriteTeamFans(cachedTeamFollowers[selectedTeam]);
+    const resolveFollowState = async (fans: TeamFan[]) => {
+      if (!currentViewerFid || fans.length === 0) {
+        return;
+      }
+
+      setLoadingFollowState(true);
+
+      try {
+        const followingMap = await fetchFollowingStatuses(
+          currentViewerFid,
+          fans.map((fan) => fan.fid)
+        );
+
+        if (!cancelled) {
+          const fansWithFollowState = fans.map((fan) => ({
+            ...fan,
+            youFollow: Boolean(followingMap[fan.fid]),
+          }));
+
+          setCachedTeamFollowers((prev) => ({ ...prev, [selectedTeam]: fansWithFollowState }));
+          setFavoriteTeamFans(fansWithFollowState);
+        }
+      } catch (err) {
+        console.warn('Failed to resolve follow states:', err);
+      } finally {
+        if (!cancelled) {
+          setLoadingFollowState(false);
+        }
+      }
+    };
+
+    if (cachedFans) {
+      setFanCount(cachedFans.length);
+      setFavoriteTeamFans(cachedFans);
       setLoadingFollowers(false);
+
+      if (currentViewerFid && cachedFans.some((fan) => fan.youFollow === null)) {
+        void resolveFollowState(cachedFans);
+      }
+
       return;
     }
     
@@ -97,44 +129,47 @@ const ForYouTeamsFans: React.FC<ForYouTeamsFansProps> = ({ viewerFid, initialSel
     setShowMatchUps(false);
     setMatchUps([]);
     setLoadingFollowers(true);
+    setLoadingFollowState(false);
 
     const fetchFans = async () => {
       try {
         const fanFids = await getPrimaryFansForTeam(selectedTeam.toLowerCase());
-        const currentViewerFid = viewerFid ?? currentFid;
-        if (!currentViewerFid) {
-          console.error("No current fid found");
-          return;
+        const numericFids = Array.from(
+          new Set(fanFids.map(Number).filter((fid) => Number.isFinite(fid) && fid > 0))
+        );
+
+        if (!cancelled) {
+          setFanCount(numericFids.length);
         }
-        
-        // Convert the fan FIDs to numbers
-        const numericFids = fanFids.map(Number);
-        
-        // Team fans are already known from Redis; only resolve whether you follow them.
-        const followingMap = await fetchFollowingStatuses(currentViewerFid, numericFids);
-        
-        const userDatas = await Promise.all(numericFids.map(fid => fetchFanUserData(fid)));
-        const fans = numericFids.reduce<Array<{ fid: number; pfp: string; youFollow: boolean; username?: string }>>((acc, fid, index) => {
-          const userData = userDatas[index];
+
+        const userDatas = await fetchFanUserDataBulk(numericFids);
+        const fans = numericFids.reduce<TeamFan[]>((acc, fid) => {
+          const userData = userDatas[fid];
           const pfp = userData?.USER_DATA_TYPE_PFP?.[0];
           const uname = (userData?.USER_DATA_TYPE_USERNAME?.[0] || '').toLowerCase();
           if (pfp) {
-            const youFollow = Boolean(followingMap[fid]);
-            acc.push({ fid, pfp, youFollow, username: uname || undefined });
+            acc.push({ fid, pfp, youFollow: null, username: uname || undefined });
           }
           return acc;
         }, []);
-        
+
         if (!cancelled) {
-          // Cache the fetched fans for this team
           setCachedTeamFollowers(prev => ({ ...prev, [selectedTeam]: fans }));
           setFavoriteTeamFans(fans);
+          setLoadingFollowers(false);
         }
+
+        if (!currentViewerFid || fans.length === 0) {
+          return;
+        }
+
+        void resolveFollowState(fans);
       } catch (err) {
         console.error("Error fetching fans:", err);
       } finally {
         if (!cancelled) {
           setLoadingFollowers(false);
+          if (!currentViewerFid) setLoadingFollowState(false);
         }
       }
     };
@@ -144,30 +179,12 @@ const ForYouTeamsFans: React.FC<ForYouTeamsFansProps> = ({ viewerFid, initialSel
     return () => {
       cancelled = true;
     };
-  }, [selectedTeam, cachedTeamFollowers, viewerFid]);
+  }, [selectedTeam, cachedTeamFollowers, viewerFid, currentFid]);
 
   // Fetch the user's favorite teams from Redis
   useEffect(() => {
     fetchFavoriteTeams();
   }, []);
-
-  useEffect(() => {
-    if (favoriteTeams.length === 0) return;
-
-    const leagueMap: Record<string, string[]> = {};
-
-    favoriteTeams.forEach((teamId) => {
-      const [league, abbr] = teamId.split("-");
-      if (!leagueMap[league]) {
-        leagueMap[league] = [];
-      }
-      leagueMap[league].push(abbr);
-    });
-
-    Object.entries(leagueMap).forEach(([league, abbrs]) => {
-      fetchTeamLinksByLeague(league, abbrs);
-    });
-  }, [favoriteTeams, selectedTeam]);
 
   useEffect(() => {
     if (favoriteTeams.length === 0) {
@@ -200,34 +217,8 @@ const ForYouTeamsFans: React.FC<ForYouTeamsFansProps> = ({ viewerFid, initialSel
     return getTeamLogo(abbr, league);
   };
 
-  const fetchTeamLinksByLeague = async (league: string, teamAbbrs: string[]) => {
-    try {
-      const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${league}/teams`);
-      const data = await res.json();
-      const teams = data?.sports?.[0]?.leagues?.[0]?.teams || [];
-
-      const newLinks: Record<string, TeamLink[]> = {};
-      teamAbbrs.forEach((abbr) => {
-        const matched = teams.find(
-          (t: { team: { abbreviation: string } }) => t.team.abbreviation.toLowerCase() === abbr.toLowerCase()
-        );
-        if (matched?.team?.links) {
-          newLinks[abbr] = matched.team.links;
-        }
-      });
-
-      setTeamLinks((prev) => ({
-        ...prev,
-        ...newLinks
-      }));
-    } catch (err) {
-      console.error(`Failed to fetch team links for league ${league}`, err);
-    }
-  };
-
   if (loading) return <div>For you today</div>;
   if (error) return <div>{error}</div>;
-  console.log("teamLinks", teamLinks);
   if (showSettings) {
     return (
       <div className="p-4">
@@ -427,6 +418,9 @@ const ForYouTeamsFans: React.FC<ForYouTeamsFansProps> = ({ viewerFid, initialSel
                       <span className="w-3 h-3 ring-2 ring-fontRed rounded-full inline-block"></span>
                       <span>You don’t follow</span>
                     </div>
+                    {loadingFollowState ? (
+                      <span className="text-[11px] text-lightPurple/70">Checking follow state…</span>
+                    ) : null}
                   </div>
                   {loadingFollowers ? (
                     <div className="text-sm text-gray-400 animate-pulse">Loading fans...</div>
@@ -441,7 +435,11 @@ const ForYouTeamsFans: React.FC<ForYouTeamsFansProps> = ({ viewerFid, initialSel
                               sdk.actions.viewProfile({ fid: fan.fid });
                             }}
                             className={`rounded-full border-2 focus:outline-none w-6 h-6 flex items-center justify-center ${
-                              fan.youFollow ? 'border-limeGreen' : 'border-fontRed'
+                              fan.youFollow === null
+                                ? 'border-lightPurple/40'
+                                : fan.youFollow
+                                ? 'border-limeGreen'
+                                : 'border-fontRed'
                             }`}
                           >
                             <Image

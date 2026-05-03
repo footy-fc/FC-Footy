@@ -7,12 +7,6 @@ import { getTeamLogo } from './utils/fetchTeamLogos';
 import { fetchFanUserData } from './utils/fetchFCProfile';
 import { useRouter } from "next/navigation";
 
-type TeamLink = {
-  href: string;
-  text?: string;
-  shortText?: string;
-};
-
 interface ForYouProfileProps {
   profileFid?: number; // Optional FID to show instead of current user
   viewerFid?: number;
@@ -23,7 +17,6 @@ const UserProfile: React.FC<ForYouProfileProps> = ({ profileFid, viewerFid }) =>
   const [favoriteTeams, setFavoriteTeams] = useState<string[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  const [teamLinks, setTeamLinks] = useState<Record<string, TeamLink[]>>({});
   const [selectedTeam, setSelectedTeam] = useState<string | null>(null);
   const [viewingOwnProfile, setViewingOwnProfile] = useState<boolean>(!profileFid);
   const [currentProfileFid, setCurrentProfileFid] = useState<number | undefined>(profileFid);
@@ -103,42 +96,6 @@ const UserProfile: React.FC<ForYouProfileProps> = ({ profileFid, viewerFid }) =>
   useEffect(() => {
     fetchFavoriteTeams();
   }, [currentProfileFid]);
-
-  // Fetch team links for favorite teams
-  useEffect(() => {
-    if (favoriteTeams.length === 0) return;
-
-    const leagueMap: Record<string, string[]> = {};
-    favoriteTeams.forEach(teamId => {
-      const [league, abbr] = teamId.split('-');
-      if (!leagueMap[league]) leagueMap[league] = [];
-      leagueMap[league].push(abbr);
-    });
-
-    Object.entries(leagueMap).forEach(([league, abbrs]) => {
-      fetchTeamLinksByLeague(league, abbrs);
-    });
-  }, [favoriteTeams]);
-
-  const fetchTeamLinksByLeague = async (league: string, teamAbbrs: string[]) => {
-    try {
-      const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${league}/teams`);
-      const data = await res.json();
-      const teams = data?.sports?.[0]?.leagues?.[0]?.teams || [];
-
-      const newLinks: Record<string, TeamLink[]> = {};
-      teamAbbrs.forEach(abbr => {
-        const matched = teams.find((t: { team: { abbreviation: string } }) => t.team.abbreviation.toLowerCase() === abbr.toLowerCase());
-        if (matched?.team?.links) {
-          newLinks[abbr] = matched.team.links;
-        }
-      });
-
-      setTeamLinks(prev => ({ ...prev, ...newLinks }));
-    } catch (err) {
-      console.error(`Failed to fetch team links for league ${league}`, err);
-    }
-  };
 
   const getTeamLogoUrl = (teamId: string): string => {
     const [league, abbr] = teamId.split('-');
