@@ -5,6 +5,7 @@ import { useEffect, useState, useRef } from "react";
 import { sdk } from "@farcaster/miniapp-sdk";
 import "@farcaster/auth-kit/styles.css";
 import { AuthKitProvider, SignInButton } from "@farcaster/auth-kit";
+import { usePrivy } from "@privy-io/react-auth";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Dispatch, SetStateAction } from "react";
 import TabNavigation from "./TabNavigation";
@@ -19,28 +20,8 @@ import ProfileTab from "./ProfileTab";
 import { tabDisplayMap } from "../lib/navigation";
 import { Pingem } from 'pingem-sdk';
 import { IS_TESTING } from "../lib/config";
-
-interface SharedCast {
-  author: {
-    fid: number;
-    username?: string;
-    displayName?: string;
-    pfpUrl?: string;
-  };
-  hash: string;
-  parentHash?: string;
-  parentFid?: number;
-  timestamp?: number;
-  mentions?: Array<{
-    fid: number;
-    username?: string;
-    displayName?: string;
-    pfpUrl?: string;
-  }>;
-  text: string;
-  embeds?: string[];
-  channelKey?: string;
-}
+import { getFootyShareContext } from "~/lib/farcaster/shareContext";
+import { useFootyFarcaster } from "~/lib/farcaster/useFootyFarcaster";
 
 function BrowserAuthFallback({
   authError,
@@ -106,14 +87,92 @@ function BrowserAuthFallback({
   );
 }
 
+function FarcasterLandingGate({
+  selectedTab,
+}: {
+  selectedTab: string;
+}) {
+  const [actionMessage, setActionMessage] = useState<string | null>(null);
+  const [isWorking, setIsWorking] = useState(false);
+  const { ready, authenticated } = usePrivy();
+  const {
+    beginLogin,
+    beginLinkFarcaster,
+    beginSignerAuthorization,
+    hasLinkedFarcaster,
+    canWrite,
+    signerStatus,
+  } = useFootyFarcaster();
+
+  useEffect(() => {
+    if (ready && authenticated && canWrite) {
+      setActionMessage(null);
+    }
+  }, [authenticated, canWrite, ready]);
+
+  if (selectedTab !== "home" || !ready || authenticated || canWrite) {
+    return null;
+  }
+
+  const currentStep = "Sign in";
+
+  const handleContinue = async () => {
+    setActionMessage(null);
+
+    if (!ready || !authenticated) {
+      await beginLogin();
+      return;
+    }
+
+    setIsWorking(true);
+    try {
+      if (!hasLinkedFarcaster) {
+        await beginLinkFarcaster();
+        setActionMessage("Connect your Farcaster account to continue Footy setup.");
+        return;
+      }
+
+      await beginSignerAuthorization();
+      setActionMessage("Continue the Footy authorization flow to finish Farcaster setup.");
+    } catch (error) {
+      setActionMessage(error instanceof Error ? error.message : "Unable to continue Footy Farcaster setup.");
+    } finally {
+      setIsWorking(false);
+    }
+  };
+
+  return (
+    <div className="mb-4 rounded-[24px] border border-deepPink/30 bg-[linear-gradient(135deg,rgba(255,0,102,0.12),rgba(18,12,36,0.96))] p-5 text-notWhite shadow-[0_18px_40px_rgba(0,0,0,0.28)]">
+      <div className="mb-2 app-eyebrow">Footy App on Farcaster</div>
+      <h2 className="mb-2 text-[30px] font-semibold leading-[1.02] text-notWhite">
+        Follow teams and connect with fans.
+      </h2>
+      <p className="mb-4 max-w-[34rem] text-sm leading-6 text-lightPurple">
+        Footy App is a Farcaster app that helps you follow football teams, discover fans, and track Fantasy League results, and get goal notifications. Sign in with your Farcaster account to personalize your experience!
+      </p>
+      <button
+        type="button"
+        onClick={() => void handleContinue()}
+        disabled={isWorking || signerStatus === "pending"}
+        className="rounded-xl bg-deepPink px-5 py-3 text-sm font-semibold text-notWhite transition-colors hover:bg-deepPink/85 disabled:opacity-70"
+      >
+        {isWorking || signerStatus === "pending" ? "Opening setup..." : currentStep}
+      </button>
+      {actionMessage ? (
+        <div className="mt-3 text-sm text-lightPurple">{actionMessage}</div>
+      ) : null}
+    </div>
+  );
+}
+
 export default function Main() {
   const searchParams = useSearchParams();
   const router = useRouter();
+  const { authenticated } = usePrivy();
+  const { fid: footyFarcasterFid, runtime: farcasterRuntime } = useFootyFarcaster();
   const [customSearchParams, setCustomSearchParams] = useState<URLSearchParams | null>(null);
-  const [isMiniApp, setIsMiniApp] = useState(false);
   const [miniAppChecked, setMiniAppChecked] = useState(false);
   const [verifiedFid, setVerifiedFid] = useState<number | null>(null);
-  const [authLoading, setAuthLoading] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
   const effectiveSearchParams = searchParams || customSearchParams;
   const rawSelectedTab = effectiveSearchParams?.get("tab") || "home";
@@ -202,13 +261,11 @@ export default function Main() {
     };
 
     const detectMiniApp = async () => {
-      const fallbackMiniApp = detectMiniAppFallback();
       const likelyHostedMiniApp = detectLikelyMiniAppHost();
       try {
         const initialDetection = await confirmMiniApp(likelyHostedMiniApp ? 1500 : 800);
 
         if (!cancelled) {
-          setIsMiniApp(initialDetection.isMiniApp || fallbackMiniApp);
           if (initialDetection.fid) setVerifiedFid(initialDetection.fid);
         }
 
@@ -216,14 +273,10 @@ export default function Main() {
           const retryDetection = await confirmMiniApp(3500);
 
           if (!cancelled) {
-            setIsMiniApp(retryDetection.isMiniApp || fallbackMiniApp);
             if (retryDetection.fid) setVerifiedFid(retryDetection.fid);
           }
         }
       } catch {
-        if (!cancelled) {
-          setIsMiniApp(fallbackMiniApp);
-        }
       } finally {
         if (!cancelled) {
           setMiniAppChecked(true);
@@ -238,9 +291,11 @@ export default function Main() {
     };
   }, []);
 
+  const currentViewerFid = footyFarcasterFid ?? verifiedFid ?? undefined;
+
   useEffect(() => {
-    setIsAdminFid(Boolean(verifiedFid && [4163, 420564].includes(verifiedFid)));
-  }, [verifiedFid]);
+    setIsAdminFid(Boolean(currentViewerFid && [4163, 420564].includes(currentViewerFid)));
+  }, [currentViewerFid]);
   const shareHandledRef = useRef(false);
 
   // Handle URL redirect logic
@@ -272,31 +327,48 @@ export default function Main() {
         const castHash = effectiveSearchParams?.get('castHash');
         const castFid = effectiveSearchParams?.get('castFid');
         const profileFid = effectiveSearchParams?.get('profileFid');
+        const shareContext = effectiveSearchParams?.get('shareContext');
+        const inviteUsername = effectiveSearchParams?.get('inviteUsername');
 
         // Check URL parameters for share extension
 
         if (castHash && castFid) {
-          // Redirect to ForYou profile tab with cast author's FID
-          router.push(`/?tab=fanClubs&profileFid=${castFid}`);
+          const params = new URLSearchParams({
+            tab: "fanClubs",
+            profileFid: castFid,
+            castHash,
+            shareContext: "lookup",
+          });
+          if (inviteUsername) {
+            params.set("inviteUsername", inviteUsername);
+          }
+          router.push(`/?${params.toString()}`);
           shareHandledRef.current = true;
           return;
         } 
         
         // If profileFid already present, consider handled
-        if (profileFid) {
+        if (profileFid && (shareContext === "invite" || shareContext === "lookup")) {
           shareHandledRef.current = true;
           return;
         }
 
         // Check SDK context for share
-        await sdk.actions.ready();
-        const context = await sdk.context;
+        const context = await getFootyShareContext();
         
-        if (context?.location?.type === 'cast_share') {
-          const cast = context.location.cast as SharedCast;
-          // Redirect to ForYou profile tab with cast author's FID and cast hash
-          const hashParam = cast?.hash ? `&castHash=${encodeURIComponent(cast.hash)}` : '';
-          router.push(`/?tab=fanClubs&profileFid=${cast.author.fid}${hashParam}`);
+        if (context.entry === 'cast_share' && context.sourceAuthor.fid) {
+          const params = new URLSearchParams({
+            tab: "fanClubs",
+            profileFid: String(context.sourceAuthor.fid),
+            shareContext: "lookup",
+          });
+          if (context.sourceCastHash) {
+            params.set("castHash", context.sourceCastHash);
+          }
+          if (context.sourceAuthor.username) {
+            params.set("inviteUsername", context.sourceAuthor.username);
+          }
+          router.push(`/?${params.toString()}`);
           shareHandledRef.current = true;
         }
       } catch (error) {
@@ -310,6 +382,10 @@ export default function Main() {
   const handleTabChange: Dispatch<SetStateAction<string>> = (value) => {
     const newTab = typeof value === "function" ? value(selectedTab) : value;
     router.push(`/?tab=${newTab}`);
+  };
+
+  const handleOpenTeam = (teamId: string) => {
+    router.push(`/?tab=fanClubs&teamId=${encodeURIComponent(teamId)}`);
   };
 
   // Loading states
@@ -356,7 +432,7 @@ export default function Main() {
     load();
   }, []);
 
-  const shouldRenderApp = IS_TESTING || isMiniApp || verifiedFid !== null;
+  const shouldRenderApp = miniAppChecked;
   // Render main app UI
   return (
     <div className="w-[400px] mx-auto py-2">
@@ -369,35 +445,42 @@ export default function Main() {
               Testing Mode - Bypassing Connection Check
             </div>
           )}
-          <AppIdentityBar
-            selectedTab={selectedTab}
-            onOpenProfile={() => handleTabChange("profile")}
-            onOpenAdmins={() => handleTabChange("admins")}
-            isAdminFid={isAdminFid}
-            viewerFid={verifiedFid ?? undefined}
-          />
-          <TabNavigation
-            selectedTab={selectedTab}
-            setSelectedTab={handleTabChange}
-            tabDisplayMap={tabDisplayMap}
-          />
-          <div className="rounded-[28px] bg-darkPurple p-3 text-white shadow-[0_18px_50px_rgba(0,0,0,0.28)]">
-            {selectedTab === "home" && <HomeTab onNavigate={(tab) => handleTabChange(tab)} viewerFid={verifiedFid ?? undefined} />}
-            {selectedTab === "scores" && <ScoresTab onNavigate={(tab) => handleTabChange(tab)} />}
-            {selectedTab === "fanClubs" && <FanClubsTab viewerFid={verifiedFid ?? undefined} />}
-            {selectedTab === "fantasy" && <FantasyTab />}
-            {selectedTab === "tools" && <ToolsTab />}
-            {selectedTab === "profile" && <ProfileTab viewerFid={verifiedFid ?? undefined} />}
-            {selectedTab === "admins" && isAdminFid && <AdminDashboard />}
-            {!["home", "scores", "fanClubs", "fantasy", "tools", "profile", "admins"].includes(selectedTab) && (
-              <div className="text-center text-lg text-fontRed">Coming soon...</div>
-            )}
-          </div>
+          {!authenticated && farcasterRuntime !== "miniapp" ? (
+            <FarcasterLandingGate selectedTab="home" />
+          ) : (
+            <>
+              <AppIdentityBar
+                selectedTab={selectedTab}
+                onOpenProfile={() => handleTabChange("profile")}
+                onOpenAdmins={() => handleTabChange("admins")}
+                onOpenTeam={handleOpenTeam}
+                isAdminFid={isAdminFid}
+                viewerFid={currentViewerFid}
+              />
+              <TabNavigation
+                selectedTab={selectedTab}
+                setSelectedTab={handleTabChange}
+                tabDisplayMap={tabDisplayMap}
+              />
+              <div className="rounded-[28px] bg-darkPurple p-3 text-white shadow-[0_18px_50px_rgba(0,0,0,0.28)]">
+                {selectedTab === "home" && <HomeTab onNavigate={(tab) => handleTabChange(tab)} viewerFid={currentViewerFid} />}
+                {selectedTab === "scores" && <ScoresTab onNavigate={(tab) => handleTabChange(tab)} />}
+                {selectedTab === "fanClubs" && <FanClubsTab viewerFid={currentViewerFid} />}
+                {selectedTab === "fantasy" && <FantasyTab />}
+                {selectedTab === "tools" && <ToolsTab />}
+                {selectedTab === "profile" && <ProfileTab viewerFid={currentViewerFid} />}
+                {selectedTab === "admins" && isAdminFid && <AdminDashboard />}
+                {!["home", "scores", "fanClubs", "fantasy", "tools", "profile", "admins"].includes(selectedTab) && (
+                  <div className="text-center text-lg text-fontRed">Coming soon...</div>
+                )}
+              </div>
+            </>
+          )}
         </div>
       ) : (
         <BrowserAuthFallback
           authError={authError}
-          authLoading={authLoading}
+          authLoading={false}
           onAuthError={setAuthError}
           onVerified={(fid) => setVerifiedFid(fid)}
         />

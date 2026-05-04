@@ -14,12 +14,19 @@ interface Props {
   suppressFtue?: boolean;
   suppressAffordances?: boolean; // hides both FTUE and no-matches CTA panels
   viewerFid?: number;
+  sectionTitle?: string;
 }
 
-const ForYouWhosPlaying: React.FC<Props> = ({ eventId, suppressFtue = false, suppressAffordances = false, viewerFid }) => {
+const formatEspnDate = (date: Date): string => {
+  const year = date.getFullYear();
+  const month = `${date.getMonth() + 1}`.padStart(2, "0");
+  const day = `${date.getDate()}`.padStart(2, "0");
+  return `${year}${month}${day}`;
+};
+
+const ForYouWhosPlaying: React.FC<Props> = ({ eventId, suppressAffordances = false, viewerFid, sectionTitle }) => {
   const [favoriteTeams, setFavoriteTeams] = useState<string[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
   const [matchData, setMatchData] = useState<MatchEvent[]>([]);
   const [refreshTick, setRefreshTick] = useState<number>(0);
   // Defer showing CTA affordances briefly to avoid flash while state settles
@@ -34,12 +41,12 @@ const ForYouWhosPlaying: React.FC<Props> = ({ eventId, suppressFtue = false, sup
       let fid = viewerFid;
       if (!fid) {
         const context = await sdk.context;
-        console.log('context now', context.user);
-        fid = context.user?.fid;
+        console.log('context now', context?.user);
+        fid = context?.user?.fid;
       }
 
       if (!fid) {
-        setError("No Farcaster FID found in frame context");
+        setFavoriteTeams([]);
         return;
       }
 
@@ -147,44 +154,69 @@ const ForYouWhosPlaying: React.FC<Props> = ({ eventId, suppressFtue = false, sup
     });
 
     const fetchAllMatches = async () => {
-      try {
-        const allMatches: MatchEvent[] = [];
-        await Promise.all(
-          Object.entries(leagueMap).map(async ([league]) => {
-            const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${league}/scoreboard`);
-            const dataJson: unknown = await res.json();
-            const events: unknown[] =
-              dataJson && typeof dataJson === 'object' && Array.isArray((dataJson as Record<string, unknown>).events)
-                ? ((dataJson as Record<string, unknown>).events as unknown[])
-                : [];
-            // Prefer robust extraction from competitors over brittle shortName slicing
-            const filtered = events.filter((event: unknown) => {
-              const ev = event as EventLike;
-              const comps: Competitor[] = ev?.competitions?.[0]?.competitors || [];
-              const homeAbbr = comps.find((c: Competitor) => c.homeAway === 'home')?.team?.abbreviation?.toLowerCase();
-              const awayAbbr = comps.find((c: Competitor) => c.homeAway === 'away')?.team?.abbreviation?.toLowerCase();
-              return (homeAbbr && leagueMap[league].includes(homeAbbr)) || (awayAbbr && leagueMap[league].includes(awayAbbr));
-            });
-            const eventsWithLeague = filtered.map((event: unknown) => ({
-              ...(event as EventLike),
-              league,
-            }));
-            allMatches.push(...(eventsWithLeague as unknown as MatchEvent[]));
-          })
-        );
-        setMatchData(allMatches);
-      } catch (err) {
-        console.error("Error fetching match data", err);
-      }
+      const allMatches: MatchEvent[] = [];
+      const today = new Date();
+      const upcomingDates = Array.from({ length: 5 }, (_, index) => {
+        const nextDate = new Date(today);
+        nextDate.setDate(today.getDate() + index);
+        return formatEspnDate(nextDate);
+      });
+
+      await Promise.all(
+        Object.entries(leagueMap).map(async ([league, teamAbbrs]) => {
+          try {
+            const leagueEvents = new Map<string, MatchEvent>();
+
+            await Promise.all(
+              upcomingDates.map(async (dateKey) => {
+                const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${league}/scoreboard?dates=${dateKey}`);
+                if (!res.ok) {
+                  throw new Error(`Scoreboard request failed for ${league} on ${dateKey} with ${res.status}`);
+                }
+
+                const dataJson: unknown = await res.json();
+                const events: unknown[] =
+                  dataJson && typeof dataJson === 'object' && Array.isArray((dataJson as Record<string, unknown>).events)
+                    ? ((dataJson as Record<string, unknown>).events as unknown[])
+                    : [];
+
+                const filtered = events.filter((event: unknown) => {
+                  const ev = event as EventLike;
+                  const comps: Competitor[] = ev?.competitions?.[0]?.competitors || [];
+                  const homeAbbr = comps.find((c: Competitor) => c.homeAway === 'home')?.team?.abbreviation?.toLowerCase();
+                  const awayAbbr = comps.find((c: Competitor) => c.homeAway === 'away')?.team?.abbreviation?.toLowerCase();
+                  return (homeAbbr && teamAbbrs.includes(homeAbbr)) || (awayAbbr && teamAbbrs.includes(awayAbbr));
+                });
+
+                filtered.forEach((event: unknown) => {
+                  const eventWithLeague = {
+                    ...(event as EventLike),
+                    league,
+                  } as unknown as MatchEvent;
+                  if (eventWithLeague.id) {
+                    leagueEvents.set(eventWithLeague.id, eventWithLeague);
+                  }
+                });
+              })
+            );
+
+            allMatches.push(...Array.from(leagueEvents.values()));
+          } catch (err) {
+            console.error(`Error fetching match data for ${league}`, err);
+          }
+        })
+      );
+
+      setMatchData(allMatches);
     };
     fetchAllMatches();
   }, [favoriteTeams]);
 
   if (loading) return <div>For you today</div>;
-  if (error) return <div>{error}</div>;
-
-  // FTUE: if no favorite teams, show onboarding nudge
   const hasFavorites = favoriteTeams.length > 0;
+  if (!hasFavorites && !eventId) {
+    return null;
+  }
   // Precompute filtered events for user's teams
   const filteredEvents = (matchData || [])
     .filter((event) => {
@@ -205,42 +237,14 @@ const ForYouWhosPlaying: React.FC<Props> = ({ eventId, suppressFtue = false, sup
     })
     .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
+  if (filteredEvents.length === 0 && suppressAffordances) {
+    return null;
+  }
+
   return (
     <div className="bg-purplePanel text-lightPurple rounded-lg p-2 overflow-hidden">
-      {/* Spinner placeholder to avoid CTA flash while settling */}
-      {!hasFavorites && !suppressFtue && !suppressAffordances && !affordancesReady && (
-        <div className="p-4 border border-dashed border-limeGreenOpacity rounded-lg text-center">
-          <Image src="/defifa_spinner.gif" alt="loading" width={30} height={30} className="mx-auto" />
-        </div>
-      )}
-      {!hasFavorites && !suppressFtue && !suppressAffordances && affordancesReady ? (
-        <div className="p-4 border border-dashed border-limeGreenOpacity rounded-lg text-center">
-          <h3 className="text-notWhite font-semibold mb-1">Who&apos;s Playing</h3>
-          <p className="text-sm text-lightPurple mb-3">Follow your favorite teams to see scores here and get match notifications.</p>
-          <div className="flex items-center justify-center gap-2 mb-3 text-xs">
-            <span className="px-2 py-0.5 rounded bg-gray-800 text-gray-300">1. Add Footy App</span>
-            <span className="px-2 py-0.5 rounded bg-gray-800 text-gray-300">2. Enable Notifications</span>
-            <span className="px-2 py-0.5 rounded bg-gray-800 text-gray-300">3. Follow Teams</span>
-          </div>
-          <div className="flex items-center justify-center gap-2">
-            <button
-              className="px-3 py-1 text-xs rounded border border-limeGreenOpacity text-lightPurple hover:bg-deepPink hover:text-white transition-colors"
-              onClick={async () => {
-                try { await sdk.actions.addMiniApp?.(); } catch (e) { console.warn('addMiniApp failed:', e); }
-              }}
-            >
-              Add Mini‑App
-            </button>
-            <button
-              className="px-3 py-1 text-xs rounded border border-limeGreenOpacity text-lightPurple hover:bg-deepPink hover:text-white transition-colors"
-              onClick={() => {
-                try { window.location.href = '/?tab=forYou&forYouSub=fellowFollowers'; } catch {}
-              }}
-            >
-              Follow Teams
-            </button>
-          </div>
-        </div>
+      {sectionTitle ? (
+        <h3 className="app-section-title mb-2 px-2">{sectionTitle}</h3>
       ) : null}
 
       {/* Empty state when user has favorites but no fixtures today */}

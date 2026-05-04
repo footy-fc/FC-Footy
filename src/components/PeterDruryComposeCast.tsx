@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { createMatchEvent, type MatchEvent } from '~/components/ai/PeterDruryRAG';
 import { sdk } from '@farcaster/miniapp-sdk';
+import { useFootyFarcaster } from "~/lib/farcaster/useFootyFarcaster";
 
 interface PeterDruryComposeCastProps {
   eventId: string;
@@ -33,6 +34,7 @@ const PeterDruryComposeCast: React.FC<PeterDruryComposeCastProps> = ({
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [isComposing, setIsComposing] = useState<boolean>(false);
+  const { signCast, submitSignedMessage } = useFootyFarcaster();
 
   // Generate Peter Drury commentary
   const generateCommentary = useCallback(async () => {
@@ -109,16 +111,17 @@ const PeterDruryComposeCast: React.FC<PeterDruryComposeCastProps> = ({
         castMessage += `\n📊 ${score}`;
       }
 
-      await sdk.actions.composeCast({
+      const signedMessage = await signCast({
         text: castMessage,
         embeds: [`https://fc-footy.vercel.app/?eventId=${eventId}`],
       });
+      await submitSignedMessage(signedMessage);
 
-      console.log('✅ Cast composed with Peter Drury commentary');
+      console.log('✅ Cast posted with Peter Drury commentary through Footy');
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to compose cast';
+      const errorMessage = err instanceof Error ? err.message : 'Failed to post cast';
       setError(errorMessage);
-      console.error('Error composing cast:', err);
+      console.error('Error posting cast:', err);
     } finally {
       setIsComposing(false);
     }
