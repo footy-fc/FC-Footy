@@ -13,7 +13,7 @@ interface HomeTabProps {
 const HomeTab: React.FC<HomeTabProps> = ({ onNavigate, viewerFid }) => {
   const [hasChosenTeams, setHasChosenTeams] = React.useState(false);
   const { ready, authenticated } = usePrivy();
-  const { hasLinkedFarcaster, advanceOnboarding, onboardingState, runtime } = useFootyFarcaster();
+  const { hasFarcaster, runtime, isProvisioningFarcasterAccount } = useFootyFarcaster();
 
   React.useEffect(() => {
     let cancelled = false;
@@ -64,19 +64,18 @@ const HomeTab: React.FC<HomeTabProps> = ({ onNavigate, viewerFid }) => {
         </div>
       </div>
 
-      {ready && authenticated && runtime !== "miniapp" && !hasLinkedFarcaster ? (
+      {ready && authenticated && runtime !== "miniapp" && !hasFarcaster ? (
         <div className="mb-4 rounded-[22px] border border-deepPink/30 bg-purplePanel p-4 text-lightPurple">
-          <div className="app-card-title mb-2">Personalize your fan experience</div>
+          <div className="app-card-title mb-2">Finish your Footy profile</div>
+          <div className="mb-3 text-sm text-lightPurple">
+            Profile handles account creation inside Footy, including your Farcaster identity and signer.
+          </div>
           <button
             type="button"
-            onClick={() => void advanceOnboarding()}
+            onClick={() => onNavigate("profile")}
             className="rounded-xl bg-deepPink px-4 py-3 text-sm font-semibold text-notWhite transition-colors hover:bg-deepPink/85"
           >
-            {onboardingState === "needs_email"
-              ? "Add email"
-              : onboardingState === "needs_wallet"
-                ? "Create wallet"
-                : "Connect Farcaster"}
+            Open Profile setup
           </button>
         </div>
       ) : null}

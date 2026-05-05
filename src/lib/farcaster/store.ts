@@ -11,6 +11,8 @@ export type UserFarcasterAccount = {
   fid: number;
   username?: string | null;
   displayName?: string | null;
+  pfpUrl?: string | null;
+  bio?: string | null;
   custodyAddress?: string | null;
   signerPublicKey?: string | null;
   delegatedApp: FootyDelegatedApp;
@@ -55,6 +57,10 @@ function pendingSignerRequestKey(requestId: string) {
   return `fc-footy:farcaster-pending-signer:${requestId}`;
 }
 
+function pendingRegistrationRequestKey(requestId: string) {
+  return `fc-footy:farcaster-pending-registration:${requestId}`;
+}
+
 export type PendingFootySignerRequest = {
   requestId: string;
   userId: string;
@@ -65,6 +71,22 @@ export type PendingFootySignerRequest = {
   metadataHex: string;
   deadline: string;
   addNonce: string;
+  appFid: number;
+  createdAt: string;
+};
+
+export type PendingFootyRegistrationRequest = {
+  requestId: string;
+  userId: string;
+  custodyAddress: string;
+  recoveryAddress: string;
+  signerPublicKey: string;
+  encryptedPrivateKey: string;
+  metadataHex: string;
+  registerNonce: string;
+  registerDeadline: string;
+  addNonce: string;
+  addDeadline: string;
   appFid: number;
   createdAt: string;
 };
@@ -198,4 +220,16 @@ export async function getPendingSignerRequest(requestId: string): Promise<Pendin
 
 export async function deletePendingSignerRequest(requestId: string): Promise<void> {
   await redis.del(pendingSignerRequestKey(requestId));
+}
+
+export async function setPendingRegistrationRequest(request: PendingFootyRegistrationRequest): Promise<void> {
+  await redis.set(pendingRegistrationRequestKey(request.requestId), request);
+}
+
+export async function getPendingRegistrationRequest(requestId: string): Promise<PendingFootyRegistrationRequest | null> {
+  return (await redis.get<PendingFootyRegistrationRequest>(pendingRegistrationRequestKey(requestId))) || null;
+}
+
+export async function deletePendingRegistrationRequest(requestId: string): Promise<void> {
+  await redis.del(pendingRegistrationRequestKey(requestId));
 }

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { authenticateFootyUser } from '~/lib/farcaster/serverAuth';
-import { upsertUserFarcasterAccount } from '~/lib/farcaster/store';
+import { getFidCustodyAddress } from '~/lib/farcaster/footySignerServer';
+import { getUserFarcasterAccount, upsertUserFarcasterAccount } from '~/lib/farcaster/store';
 import type { FootyDelegatedApp, FootySignerCustody, FootySignerProvider, FootySignerStatus, FootyWalletProvider } from '~/lib/farcaster/types';
 
 type SyncPayload = {
@@ -26,18 +27,26 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'fid is required' }, { status: 400 });
     }
 
+    const existing = await getUserFarcasterAccount(authUser.userId);
+    const custodyAddress =
+      body.custodyAddress ||
+      existing?.custodyAddress ||
+      (await getFidCustodyAddress(body.fid).catch(() => null));
+
     const account = await upsertUserFarcasterAccount({
       userId: authUser.userId,
       fid: body.fid,
-      username: body.username || null,
-      displayName: body.displayName || null,
-      custodyAddress: body.custodyAddress || null,
-      signerPublicKey: body.signerPublicKey || null,
+      username: body.username || existing?.username || null,
+      displayName: body.displayName || existing?.displayName || null,
+      pfpUrl: existing?.pfpUrl || null,
+      bio: existing?.bio || null,
+      custodyAddress: custodyAddress || null,
+      signerPublicKey: body.signerPublicKey || existing?.signerPublicKey || null,
       delegatedApp: body.delegatedApp || 'footy',
-      signerProvider: body.signerProvider || (body.runtime === 'miniapp' ? 'miniapp' : 'footy'),
-      signerStatus: body.signerStatus || (body.signerPublicKey ? 'authorized' : 'none'),
-      signerCustody: body.signerCustody || (body.runtime === 'miniapp' ? 'miniapp-hosted' : 'client-delegated'),
-      walletProvider: body.walletProvider || (body.runtime === 'miniapp' ? 'miniapp' : 'privy'),
+      signerProvider: body.signerProvider || existing?.signerProvider || (body.runtime === 'miniapp' ? 'miniapp' : 'footy'),
+      signerStatus: body.signerStatus || existing?.signerStatus || (body.signerPublicKey ? 'authorized' : 'none'),
+      signerCustody: body.signerCustody || existing?.signerCustody || (body.runtime === 'miniapp' ? 'miniapp-hosted' : 'client-delegated'),
+      walletProvider: body.walletProvider || existing?.walletProvider || (body.runtime === 'miniapp' ? 'miniapp' : 'privy'),
     });
 
     return NextResponse.json({ ok: true, account });
