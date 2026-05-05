@@ -6,19 +6,36 @@ import {
   ViemLocalEip712Signer,
   idRegistryABI,
   keyGatewayABI,
-  makeCastAdd,
-  CastAddBody,
-  FarcasterNetwork,
+  makeUserDataAdd,
+  UserDataType,
 } from '@farcaster/core';
 import { bytesToHex, createPublicClient, createWalletClient, http } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { optimism } from 'viem/chains';
-import type { CastAddMessage } from '@farcaster/hub-web';
+import { CastAddBody, FarcasterNetwork, makeCastAdd, type CastAddMessage } from '@farcaster/hub-web';
 import { FOOTBALL_PARENT_URL } from '~/lib/farcaster/channels';
 import type { PendingFootySignerRequest, UserFarcasterAccount } from '~/lib/farcaster/store';
 
 function getRpcUrl() {
   return process.env.FOOTY_FARCASTER_OPTIMISM_RPC_URL || process.env.OPTIMISM_RPC_URL || process.env.NEXT_PUBLIC_OPTIMISM_RPC_URL || undefined;
+}
+
+export function getMissingFootyFarcasterConfig() {
+  const missing: string[] = [];
+
+  if (!process.env.FOOTY_FARCASTER_APP_PRIVATE_KEY) {
+    missing.push('FOOTY_FARCASTER_APP_PRIVATE_KEY');
+  }
+
+  if (!process.env.FOOTY_FARCASTER_SIGNER_ENCRYPTION_KEY) {
+    missing.push('FOOTY_FARCASTER_SIGNER_ENCRYPTION_KEY');
+  }
+
+  if (!getRpcUrl()) {
+    missing.push('FOOTY_FARCASTER_OPTIMISM_RPC_URL');
+  }
+
+  return missing;
 }
 
 function getAppPrivateKey() {
@@ -27,6 +44,10 @@ function getAppPrivateKey() {
     throw new Error('FOOTY_FARCASTER_APP_PRIVATE_KEY is required');
   }
   return value as `0x${string}`;
+}
+
+function getPayerPrivateKey() {
+  return (process.env.FOOTY_FARCASTER_PAYER_PRIVATE_KEY || getAppPrivateKey()) as `0x${string}`;
 }
 
 function getEncryptionKey() {
@@ -54,24 +75,41 @@ export function getFootyAppAccount() {
   return privateKeyToAccount(getAppPrivateKey());
 }
 
+export function getFootyPayerAccount() {
+  return privateKeyToAccount(getPayerPrivateKey());
+}
+
 export function getFootyAppWalletClient() {
   return createWalletClient({
-    account: getFootyAppAccount(),
+    account: getFootyPayerAccount(),
     chain: optimism,
     transport: http(getRpcUrl()),
   });
 }
 
 export async function getFootyAppFid(publicClient = getFootyPublicClient()) {
+  const appAccount = getFootyAppAccount();
   const envFid = process.env.FOOTY_FARCASTER_APP_FID;
   if (envFid) {
     const parsed = Number(envFid);
     if (Number.isFinite(parsed) && parsed > 0) {
+      const custody = await publicClient.readContract({
+        address: ID_REGISTRY_ADDRESS,
+        abi: idRegistryABI,
+        functionName: 'custodyOf',
+        args: [BigInt(parsed)],
+      });
+
+      if (custody.toLowerCase() !== appAccount.address.toLowerCase()) {
+        throw new Error(
+          `FOOTY_FARCASTER_APP_FID (${parsed}) is not owned by FOOTY_FARCASTER_APP_PRIVATE_KEY (${appAccount.address})`
+        );
+      }
+
       return parsed;
     }
   }
 
-  const appAccount = getFootyAppAccount();
   const fid = await publicClient.readContract({
     address: ID_REGISTRY_ADDRESS,
     abi: idRegistryABI,
@@ -98,7 +136,7 @@ export async function getFidCustodyAddress(fid: number, publicClient = getFootyP
   return custody.toLowerCase();
 }
 
-function encryptPrivateKey(privateKey: Uint8Array) {
+export function encryptPrivateKey(privateKey: Uint8Array) {
   const key = getEncryptionKey();
   const iv = randomBytes(12);
   const cipher = createCipheriv('aes-256-gcm', key, iv);
@@ -213,6 +251,47 @@ export async function signFootyCast(account: UserFarcasterAccount, encryptedPriv
   }
 
   return messageResult.value as CastAddMessage;
+}
+
+export async function signFootyUserData(
+  account: UserFarcasterAccount,
+  encryptedPrivateKey: string,
+  input: {
+    type: 'display' | 'pfp' | 'bio' | 'username';
+    value: string;
+  }
+) {
+  if (!account.signerPublicKey) {
+    throw new Error('Missing Footy signer public key');
+  }
+
+  const signer = new NobleEd25519Signer(decryptPrivateKey(encryptedPrivateKey));
+  const type =
+    input.type === 'display'
+      ? UserDataType.DISPLAY
+      : input.type === 'pfp'
+        ? UserDataType.PFP
+        : input.type === 'bio'
+          ? UserDataType.BIO
+          : UserDataType.USERNAME;
+
+  const messageResult = await makeUserDataAdd(
+    {
+      type,
+      value: input.value,
+    },
+    {
+      fid: account.fid,
+      network: FarcasterNetwork.MAINNET,
+    },
+    signer
+  );
+
+  if (messageResult.isErr()) {
+    throw messageResult.error;
+  }
+
+  return messageResult.value;
 }
 
 export function hashAddress(address: string) {

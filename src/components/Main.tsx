@@ -97,9 +97,11 @@ function FarcasterLandingGate({
   const { ready, authenticated } = usePrivy();
   const {
     beginLogin,
+    beginCreateFarcasterAccount,
     beginLinkFarcaster,
     beginSignerAuthorization,
     hasLinkedFarcaster,
+    isProvisioningFarcasterAccount,
     canWrite,
     signerStatus,
   } = useFootyFarcaster();
@@ -110,11 +112,9 @@ function FarcasterLandingGate({
     }
   }, [authenticated, canWrite, ready]);
 
-  if (selectedTab !== "home" || !ready || authenticated || canWrite) {
+  if (selectedTab !== "home" || !ready || canWrite) {
     return null;
   }
-
-  const currentStep = "Sign in";
 
   const handleContinue = async () => {
     setActionMessage(null);
@@ -141,23 +141,46 @@ function FarcasterLandingGate({
     }
   };
 
+  const handleCreateAccount = async () => {
+    setActionMessage(null);
+    setIsWorking(true);
+    try {
+      await beginCreateFarcasterAccount();
+      setActionMessage("Finish the email and wallet steps to create your Farcaster account for Footy.");
+    } catch (error) {
+      setActionMessage(error instanceof Error ? error.message : "Unable to create a Farcaster account for Footy.");
+    } finally {
+      setIsWorking(false);
+    }
+  };
+
   return (
     <div className="mb-4 rounded-[24px] border border-deepPink/30 bg-[linear-gradient(135deg,rgba(255,0,102,0.12),rgba(18,12,36,0.96))] p-5 text-notWhite shadow-[0_18px_40px_rgba(0,0,0,0.28)]">
       <div className="mb-2 app-eyebrow">Footy App on Farcaster</div>
       <h2 className="mb-2 text-[30px] font-semibold leading-[1.02] text-notWhite">
-        Follow teams and connect with fans.
+        Enter Footy
       </h2>
       <p className="mb-4 max-w-[34rem] text-sm leading-6 text-lightPurple">
-        Footy App is a Farcaster app that helps you follow football teams, discover fans, and track Fantasy League results, and get goal notifications. Sign in with your Farcaster account to personalize your experience!
+        Existing Farcaster users can enter immediately. New users can create a Farcaster account with an embedded Privy wallet and then continue into the app.
       </p>
-      <button
-        type="button"
-        onClick={() => void handleContinue()}
-        disabled={isWorking || signerStatus === "pending"}
-        className="rounded-xl bg-deepPink px-5 py-3 text-sm font-semibold text-notWhite transition-colors hover:bg-deepPink/85 disabled:opacity-70"
-      >
-        {isWorking || signerStatus === "pending" ? "Opening setup..." : currentStep}
-      </button>
+      <div className="flex flex-col items-start gap-3">
+        <button
+          type="button"
+          onClick={() => void handleContinue()}
+          disabled={isWorking || signerStatus === "pending"}
+          className="rounded-xl bg-deepPink px-5 py-3 text-sm font-semibold text-notWhite transition-colors hover:bg-deepPink/85 disabled:opacity-70"
+        >
+          {isWorking || signerStatus === "pending" ? "Opening setup..." : "Enter with Farcaster"}
+        </button>
+        <button
+          type="button"
+          onClick={() => void handleCreateAccount()}
+          disabled={isWorking || isProvisioningFarcasterAccount}
+          className="text-sm font-medium text-lightPurple underline-offset-4 transition-colors hover:text-notWhite hover:underline disabled:opacity-70"
+        >
+          {isProvisioningFarcasterAccount ? "Creating your Farcaster account..." : "Need a Farcaster account?"}
+        </button>
+      </div>
       {actionMessage ? (
         <div className="mt-3 text-sm text-lightPurple">{actionMessage}</div>
       ) : null}
@@ -169,7 +192,7 @@ export default function Main() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { authenticated } = usePrivy();
-  const { fid: footyFarcasterFid, runtime: farcasterRuntime } = useFootyFarcaster();
+  const { fid: footyFarcasterFid, runtime: farcasterRuntime, hasFarcaster, isHydratingAccount } = useFootyFarcaster();
   const [customSearchParams, setCustomSearchParams] = useState<URLSearchParams | null>(null);
   const [miniAppChecked, setMiniAppChecked] = useState(false);
   const [verifiedFid, setVerifiedFid] = useState<number | null>(null);
@@ -387,6 +410,22 @@ export default function Main() {
   const handleOpenTeam = (teamId: string) => {
     router.push(`/?tab=fanClubs&teamId=${encodeURIComponent(teamId)}`);
   };
+
+  useEffect(() => {
+    if (!miniAppChecked || farcasterRuntime === "miniapp") {
+      return;
+    }
+
+    if (!authenticated || hasFarcaster || isHydratingAccount) {
+      return;
+    }
+
+    if (selectedTab === "profile") {
+      return;
+    }
+
+    router.push("/?tab=profile");
+  }, [authenticated, farcasterRuntime, hasFarcaster, isHydratingAccount, miniAppChecked, router, selectedTab]);
 
   // Loading states
   const [isSDKLoaded, setIsSDKLoaded] = useState(false);

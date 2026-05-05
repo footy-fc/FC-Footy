@@ -55,12 +55,15 @@ const getSafeMiniAppContext = async () => {
   }
 };
 
+const deriveClubBio = (teamName: string) =>
+  `${teamName} supporter on Footy. Matchday alerts, club banter, and proper football takes.`;
+
 const SettingsFollowClubs: React.FC<SettingsFollowClubsProps> = ({
   onSave,
   viewerFid,
   favoriteTeamIds: favoriteTeamIdsOverride,
 }) => {
-  const { hasLinkedFarcaster, advanceOnboarding } = useFootyFarcaster();
+  const { hasLinkedFarcaster, hasFarcaster, displayName, username, pfpUrl, advanceOnboarding, updateManagedProfile } = useFootyFarcaster();
   const [teams, setTeams] = useState<Team[]>([]);
   const [favTeams, setFavTeams] = useState<string[]>([]);
   const [searchTerm, setSearchTerm] = useState<string>("");
@@ -68,9 +71,22 @@ const SettingsFollowClubs: React.FC<SettingsFollowClubsProps> = ({
   const [transactionError, setTransactionError] = useState<string | null>(null);
   const [hasPromptedMiniApp, setHasPromptedMiniApp] = useState<boolean>(false);
   const [isInstalled, setIsInstalled] = useState<boolean>(false);
+  const [showProfileSetup, setShowProfileSetup] = useState<boolean>(false);
+  const [isSavingProfileSetup, setIsSavingProfileSetup] = useState<boolean>(false);
+  const [profileName, setProfileName] = useState<string>("");
+  const [profilePfpUrl, setProfilePfpUrl] = useState<string>("");
   const { isLoading: isMiniAppLoading } = useMiniAppDetection();
   const primaryClubId = getPrimaryByType(favTeams, "club");
   const primaryCountryId = getPrimaryByType(favTeams, "country");
+  const primaryClub = primaryClubId ? teams.find((team) => getTeamId(team) === primaryClubId) ?? null : null;
+
+  useEffect(() => {
+    setProfileName(displayName || username || "");
+  }, [displayName, username]);
+
+  useEffect(() => {
+    setProfilePfpUrl(pfpUrl || primaryClub?.logoUrl || "");
+  }, [pfpUrl, primaryClub?.logoUrl]);
 
   useEffect(() => {
     const fetchContext = async () => {
@@ -106,6 +122,67 @@ const SettingsFollowClubs: React.FC<SettingsFollowClubsProps> = ({
     setTransactionError(null);
   };
 
+  const syncProfileFromPrimaryClub = async (updatedFavTeams: string[]) => {
+    const nextPrimaryClubId = getPrimaryByType(updatedFavTeams, "club");
+    if (!nextPrimaryClubId || !hasFarcaster) {
+      return;
+    }
+
+    const nextPrimaryClub = teams.find((team) => getTeamId(team) === nextPrimaryClubId);
+    if (!nextPrimaryClub) {
+      return;
+    }
+
+    const nextBio = deriveClubBio(nextPrimaryClub.name);
+    const missingDisplayName = !(displayName || "").trim();
+    const missingPfp = !(pfpUrl || "").trim();
+
+    if (missingDisplayName || missingPfp) {
+      setProfileName((current) => current || displayName || username || "");
+      setProfilePfpUrl((current) => current || pfpUrl || nextPrimaryClub.logoUrl || "");
+      setShowProfileSetup(true);
+      return;
+    }
+
+    await updateManagedProfile({ bio: nextBio });
+  };
+
+  const finalizeProfileSetup = async () => {
+    if (!primaryClub) {
+      setTransactionError("Pick your club badge first.");
+      return;
+    }
+
+    const trimmedName = profileName.trim();
+    const resolvedPfpUrl = profilePfpUrl.trim() || primaryClub.logoUrl;
+
+    if (!trimmedName) {
+      setTransactionError("Add a display name for your Footy Farcaster account.");
+      return;
+    }
+
+    if (!resolvedPfpUrl) {
+      setTransactionError("Choose a profile picture for your Footy Farcaster account.");
+      return;
+    }
+
+    setIsSavingProfileSetup(true);
+    try {
+      await updateManagedProfile({
+        displayName: trimmedName,
+        pfpUrl: resolvedPfpUrl,
+        bio: deriveClubBio(primaryClub.name),
+      });
+      setShowProfileSetup(false);
+      setTransactionError(null);
+    } catch (error) {
+      console.error("Error updating Footy profile:", error);
+      setTransactionError(error instanceof Error ? error.message : "Could not update your Footy profile.");
+    } finally {
+      setIsSavingProfileSetup(false);
+    }
+  };
+
   const handleRowClick = async (team: Team) => {
     const context = viewerFid ? null : await getSafeMiniAppContext();
     const fid = viewerFid ?? context?.user?.fid;
@@ -135,6 +212,7 @@ const SettingsFollowClubs: React.FC<SettingsFollowClubsProps> = ({
       }
 
       await savePreferences(fid, updatedFavTeams);
+      await syncProfileFromPrimaryClub(updatedFavTeams);
 
       // Prompt to add mini app if this is their first team and the app isn't installed yet
       if (
@@ -215,6 +293,57 @@ const SettingsFollowClubs: React.FC<SettingsFollowClubsProps> = ({
   return (
     <div className="w-full h-full overflow-y-auto">
       <div className="mb-4 space-y-3">
+        {showProfileSetup && primaryClub ? (
+          <div className="rounded-[20px] border border-deepPink/30 bg-purplePanel/90 p-4">
+            <div className="mb-2 text-[11px] uppercase tracking-[0.18em] text-lightPurple/75">Finish your profile</div>
+            <div className="mb-3 text-sm leading-6 text-lightPurple">
+              Your badge is set. Add the name and profile picture Footy should publish to Farcaster, and we will write a bio for {primaryClub.name}.
+            </div>
+            <div className="space-y-3">
+              <input
+                type="text"
+                value={profileName}
+                onChange={(e) => setProfileName(e.target.value)}
+                placeholder="Display name"
+                className="w-full rounded-[16px] border border-limeGreenOpacity/20 bg-darkPurple px-4 py-3 text-base text-notWhite placeholder:text-lightPurple/60 focus:outline-none focus:ring-2 focus:ring-deepPink/30"
+              />
+              <div className="flex items-center gap-3 rounded-[16px] border border-limeGreenOpacity/20 bg-darkPurple px-3 py-3">
+                <Image
+                  src={profilePfpUrl || primaryClub.logoUrl || altImage}
+                  alt={primaryClub.name}
+                  width={44}
+                  height={44}
+                  className="h-11 w-11 rounded-full object-cover"
+                />
+                <div className="min-w-0 flex-1">
+                  <div className="mb-1 text-xs font-semibold uppercase tracking-[0.14em] text-lightPurple/70">Profile picture URL</div>
+                  <input
+                    type="text"
+                    value={profilePfpUrl}
+                    onChange={(e) => setProfilePfpUrl(e.target.value)}
+                    placeholder={primaryClub.logoUrl || "https://..."}
+                    className="w-full bg-transparent text-sm text-notWhite placeholder:text-lightPurple/55 focus:outline-none"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setProfilePfpUrl(primaryClub.logoUrl || "")}
+                  className="rounded-full border border-limeGreenOpacity/20 px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-lightPurple transition-colors hover:bg-darkPurple"
+                >
+                  Use badge
+                </button>
+              </div>
+              <button
+                type="button"
+                onClick={() => void finalizeProfileSetup()}
+                disabled={isSavingProfileSetup}
+                className="w-full rounded-xl bg-deepPink px-4 py-3 text-sm font-semibold text-notWhite transition-colors hover:bg-deepPink/85 disabled:opacity-70"
+              >
+                {isSavingProfileSetup ? "Publishing your profile" : "Publish Footy profile"}
+              </button>
+            </div>
+          </div>
+        ) : null}
 
         {followedTeams.length > 0 ? (
           <div className="rounded-[20px] border border-limeGreenOpacity/20 bg-darkPurple/55 p-3">
@@ -348,6 +477,7 @@ const SettingsFollowClubs: React.FC<SettingsFollowClubsProps> = ({
                         setLoadingTeamIds((prev) => [...prev, teamId]);
                         try {
                           await savePreferences(fid, reordered);
+                          await syncProfileFromPrimaryClub(reordered);
                         } catch (error) {
                           console.error("Error updating favorite team:", error);
                           setTransactionError(`Could not update ${isCountry ? "favorite country" : "club badge"}.`);
