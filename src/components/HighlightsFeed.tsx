@@ -83,34 +83,36 @@ function VideoSlide({ highlight, index, total }: {
       />
 
       {/* When in view, mount the player. pointer-events-none ensures swipe isn't stolen by YouTube */}
-      {inView && (
-        <div className="absolute inset-0 pointer-events-none">
-          {/* @ts-ignore */}
-          <ReactPlayer
-            ref={playerRef}
-            url={`https://www.youtube.com/watch?v=${highlight.videoId}`}
-            playing={isPlaying}
-            muted={false} // Sound on by default as requested
-            controls={false}
-            width="100%"
-            height="120%"
-            style={{ position: 'absolute', top: '-10%', left: 0 }}
-            playsinline
-            loop
-            onProgress={(state: any) => setProgress(state.played)}
-            onDuration={(dur: number) => setDuration(dur)}
-            config={{
-              youtube: {
-                playerVars: {
-                  modestbranding: 1,
-                  rel: 0,
-                  disablekb: 1,
+      {inView && (() => {
+        const Player = ReactPlayer as any;
+        return (
+          <div className="absolute inset-0 pointer-events-none">
+            <Player
+              ref={playerRef}
+              url={`https://www.youtube.com/watch?v=${highlight.videoId}`}
+              playing={isPlaying}
+              muted={false} // Sound on by default as requested
+              controls={false}
+              width="100%"
+              height="120%"
+              style={{ position: 'absolute', top: '-10%', left: 0 }}
+              playsinline
+              loop
+              onProgress={(state: any) => setProgress(state.played)}
+              onDuration={(dur: number) => setDuration(dur)}
+              config={{
+                youtube: {
+                  playerVars: {
+                    modestbranding: 1,
+                    rel: 0,
+                    disablekb: 1,
+                  }
                 }
-              }
-            } as any}
-          />
-        </div>
-      )}
+              } as any}
+            />
+          </div>
+        );
+      })()}
 
       {/* Tap Overlay - allows tapping to play/pause but lets touchmove pass through for swiping */}
       <div 
