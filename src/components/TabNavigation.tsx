@@ -14,6 +14,7 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
   const tabs = [
     "home",
     "scores",
+    "highlights",
     "fanClubs",
     "fantasy",
     "tools",
@@ -53,6 +54,12 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
         <path d="M17 16v-3" />
       </svg>
     ),
+    highlights: (
+      <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2">
+        <polygon points="5 3 19 12 5 21 5 3" />
+        <line x1="19" y1="3" x2="19" y2="21" />
+      </svg>
+    ),
     admins: (
       <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2">
         <path d="M12 3l7 4v5c0 5-3.5 7.5-7 9-3.5-1.5-7-4-7-9V7l7-4z" />
@@ -63,7 +70,7 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
 
   return (
     <div className="fixed bottom-4 left-1/2 z-50 w-[calc(100%-20px)] max-w-[380px] -translate-x-1/2 rounded-[28px] border border-limeGreenOpacity/20 bg-darkPurple/90 px-2 py-2 shadow-[0_18px_50px_rgba(0,0,0,0.45)] backdrop-blur-xl">
-      <div className="grid grid-cols-5 gap-1">
+      <div className="grid grid-cols-6 gap-0.5">
       {tabs.map((tab) => (
         <button
           key={tab}

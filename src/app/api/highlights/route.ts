@@ -9,7 +9,8 @@ export interface VideoHighlight {
   league: string;
   youtubeUrl: string;
   thumbnailUrl: string;
-  videoId: string; // extracted YouTube video ID
+  videoId: string;
+  daysAgo: number; // 0 = today, 1 = yesterday, etc.
 }
 
 interface SportsDbHighlight {
@@ -25,26 +26,30 @@ interface SportsDbHighlight {
 function extractYouTubeId(url: string): string {
   try {
     const u = new URL(url);
-    // youtube.com/watch?v=ID
     const v = u.searchParams.get("v");
     if (v) return v;
-    // youtu.be/ID
-    if (u.hostname === "youtu.be") return u.pathname.slice(1);
-    // youtube.com/embed/ID
+    if (u.hostname === "youtu.be") return u.pathname.slice(1).split("?")[0];
     const parts = u.pathname.split("/");
     const embedIdx = parts.indexOf("embed");
-    if (embedIdx !== -1 && parts[embedIdx + 1]) return parts[embedIdx + 1];
-  } catch {
-    // ignore parse errors
-  }
+    if (embedIdx !== -1 && parts[embedIdx + 1]) return parts[embedIdx + 1].split("?")[0];
+  } catch { /* ignore */ }
   return "";
 }
 
-async function fetchHighlightsForDate(dateStr: string): Promise<VideoHighlight[]> {
+function toDateStr(daysAgo: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() - daysAgo);
+  return d.toISOString().split("T")[0];
+}
+
+async function fetchHighlightsForDate(
+  dateStr: string,
+  daysAgo: number
+): Promise<VideoHighlight[]> {
   try {
     const res = await fetch(
       `https://www.thesportsdb.com/api/v1/json/3/eventshighlights.php?d=${dateStr}&s=Soccer`,
-      { cache: "no-store", signal: AbortSignal.timeout(5000) }
+      { cache: "no-store", signal: AbortSignal.timeout(6000) }
     );
     if (!res.ok) return [];
 
@@ -52,11 +57,11 @@ async function fetchHighlightsForDate(dateStr: string): Promise<VideoHighlight[]
     const items = data.tvhighlights ?? [];
 
     return items
-      .filter((h) => h.strVideo && h.strVideo.includes("youtube"))
+      .filter((h) => h.strVideo?.includes("youtube"))
       .map((h) => {
         const videoId = extractYouTubeId(h.strVideo ?? "");
         return {
-          id: h.idEvent ?? `${dateStr}-${Math.random()}`,
+          id: h.idEvent ?? `${dateStr}-${videoId}`,
           event: h.strEvent ?? "Match Highlights",
           league: h.strLeague ?? "Football",
           youtubeUrl: h.strVideo ?? "",
@@ -65,9 +70,10 @@ async function fetchHighlightsForDate(dateStr: string): Promise<VideoHighlight[]
             h.strPoster ||
             (videoId ? `https://img.youtube.com/vi/${videoId}/hqdefault.jpg` : ""),
           videoId,
+          daysAgo,
         };
       })
-      .filter((h) => h.videoId); // must have a valid YouTube ID
+      .filter((h) => h.videoId);
   } catch {
     return [];
   }
@@ -75,28 +81,39 @@ async function fetchHighlightsForDate(dateStr: string): Promise<VideoHighlight[]
 
 export async function GET() {
   try {
-    // Fetch last 5 days until we have at least 6 highlights
-    const allHighlights: VideoHighlight[] = [];
     const seen = new Set<string>();
+    const allHighlights: VideoHighlight[] = [];
 
-    for (let daysAgo = 0; daysAgo <= 5; daysAgo++) {
-      const date = new Date();
-      date.setDate(date.getDate() - daysAgo);
-      const dateStr = date.toISOString().split("T")[0];
+    // Fetch the last 30 hours = today (0), yesterday (1), day-before-yesterday (2)
+    // Run all 3 in parallel for speed, then sort today-first
+    const [day0, day1, day2] = await Promise.all([
+      fetchHighlightsForDate(toDateStr(0), 0),
+      fetchHighlightsForDate(toDateStr(1), 1),
+      fetchHighlightsForDate(toDateStr(2), 2),
+    ]);
 
-      const dayHighlights = await fetchHighlightsForDate(dateStr);
-      for (const h of dayHighlights) {
+    // Merge in recency order (most recent first)
+    for (const h of [...day0, ...day1, ...day2]) {
+      if (!seen.has(h.videoId)) {
+        seen.add(h.videoId);
+        allHighlights.push(h);
+      }
+    }
+
+    // If still thin, extend one more day
+    if (allHighlights.length < 5) {
+      const day3 = await fetchHighlightsForDate(toDateStr(3), 3);
+      for (const h of day3) {
         if (!seen.has(h.videoId)) {
           seen.add(h.videoId);
           allHighlights.push(h);
         }
       }
-
-      if (allHighlights.length >= 10) break;
     }
 
-    return NextResponse.json(allHighlights.slice(0, 10), {
+    return NextResponse.json(allHighlights.slice(0, 15), {
       headers: {
+        // Cache for 15 minutes — new highlights typically appear within 2-4 hrs of FT
         "Cache-Control": "public, max-age=900, s-maxage=900, stale-while-revalidate=300",
       },
     });

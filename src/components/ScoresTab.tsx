@@ -1,6 +1,5 @@
 import React, { useState } from "react";
 import MatchesTab from "./MatchesTab";
-import HighlightsFeed from "./HighlightsFeed";
 
 interface ScoresTabProps {
   onNavigate: (tab: string) => void;
@@ -15,7 +14,6 @@ const ScoresTab: React.FC<ScoresTabProps> = ({ onNavigate }) => {
         <div className="app-eyebrow mb-2">Scores</div>
         <h2 className="app-title">Live now</h2>
       </div>
-      <HighlightsFeed />
       <MatchesTab
         league={league}
         setSelectedTab={onNavigate}

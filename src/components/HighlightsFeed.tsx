@@ -41,6 +41,16 @@ function VideoSlide({
   // autoplay + playsinline (important for mobile / mini-app)
   const embedUrl = `https://www.youtube.com/embed/${highlight.videoId}?autoplay=1&rel=0&modestbranding=1&playsinline=1&mute=0`;
 
+  const freshnessLabel =
+    highlight.daysAgo === 0
+      ? "🔴 Today"
+      : highlight.daysAgo === 1
+      ? "Yesterday"
+      : `${highlight.daysAgo}d ago`;
+
+  const freshnessColor =
+    highlight.daysAgo === 0 ? "text-limeGreen" : "text-lightPurple/60";
+
   return (
     <div
       ref={ref}
@@ -70,9 +80,12 @@ function VideoSlide({
       {/* ── Bottom gradient + info overlay ── */}
       <div className="absolute inset-x-0 bottom-0 h-36 bg-gradient-to-t from-black/95 via-black/60 to-transparent pointer-events-none" />
       <div className="absolute bottom-0 left-0 right-0 p-4 pointer-events-none">
-        <p className="text-[10px] font-black tracking-[0.18em] text-deepPink uppercase mb-1">
-          {highlight.league}
-        </p>
+        <div className="flex items-center gap-2 mb-1">
+          <p className="text-[10px] font-black tracking-[0.18em] text-deepPink uppercase">
+            {highlight.league}
+          </p>
+          <span className={`text-[10px] font-bold ${freshnessColor}`}>{freshnessLabel}</span>
+        </div>
         <p className="text-[15px] font-bold text-white leading-snug line-clamp-2">
           {highlight.event}
         </p>

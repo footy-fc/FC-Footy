@@ -17,6 +17,7 @@ import FanClubsTab from "./FanClubsTab";
 import FantasyTab from "./FantasyTab";
 import ToolsTab from "./ToolsTab";
 import ProfileTab from "./ProfileTab";
+import HighlightsTab from "./HighlightsTab";
 import { tabDisplayMap } from "../lib/navigation";
 import { Pingem } from 'pingem-sdk';
 import { IS_TESTING } from "../lib/config";
@@ -214,6 +215,8 @@ export default function Main() {
         return "tools";
       case "settings":
         return "profile";
+      case "highlights":
+        return "highlights";
       case "fanClubs":
       case "home":
       case "scores":
@@ -504,12 +507,13 @@ export default function Main() {
               <div className="rounded-[28px] bg-darkPurple p-3 text-white shadow-[0_18px_50px_rgba(0,0,0,0.28)]">
                 {selectedTab === "home" && <HomeTab onNavigate={(tab) => handleTabChange(tab)} viewerFid={currentViewerFid} />}
                 {selectedTab === "scores" && <ScoresTab onNavigate={(tab) => handleTabChange(tab)} />}
+                {selectedTab === "highlights" && <HighlightsTab />}
                 {selectedTab === "fanClubs" && <FanClubsTab viewerFid={currentViewerFid} />}
                 {selectedTab === "fantasy" && <FantasyTab />}
                 {selectedTab === "tools" && <ToolsTab />}
                 {selectedTab === "profile" && <ProfileTab viewerFid={currentViewerFid} />}
                 {selectedTab === "admins" && isAdminFid && <AdminDashboard />}
-                {!["home", "scores", "fanClubs", "fantasy", "tools", "profile", "admins"].includes(selectedTab) && (
+                {!["home", "scores", "highlights", "fanClubs", "fantasy", "tools", "profile", "admins"].includes(selectedTab) && (
                   <div className="text-center text-lg text-fontRed">Coming soon...</div>
                 )}
               </div>
