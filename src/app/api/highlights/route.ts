@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { XMLParser } from "fast-xml-parser";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -11,100 +12,105 @@ export interface VideoHighlight {
   thumbnailUrl: string;
   videoId: string;
   daysAgo: number; // 0 = today, 1 = yesterday, etc.
+  publishedAt?: number; // Used for precise sorting
 }
 
-interface SportsDbHighlight {
-  idEvent?: string;
-  strEvent?: string;
-  strLeague?: string;
-  strSport?: string;
-  strVideo?: string;
-  strThumb?: string;
-  strPoster?: string;
+const CHANNELS = [
+  { id: "UC4i_9WvfPRTuRWEaWyfKuFw", name: "TNT Sports", league: "Champions League / Premier League" },
+  { id: "UCNAf1k0yIjyGu3k9BwAg3lg", name: "Sky Sports Football", league: "Premier League / EFL" },
+  { id: "UC1oDntG5Oexb6yQzQ-lG6yA", name: "CBS Sports Golazo", league: "Champions League / Serie A" },
+];
+
+function calculateDaysAgo(published: Date): number {
+  const now = new Date();
+  const diffTime = Math.abs(now.getTime() - published.getTime());
+  return Math.floor(diffTime / (1000 * 60 * 60 * 24));
 }
 
-function extractYouTubeId(url: string): string {
+async function fetchChannelFeed(channel: typeof CHANNELS[0]): Promise<VideoHighlight[]> {
   try {
-    const u = new URL(url);
-    const v = u.searchParams.get("v");
-    if (v) return v;
-    if (u.hostname === "youtu.be") return u.pathname.slice(1).split("?")[0];
-    const parts = u.pathname.split("/");
-    const embedIdx = parts.indexOf("embed");
-    if (embedIdx !== -1 && parts[embedIdx + 1]) return parts[embedIdx + 1].split("?")[0];
-  } catch { /* ignore */ }
-  return "";
-}
-
-function toDateStr(daysAgo: number): string {
-  const d = new Date();
-  d.setDate(d.getDate() - daysAgo);
-  return d.toISOString().split("T")[0];
-}
-
-async function fetchHighlightsForDate(
-  dateStr: string,
-  daysAgo: number
-): Promise<VideoHighlight[]> {
-  try {
-    const res = await fetch(
-      `https://www.thesportsdb.com/api/v1/json/3/eventshighlights.php?d=${dateStr}&s=Soccer`,
-      { cache: "no-store", signal: AbortSignal.timeout(6000) }
-    );
+    const res = await fetch(`https://www.youtube.com/feeds/videos.xml?channel_id=${channel.id}`, {
+      cache: "no-store",
+      signal: AbortSignal.timeout(8000),
+    });
     if (!res.ok) return [];
 
-    const data = (await res.json()) as { tvhighlights?: SportsDbHighlight[] };
-    const items = data.tvhighlights ?? [];
+    const xmlData = await res.text();
+    const parser = new XMLParser({ ignoreAttributes: false, attributeNamePrefix: "@_" });
+    const parsed = parser.parse(xmlData);
 
-    return items
-      .filter((h) => h.strVideo?.includes("youtube"))
-      .map((h) => {
-        const videoId = extractYouTubeId(h.strVideo ?? "");
-        return {
-          id: h.idEvent ?? `${dateStr}-${videoId}`,
-          event: h.strEvent ?? "Match Highlights",
-          league: h.strLeague ?? "Football",
-          youtubeUrl: h.strVideo ?? "",
-          thumbnailUrl:
-            h.strThumb ||
-            h.strPoster ||
-            (videoId ? `https://img.youtube.com/vi/${videoId}/hqdefault.jpg` : ""),
-          videoId,
-          daysAgo,
-        };
-      })
-      .filter((h) => h.videoId);
-  } catch {
+    let entries = parsed.feed?.entry || [];
+    if (!Array.isArray(entries)) entries = [entries];
+
+    const highlights: VideoHighlight[] = [];
+
+    for (const entry of entries) {
+      if (!entry) continue;
+      
+      const title = entry.title || "";
+      const videoId = entry["yt:videoId"];
+      const published = new Date(entry.published);
+
+      // Filter out likely shorts and non-match content
+      // Focus on titles with keywords typical of match highlights
+      const titleLower = title.toLowerCase();
+      const isHighlight = titleLower.includes("highlights") || 
+                          titleLower.includes(" goals") || 
+                          titleLower.includes(" vs ") || 
+                          titleLower.includes(" vs.") ||
+                          titleLower.includes("-");
+                          
+      const isShort = titleLower.includes("#shorts") || titleLower.includes("short") || titleLower.includes("tiktok");
+
+      if (isHighlight && !isShort && videoId) {
+        highlights.push({
+          id: videoId,
+          event: title,
+          league: channel.league,
+          youtubeUrl: `https://www.youtube.com/watch?v=${videoId}`,
+          thumbnailUrl: `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`,
+          videoId: videoId,
+          daysAgo: calculateDaysAgo(published),
+          publishedAt: published.getTime(),
+        });
+      }
+    }
+
+    return highlights;
+  } catch (error) {
+    console.error(`Failed to fetch feed for ${channel.name}`, error);
     return [];
   }
 }
 
 export async function GET() {
   try {
+    // Fetch all channel feeds concurrently
+    const feeds = await Promise.all(CHANNELS.map(channel => fetchChannelFeed(channel)));
+    
+    // Flatten and deduplicate
+    const allHighlights = feeds.flat();
     const seen = new Set<string>();
-    const allHighlights: VideoHighlight[] = [];
+    const uniqueHighlights: VideoHighlight[] = [];
 
-    // Fetch the last 5 days (today, yesterday, and 3 days prior)
-    // Run all in parallel for speed, then sort today-first
-    const [day0, day1, day2, day3, day4] = await Promise.all([
-      fetchHighlightsForDate(toDateStr(0), 0),
-      fetchHighlightsForDate(toDateStr(1), 1),
-      fetchHighlightsForDate(toDateStr(2), 2),
-      fetchHighlightsForDate(toDateStr(3), 3),
-      fetchHighlightsForDate(toDateStr(4), 4),
-    ]);
-
-    // Merge in recency order (most recent first)
-    for (const h of [...day0, ...day1, ...day2, ...day3, ...day4]) {
+    for (const h of allHighlights) {
       if (!seen.has(h.videoId)) {
         seen.add(h.videoId);
-        allHighlights.push(h);
+        uniqueHighlights.push(h);
       }
     }
 
-    return NextResponse.json(allHighlights.slice(0, 30), {
+    // Sort globally by precise timestamp (newest first)
+    uniqueHighlights.sort((a, b) => (b.publishedAt || 0) - (a.publishedAt || 0));
+
+    // Remove publishedAt to save bandwidth
+    const finalHighlights = uniqueHighlights.slice(0, 40).map(h => {
+      const { publishedAt, ...rest } = h;
+      return rest;
+    });
+
+    return NextResponse.json(finalHighlights, {
       headers: {
-        // Cache for 15 minutes — new highlights typically appear within 2-4 hrs of FT
         "Cache-Control": "public, max-age=900, s-maxage=900, stale-while-revalidate=300",
       },
     });
