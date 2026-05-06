@@ -4,33 +4,6 @@ import React, { useEffect, useRef, useState } from "react";
 import type { VideoHighlight } from "~/app/api/highlights/route";
 import Image from "next/image";
 
-const SLIDE_HEIGHT = 480;
-
-// ── Fullscreen video player (opened on tap) ───────────────────────
-function VideoPlayer({ highlight, onClose }: { highlight: VideoHighlight; onClose: () => void }) {
-  const src = `https://www.youtube.com/embed/${highlight.videoId}?autoplay=1&rel=0&modestbranding=1&playsinline=1`;
-  return (
-    <div className="fixed inset-0 z-50 bg-black flex flex-col">
-      <div className="flex items-center gap-3 px-4 py-3 bg-black/90 shrink-0">
-        <button onClick={onClose} className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center">
-          <svg viewBox="0 0 24 24" className="w-5 h-5 text-white" fill="none" stroke="currentColor" strokeWidth="2.5">
-            <path d="M18 6L6 18M6 6l12 12" />
-          </svg>
-        </button>
-        <div className="min-w-0">
-          <p className="text-[10px] font-black tracking-widest text-deepPink uppercase truncate">{highlight.league}</p>
-          <p className="text-[13px] font-semibold text-white line-clamp-1">{highlight.event}</p>
-        </div>
-      </div>
-      <div className="flex-1 relative">
-        <iframe src={src} title={highlight.event}
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-          allowFullScreen className="absolute inset-0 w-full h-full border-0" />
-      </div>
-    </div>
-  );
-}
-
 // ── IntersectionObserver hook ────────────────────────────────────
 function useInView(ref: React.RefObject<HTMLDivElement | null>, threshold = 0.6) {
   const [inView, setInView] = useState(false);
@@ -47,9 +20,9 @@ function useInView(ref: React.RefObject<HTMLDivElement | null>, threshold = 0.6)
   return inView;
 }
 
-// ── Slide — thumbnail only, NO iframe (iframes steal touch events) ─
-function VideoSlide({ highlight, index, total, onPlay }: {
-  highlight: VideoHighlight; index: number; total: number; onPlay: () => void;
+// ── Slide — Auto-plays inline when in view ───────────────────────
+function VideoSlide({ highlight, index, total }: {
+  highlight: VideoHighlight; index: number; total: number;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const inView = useInView(ref);
@@ -58,18 +31,36 @@ function VideoSlide({ highlight, index, total, onPlay }: {
   const freshnessLabel = highlight.daysAgo === 0 ? "🔴 Today" : highlight.daysAgo === 1 ? "Yesterday" : `${highlight.daysAgo}d ago`;
   const freshnessColor = highlight.daysAgo === 0 ? "text-limeGreen" : "text-lightPurple/60";
 
+  // autoplay=1 ensures it plays automatically when mounted.
+  // controls=0 & mute=1 helps it autoplay on mobile browsers without interaction.
+  const src = `https://www.youtube.com/embed/${highlight.videoId}?autoplay=1&mute=1&controls=0&rel=0&modestbranding=1&playsinline=1&loop=1&playlist=${highlight.videoId}`;
+
   return (
     <div ref={ref} className="snap-start relative h-full w-full flex-shrink-0 bg-black overflow-hidden">
-      <Image src={thumbUrl} alt={highlight.event} fill className="object-cover" unoptimized priority={index <= 1} />
-      <div className="absolute inset-0 bg-black/20" />
-      <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-black/95 via-black/50 to-transparent pointer-events-none" />
+      {/* Show Thumbnail initially or if not in view to save resources */}
+      <Image 
+        src={thumbUrl} 
+        alt={highlight.event} 
+        fill 
+        className={`object-cover transition-opacity duration-500 ${inView ? 'opacity-0' : 'opacity-100'}`} 
+        unoptimized 
+        priority={index <= 1} 
+      />
 
-      {/* Play button — centre */}
-      <button onClick={onPlay} className="absolute inset-0 flex items-center justify-center group" aria-label={`Play ${highlight.event}`}>
-        <div className="w-16 h-16 rounded-full bg-deepPink/90 flex items-center justify-center shadow-[0_0_28px_rgba(189,25,93,0.65)] group-active:scale-90 transition-transform">
-          <svg viewBox="0 0 24 24" className="w-7 h-7 text-white ml-1" fill="currentColor"><path d="M8 5v14l11-7z" /></svg>
+      {/* When in view, mount the iframe. pointer-events-none ensures swipe isn't stolen by YouTube */}
+      {inView && (
+        <div className="absolute inset-0 pointer-events-none">
+          <iframe 
+            src={src} 
+            title={highlight.event}
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+            className="absolute inset-0 w-full h-[120%] -top-[10%] border-0 object-cover" 
+          />
         </div>
-      </button>
+      )}
+
+      <div className="absolute inset-0 bg-black/10 pointer-events-none" />
+      <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-black/95 via-black/50 to-transparent pointer-events-none" />
 
       {/* Info */}
       <div className="absolute bottom-0 left-0 right-0 p-4 pointer-events-none">
@@ -116,7 +107,6 @@ export default function HighlightsFeed() {
   const [highlights, setHighlights] = useState<VideoHighlight[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
-  const [activeVideo, setActiveVideo] = useState<VideoHighlight | null>(null);
 
   // Data fetch
   useEffect(() => {
@@ -139,8 +129,6 @@ export default function HighlightsFeed() {
 
   return (
     <>
-      {activeVideo && <VideoPlayer highlight={activeVideo} onClose={() => setActiveVideo(null)} />}
-
       <div className="h-full w-full">
         {loading && <Skeleton />}
 
@@ -161,7 +149,7 @@ export default function HighlightsFeed() {
             className="h-full w-full overflow-y-auto snap-y snap-mandatory scrollbar-hide rounded-[22px]"
           >
             {highlights.map((h, i) => (
-              <VideoSlide key={h.id} highlight={h} index={i} total={highlights.length} onPlay={() => setActiveVideo(h)} />
+              <VideoSlide key={h.id} highlight={h} index={i} total={highlights.length} />
             ))}
           </div>
         )}
