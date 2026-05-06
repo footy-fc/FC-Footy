@@ -1,168 +1,88 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import type { MatchHighlight } from "~/app/api/highlights/route";
+import type { VideoHighlight } from "~/app/api/highlights/route";
 import Image from "next/image";
+import { sdk } from "@farcaster/miniapp-sdk";
 
 // ── Skeleton Card ────────────────────────────────────────────────
 function SkeletonCard() {
   return (
-    <div className="shrink-0 w-[340px] rounded-[22px] border border-limeGreenOpacity/10 bg-purplePanel p-4 animate-pulse">
-      <div className="flex items-center justify-between mb-3">
-        <div className="h-3 w-20 bg-white/10 rounded-full" />
-        <div className="h-3 w-10 bg-white/10 rounded-full" />
-      </div>
-      <div className="flex items-center justify-center gap-4 mb-4">
-        <div className="flex flex-col items-center gap-2">
-          <div className="w-12 h-12 rounded-full bg-white/10" />
-          <div className="h-3 w-8 bg-white/10 rounded-full" />
-        </div>
-        <div className="h-10 w-16 bg-white/10 rounded-lg" />
-        <div className="flex flex-col items-center gap-2">
-          <div className="w-12 h-12 rounded-full bg-white/10" />
-          <div className="h-3 w-8 bg-white/10 rounded-full" />
-        </div>
-      </div>
-      <div className="space-y-2">
-        <div className="h-3 w-full bg-white/10 rounded-full" />
-        <div className="h-3 w-5/6 bg-white/10 rounded-full" />
+    <div className="shrink-0 w-[260px] rounded-[20px] border border-limeGreenOpacity/10 bg-purplePanel overflow-hidden animate-pulse">
+      <div className="w-full h-[146px] bg-white/10" />
+      <div className="p-3 space-y-2">
+        <div className="h-3 w-3/4 bg-white/10 rounded-full" />
+        <div className="h-2.5 w-1/2 bg-white/10 rounded-full" />
       </div>
     </div>
   );
 }
 
-// ── Event Pill ───────────────────────────────────────────────────
-function EventPill({ type, player, time }: { type: string; player: string; time: string }) {
-  const icon = (() => {
-    if (type.toLowerCase().includes("goal") || type.toLowerCase().includes("penalty - scored")) return "⚽";
-    if (type.toLowerCase().includes("red")) return "🟥";
-    if (type.toLowerCase().includes("yellow")) return "🟨";
-    if (type.toLowerCase().includes("own")) return "😬";
-    if (type.toLowerCase().includes("missed")) return "❌";
-    return "⚡";
-  })();
+// ── Video Card ───────────────────────────────────────────────────
+function VideoCard({ highlight }: { highlight: VideoHighlight }) {
+  const handleOpen = async () => {
+    try {
+      // In mini-app context, open in the in-app browser
+      await sdk.actions.openUrl(highlight.youtubeUrl);
+    } catch {
+      // Fallback for browser context
+      window.open(highlight.youtubeUrl, "_blank", "noopener");
+    }
+  };
+
+  const thumbUrl =
+    highlight.thumbnailUrl ||
+    `https://img.youtube.com/vi/${highlight.videoId}/hqdefault.jpg`;
 
   return (
-    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white/5 border border-white/10 text-[10px] text-lightPurple whitespace-nowrap">
-      {icon} {player} {time}&apos;
-    </span>
-  );
-}
-
-// ── Match Highlight Card ─────────────────────────────────────────
-function HighlightCard({ match }: { match: MatchHighlight }) {
-  const goals = match.keyEvents.filter(
-    (e) =>
-      e.type.toLowerCase().includes("goal") ||
-      e.type.toLowerCase().includes("penalty - scored")
-  );
-  const drama = match.keyEvents.filter(
-    (e) =>
-      e.type.toLowerCase().includes("red") ||
-      e.type.toLowerCase().includes("missed") ||
-      e.type.toLowerCase().includes("own")
-  );
-  const topEvents = [...goals, ...drama].slice(0, 5);
-
-  return (
-    <div className="shrink-0 w-[340px] rounded-[22px] border border-limeGreenOpacity/15 bg-gradient-to-b from-purplePanel to-darkPurple/90 p-4 flex flex-col gap-3 shadow-[0_8px_30px_rgba(0,0,0,0.3)]">
-      {/* League */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          {match.leagueLogo ? (
-            <Image
-              src={match.leagueLogo}
-              alt={match.leagueName}
-              width={16}
-              height={16}
-              className="object-contain opacity-80"
-            />
-          ) : null}
-          <span className="text-[10px] font-bold tracking-widest text-lightPurple uppercase">
-            {match.leagueName}
-          </span>
+    <button
+      onClick={handleOpen}
+      className="group shrink-0 w-[260px] rounded-[20px] border border-limeGreenOpacity/15 bg-purplePanel overflow-hidden text-left transition-all hover:border-deepPink/40 hover:shadow-[0_8px_30px_rgba(189,25,93,0.2)] active:scale-[0.98]"
+    >
+      {/* Thumbnail */}
+      <div className="relative w-full h-[146px] overflow-hidden bg-darkPurple">
+        <Image
+          src={thumbUrl}
+          alt={highlight.event}
+          fill
+          className="object-cover transition-transform duration-300 group-hover:scale-105"
+          unoptimized
+        />
+        {/* Play button overlay */}
+        <div className="absolute inset-0 flex items-center justify-center bg-black/30 group-hover:bg-black/20 transition-colors">
+          <div className="w-12 h-12 rounded-full bg-deepPink/90 flex items-center justify-center shadow-[0_0_24px_rgba(189,25,93,0.6)] group-hover:scale-110 transition-transform">
+            {/* Play triangle */}
+            <svg viewBox="0 0 24 24" className="w-5 h-5 text-white ml-0.5" fill="currentColor">
+              <path d="M8 5v14l11-7z" />
+            </svg>
+          </div>
         </div>
-        <span className="text-[10px] font-bold text-accentPink uppercase tracking-wider">
-          FT
-        </span>
-      </div>
-
-      {/* Scoreline */}
-      <div className="flex items-center justify-center gap-3">
-        {/* Home */}
-        <div className="flex flex-col items-center gap-1.5 flex-1">
-          {match.homeLogo ? (
-            <Image
-              src={match.homeLogo}
-              alt={match.homeTeam}
-              width={44}
-              height={44}
-              className="object-contain"
-            />
-          ) : (
-            <div className="w-11 h-11 rounded-full bg-deepPink/20 flex items-center justify-center text-xs font-bold text-notWhite">
-              {match.homeTeam.substring(0, 3)}
-            </div>
-          )}
-          <span className="text-[11px] font-bold text-lightPurple">{match.homeTeam}</span>
-        </div>
-
-        {/* Score */}
-        <div className="flex flex-col items-center">
-          <span className="text-4xl font-black text-notWhite tracking-tight leading-none">
-            {match.homeScore}
-            <span className="text-lightPurple/50 mx-1 text-2xl">–</span>
-            {match.awayScore}
-          </span>
-        </div>
-
-        {/* Away */}
-        <div className="flex flex-col items-center gap-1.5 flex-1">
-          {match.awayLogo ? (
-            <Image
-              src={match.awayLogo}
-              alt={match.awayTeam}
-              width={44}
-              height={44}
-              className="object-contain"
-            />
-          ) : (
-            <div className="w-11 h-11 rounded-full bg-deepPink/20 flex items-center justify-center text-xs font-bold text-notWhite">
-              {match.awayTeam.substring(0, 3)}
-            </div>
-          )}
-          <span className="text-[11px] font-bold text-lightPurple">{match.awayTeam}</span>
+        {/* YouTube badge */}
+        <div className="absolute bottom-2 right-2 flex items-center gap-1 bg-black/70 rounded px-1.5 py-0.5">
+          <svg viewBox="0 0 24 24" className="w-3 h-3" fill="#FF0000">
+            <path d="M23.5 6.2s-.2-1.7-1-2.4c-.9-1-1.9-1-2.4-1C17.1 2.6 12 2.6 12 2.6s-5.1 0-8.1.2c-.5.1-1.5.1-2.4 1-.7.7-1 2.4-1 2.4S.3 8.1.3 10v1.8c0 1.9.2 3.8.2 3.8s.2 1.7 1 2.4c.9 1 2.1.9 2.6 1C5.8 19.2 12 19.2 12 19.2s5.1 0 8.1-.2c.5-.1 1.5-.1 2.4-1 .7-.7 1-2.4 1-2.4s.2-1.9.2-3.8V10c0-1.9-.2-3.8-.2-3.8z" />
+            <path d="M9.7 14.2V8.6l6.5 2.8-6.5 2.8z" fill="white" />
+          </svg>
+          <span className="text-[9px] font-bold text-white">YouTube</span>
         </div>
       </div>
 
-      {/* Key events */}
-      {topEvents.length > 0 && (
-        <div className="flex flex-wrap gap-1.5">
-          {topEvents.map((e, i) => (
-            <EventPill key={i} type={e.type} player={e.player} time={e.time} />
-          ))}
-        </div>
-      )}
-
-      {/* AI Summary */}
-      <div className="relative">
-        <div className="absolute -left-0 top-0 bottom-0 w-[2px] bg-gradient-to-b from-deepPink to-deepPink/0 rounded-full" />
-        <p className="pl-3 text-[12px] leading-[1.6] text-lightPurple/90 italic">
-          {match.summary}
+      {/* Info */}
+      <div className="p-3">
+        <p className="text-[12px] font-semibold text-notWhite leading-[1.4] line-clamp-2 mb-1">
+          {highlight.event}
         </p>
-        <div className="mt-1.5 pl-3 flex items-center gap-1">
-          <span className="text-[9px] font-bold tracking-widest text-deepPink/60 uppercase">
-            ⚡ AI Recap
-          </span>
-        </div>
+        <p className="text-[10px] text-lightPurple/60 font-medium truncate">
+          {highlight.league}
+        </p>
       </div>
-    </div>
+    </button>
   );
 }
 
 // ── Main Feed Component ──────────────────────────────────────────
 export default function HighlightsFeed() {
-  const [highlights, setHighlights] = useState<MatchHighlight[]>([]);
+  const [highlights, setHighlights] = useState<VideoHighlight[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
 
@@ -175,7 +95,7 @@ export default function HighlightsFeed() {
         setError(false);
         const res = await fetch("/api/highlights");
         if (!res.ok) throw new Error("Failed");
-        const data = (await res.json()) as MatchHighlight[];
+        const data = (await res.json()) as VideoHighlight[];
         if (!cancelled) setHighlights(data);
       } catch {
         if (!cancelled) setError(true);
@@ -185,26 +105,25 @@ export default function HighlightsFeed() {
     };
 
     load();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   return (
     <div className="mb-5">
       {/* Header */}
       <div className="flex items-center gap-2 mb-3">
-        <div className="relative flex">
-          <span className="w-2 h-2 rounded-full bg-limeGreen animate-ping absolute" />
-          <span className="w-2 h-2 rounded-full bg-limeGreen" />
-        </div>
-        <span className="text-[11px] font-black tracking-[0.18em] text-limeGreen uppercase">
-          AI Highlights
+        <span className="text-base">🎬</span>
+        <span className="text-[11px] font-black tracking-[0.14em] text-notWhite uppercase">
+          Highlights
         </span>
         <span className="text-[10px] text-lightPurple/50 ml-auto">
-          Top games · AI recap
+          Recent matches
         </span>
       </div>
 
-      {/* Loading */}
+      {/* Loading skeletons */}
       {loading && (
         <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide snap-x snap-mandatory">
           {[0, 1, 2].map((i) => (
@@ -218,23 +137,23 @@ export default function HighlightsFeed() {
       {/* Error */}
       {!loading && error && (
         <div className="rounded-[18px] border border-fontRed/20 bg-purplePanel p-4 text-sm text-lightPurple/70 text-center">
-          Could not load highlights right now. Check back soon.
+          Couldn&apos;t load highlights right now.
         </div>
       )}
 
       {/* Empty */}
       {!loading && !error && highlights.length === 0 && (
         <div className="rounded-[18px] border border-limeGreenOpacity/10 bg-purplePanel p-4 text-sm text-lightPurple/70 text-center">
-          No completed matches yet today — highlights will appear after full-time.
+          No highlight videos available yet — check back after matches finish.
         </div>
       )}
 
-      {/* Cards */}
+      {/* Video Cards */}
       {!loading && !error && highlights.length > 0 && (
         <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide snap-x snap-mandatory">
-          {highlights.map((match) => (
-            <div key={match.id} className="snap-start">
-              <HighlightCard match={match} />
+          {highlights.map((h) => (
+            <div key={h.id} className="snap-start">
+              <VideoCard highlight={h} />
             </div>
           ))}
         </div>
