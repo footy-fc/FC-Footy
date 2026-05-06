@@ -180,7 +180,9 @@ export default function HighlightsFeed() {
       el.removeEventListener("touchmove",  onMove);
       el.removeEventListener("touchend",   onEnd);
     };
-  }, []); // attach once — state via ref
+  // highlights.length: container is conditionally rendered — only exists after data loads.
+  // Re-running when length changes ensures listeners attach once the div is in the DOM.
+  }, [highlights.length]);
 
   const translateY = -currentIndex * SLIDE_HEIGHT + dragDeltaY;
   const transition = isDragging ? "none" : "transform 0.32s cubic-bezier(0.23, 1, 0.32, 1)";
