@@ -1,23 +1,26 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useCallback } from "react";
 import type { VideoHighlight } from "~/app/api/highlights/route";
 import Image from "next/image";
 
-// ── IntersectionObserver hook ────────────────────────────────────
-function useInView(ref: React.RefObject<HTMLDivElement | null>, threshold = 0.8) {
-  const [inView, setInView] = useState(false);
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const obs = new IntersectionObserver(
-      ([entry]) => setInView(entry.isIntersecting),
-      { threshold }
-    );
-    obs.observe(el);
-    return () => obs.disconnect();
-  }, [ref, threshold]);
-  return inView;
+const SLIDE_HEIGHT = 480;
+const SWIPE_THRESHOLD = 50; // px of drag to commit to next/prev slide
+
+// ── Skeleton ─────────────────────────────────────────────────────
+function Skeleton() {
+  return (
+    <div
+      className="w-full rounded-[22px] bg-purplePanel animate-pulse overflow-hidden relative"
+      style={{ height: SLIDE_HEIGHT }}
+    >
+      <div className="absolute inset-0 bg-white/5" />
+      <div className="absolute bottom-0 left-0 right-0 p-4 space-y-2">
+        <div className="h-2.5 w-20 bg-white/10 rounded-full" />
+        <div className="h-4 w-3/4 bg-white/10 rounded-full" />
+      </div>
+    </div>
+  );
 }
 
 // ── Individual video slide ────────────────────────────────────────
@@ -25,21 +28,18 @@ function VideoSlide({
   highlight,
   index,
   total,
+  isActive,
 }: {
   highlight: VideoHighlight;
   index: number;
   total: number;
+  isActive: boolean;
 }) {
-  const ref = useRef<HTMLDivElement>(null);
-  const inView = useInView(ref);
-
-  // Use maxresdefault for a sharper thumbnail
   const thumbUrl =
     `https://img.youtube.com/vi/${highlight.videoId}/maxresdefault.jpg` ||
     highlight.thumbnailUrl;
 
-  // autoplay + playsinline (important for mobile / mini-app)
-  const embedUrl = `https://www.youtube.com/embed/${highlight.videoId}?autoplay=1&rel=0&modestbranding=1&playsinline=1&mute=0`;
+  const embedUrl = `https://www.youtube.com/embed/${highlight.videoId}?autoplay=1&rel=0&modestbranding=1&playsinline=1`;
 
   const freshnessLabel =
     highlight.daysAgo === 0
@@ -53,13 +53,13 @@ function VideoSlide({
 
   return (
     <div
-      ref={ref}
-      className="snap-start relative w-full h-full flex-shrink-0 bg-black overflow-hidden"
+      className="relative w-full bg-black overflow-hidden"
+      style={{ height: SLIDE_HEIGHT }}
     >
       {/* ── Player or Thumbnail ── */}
-      {inView ? (
+      {isActive ? (
         <iframe
-          key={highlight.videoId} // re-mount when id changes
+          key={highlight.videoId}
           src={embedUrl}
           title={highlight.event}
           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
@@ -77,47 +77,51 @@ function VideoSlide({
         />
       )}
 
-      {/* ── Bottom gradient + info overlay ── */}
+      {/* ── Bottom gradient + info ── */}
       <div className="absolute inset-x-0 bottom-0 h-36 bg-gradient-to-t from-black/95 via-black/60 to-transparent pointer-events-none" />
       <div className="absolute bottom-0 left-0 right-0 p-4 pointer-events-none">
         <div className="flex items-center gap-2 mb-1">
           <p className="text-[10px] font-black tracking-[0.18em] text-deepPink uppercase">
             {highlight.league}
           </p>
-          <span className={`text-[10px] font-bold ${freshnessColor}`}>{freshnessLabel}</span>
+          <span className={`text-[10px] font-bold ${freshnessColor}`}>
+            {freshnessLabel}
+          </span>
         </div>
         <p className="text-[15px] font-bold text-white leading-snug line-clamp-2">
           {highlight.event}
         </p>
       </div>
 
-      {/* ── Top-right counter ── */}
-      <div className="absolute top-3 right-3 bg-black/60 backdrop-blur-sm rounded-full px-2.5 py-1 text-[10px] font-bold text-white">
-        {index + 1}&thinsp;/&thinsp;{total}
+      {/* ── Dot indicator (top-centre) ── */}
+      <div className="absolute top-3 inset-x-0 flex justify-center gap-1.5 pointer-events-none">
+        {Array.from({ length: total }).map((_, i) => (
+          <span
+            key={i}
+            className={`block rounded-full transition-all duration-300 ${
+              i === index
+                ? "w-4 h-1.5 bg-white"
+                : "w-1.5 h-1.5 bg-white/30"
+            }`}
+          />
+        ))}
       </div>
 
-      {/* ── Swipe hint on first slide (only when not playing) ── */}
-      {index === 0 && !inView && (
+      {/* ── Swipe hint on first slide when not active ── */}
+      {index === 0 && !isActive && (
         <div className="absolute bottom-20 inset-x-0 flex flex-col items-center gap-1 pointer-events-none">
-          <svg viewBox="0 0 24 24" className="w-5 h-5 text-white/50 animate-bounce" fill="none" stroke="currentColor" strokeWidth="2">
+          <svg
+            viewBox="0 0 24 24"
+            className="w-5 h-5 text-white/50 animate-bounce"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+          >
             <path d="M12 5v14M5 12l7 7 7-7" />
           </svg>
-          <span className="text-[10px] text-white/40 font-medium">Swipe for more</span>
+          <span className="text-[10px] text-white/40 font-medium">Swipe up</span>
         </div>
       )}
-    </div>
-  );
-}
-
-// ── Skeleton ─────────────────────────────────────────────────────
-function Skeleton() {
-  return (
-    <div className="w-full h-[480px] rounded-[22px] bg-purplePanel animate-pulse overflow-hidden relative">
-      <div className="absolute inset-0 bg-white/5" />
-      <div className="absolute bottom-0 left-0 right-0 p-4 space-y-2">
-        <div className="h-2.5 w-20 bg-white/10 rounded-full" />
-        <div className="h-4 w-3/4 bg-white/10 rounded-full" />
-      </div>
     </div>
   );
 }
@@ -127,6 +131,12 @@ export default function HighlightsFeed() {
   const [highlights, setHighlights] = useState<VideoHighlight[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+
+  // Swipe state
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [dragDeltaY, setDragDeltaY] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
+  const dragStartY = useRef(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -145,8 +155,49 @@ export default function HighlightsFeed() {
       }
     };
     load();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, []);
+
+  // ── Touch handlers ────────────────────────────────────────────
+  const onTouchStart = useCallback((e: React.TouchEvent) => {
+    dragStartY.current = e.touches[0].clientY;
+    setIsDragging(true);
+    setDragDeltaY(0);
+  }, []);
+
+  const onTouchMove = useCallback(
+    (e: React.TouchEvent) => {
+      if (!isDragging) return;
+      const delta = e.touches[0].clientY - dragStartY.current;
+      // Resist at edges
+      const atStart = currentIndex === 0 && delta > 0;
+      const atEnd = currentIndex === highlights.length - 1 && delta < 0;
+      if (atStart || atEnd) {
+        setDragDeltaY(delta / 4); // rubber-band effect
+      } else {
+        setDragDeltaY(delta);
+      }
+    },
+    [isDragging, currentIndex, highlights.length]
+  );
+
+  const onTouchEnd = useCallback(() => {
+    setIsDragging(false);
+    if (dragDeltaY < -SWIPE_THRESHOLD && currentIndex < highlights.length - 1) {
+      setCurrentIndex((i) => i + 1);
+    } else if (dragDeltaY > SWIPE_THRESHOLD && currentIndex > 0) {
+      setCurrentIndex((i) => i - 1);
+    }
+    setDragDeltaY(0);
+  }, [dragDeltaY, currentIndex, highlights.length]);
+
+  // ── Translate: base position + live drag offset ───────────────
+  const translateY = -currentIndex * SLIDE_HEIGHT + dragDeltaY;
+  const transition = isDragging
+    ? "none"
+    : "transform 0.38s cubic-bezier(0.25, 0.46, 0.45, 0.94)";
 
   return (
     <div className="mb-5">
@@ -157,7 +208,7 @@ export default function HighlightsFeed() {
           Highlights
         </span>
         <span className="text-[10px] text-lightPurple/50 ml-auto">
-          Swipe to browse
+          Swipe up
         </span>
       </div>
 
@@ -175,15 +226,33 @@ export default function HighlightsFeed() {
         </div>
       )}
 
-      {/* ── TikTok/Shorts-style vertical snap scroll ── */}
+      {/* ── Touch-driven vertical swipe player ── */}
       {!loading && !error && highlights.length > 0 && (
         <div
-          className="overflow-y-auto snap-y snap-mandatory rounded-[22px] scrollbar-hide"
-          style={{ height: "480px" }}
+          className="overflow-hidden rounded-[22px] select-none"
+          style={{ height: SLIDE_HEIGHT, touchAction: "pan-y" }}
+          onTouchStart={onTouchStart}
+          onTouchMove={onTouchMove}
+          onTouchEnd={onTouchEnd}
         >
-          {highlights.map((h, i) => (
-            <VideoSlide key={h.id} highlight={h} index={i} total={highlights.length} />
-          ))}
+          <div
+            style={{
+              transform: `translateY(${translateY}px)`,
+              transition,
+              willChange: "transform",
+              height: highlights.length * SLIDE_HEIGHT,
+            }}
+          >
+            {highlights.map((h, i) => (
+              <VideoSlide
+                key={h.id}
+                highlight={h}
+                index={i}
+                total={highlights.length}
+                isActive={i === currentIndex}
+              />
+            ))}
+          </div>
         </div>
       )}
     </div>
