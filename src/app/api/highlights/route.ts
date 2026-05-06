@@ -18,7 +18,8 @@ export interface VideoHighlight {
 const CHANNELS = [
   { id: "UC4i_9WvfPRTuRWEaWyfKuFw", name: "TNT Sports", league: "Champions League / Premier League" },
   { id: "UCNAf1k0yIjyGu3k9BwAg3lg", name: "Sky Sports Football", league: "Premier League / EFL" },
-  { id: "UC1oDntG5Oexb6yQzQ-lG6yA", name: "CBS Sports Golazo", league: "Champions League / Serie A" },
+  { id: "UCX_tjI6Q_4JD1E3234CwemA", name: "CBS Sports Golazo", league: "Champions League / Serie A" },
+  { id: "UC0YatYmg5JRYzXJPxIdRd8g", name: "beIN SPORTS", league: "LaLiga / Ligue 1 / Copa Libertadores" },
 ];
 
 function calculateDaysAgo(published: Date): number {
@@ -55,9 +56,11 @@ async function fetchChannelFeed(channel: typeof CHANNELS[0]): Promise<VideoHighl
       // Focus on titles with keywords typical of match highlights
       const titleLower = title.toLowerCase();
       const isHighlight = titleLower.includes("highlights") || 
-                          titleLower.includes(" goals") || 
+                          titleLower.includes("goals") || 
+                          titleLower.includes("goal") || 
                           titleLower.includes(" vs ") || 
                           titleLower.includes(" vs.") ||
+                          titleLower.includes(" v ") ||
                           titleLower.includes("-");
                           
       const isShort = titleLower.includes("#shorts") || titleLower.includes("short") || titleLower.includes("tiktok");
