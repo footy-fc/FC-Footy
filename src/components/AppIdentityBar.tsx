@@ -20,6 +20,7 @@ interface AppIdentityBarProps {
   onOpenProfile: () => void;
   onOpenAdmins?: () => void;
   onOpenTeam?: (teamId: string) => void;
+  onOpenTools?: () => void;
   selectedTab: string;
   isAdminFid: boolean;
   viewerFid?: number;
@@ -40,6 +41,7 @@ const AppIdentityBar: React.FC<AppIdentityBarProps> = ({
   onOpenProfile,
   onOpenAdmins,
   onOpenTeam,
+  onOpenTools,
   selectedTab,
   isAdminFid,
   viewerFid,
@@ -152,6 +154,25 @@ const AppIdentityBar: React.FC<AppIdentityBarProps> = ({
       </div>
 
       <div className="flex items-center gap-2">
+        {onOpenTools ? (
+          <button
+            type="button"
+            onClick={onOpenTools}
+            className={`flex h-10 w-10 items-center justify-center rounded-2xl border transition-colors ${
+              selectedTab === "tools"
+                ? "border-deepPink bg-deepPink/20 text-notWhite"
+                : "border-limeGreenOpacity/20 bg-darkPurple/70 text-lightPurple hover:bg-darkPurple"
+            }`}
+            aria-label="Open Tools"
+          >
+            <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M4 19h16" />
+              <path d="M7 16V9" />
+              <path d="M12 16V5" />
+              <path d="M17 16v-3" />
+            </svg>
+          </button>
+        ) : null}
         {isAdminFid && onOpenAdmins ? (
           <button
             type="button"

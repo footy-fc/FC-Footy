@@ -1,6 +1,8 @@
 import { ImageResponse } from "next/og";
 
+export const runtime = "edge";
 export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 const size = {
   width: 600,
@@ -45,28 +47,6 @@ const statCardStyle = {
   boxShadow: "inset 0 1px 0 rgba(255,255,255,0.03)",
 } as const;
 
-type OgMatchContext = {
-  homeTeam: string;
-  awayTeam: string;
-  homeScore: string;
-  awayScore: string;
-  clock: string;
-  label: string;
-};
-
-type EspnEventLike = {
-  id?: string;
-  date?: string;
-  status?: { type?: { state?: string; detail?: string }; displayClock?: string };
-  competitions?: Array<{
-    competitors?: Array<{
-      homeAway?: string;
-      score?: number | string;
-      team?: { abbreviation?: string };
-    }>;
-  }>;
-};
-
 function Dot({ color }: { color: string }) {
   return (
     <div
@@ -81,114 +61,195 @@ function Dot({ color }: { color: string }) {
   );
 }
 
-function parseLeagueFromEventId(eventId: string | null): string | null {
-  if (!eventId) return null;
-  const parts = eventId.split("_");
-  if (parts.length < 3) return null;
-  return parts.slice(0, parts.length - 2).join(".");
+/* ------------------------------------------------------------------ */
+/*  ESPN data fetching helpers                                        */
+/* ------------------------------------------------------------------ */
+
+interface ESPNTeam {
+  abbreviation?: string;
+  displayName: string;
+  shortDisplayName?: string;
+  logo?: string;
 }
 
-function parseTeamsFromEventId(eventId: string | null): { homeTeam: string | null; awayTeam: string | null } {
-  if (!eventId) return { homeTeam: null, awayTeam: null };
-  const parts = eventId.split("_");
-  if (parts.length < 3) return { homeTeam: null, awayTeam: null };
-  return {
-    homeTeam: parts[parts.length - 2] ?? null,
-    awayTeam: parts[parts.length - 1] ?? null,
+interface ESPNCompetitor {
+  homeAway: "home" | "away";
+  score: string;
+  team: ESPNTeam;
+}
+
+interface ESPNStatusType {
+  state: string; // "pre" | "in" | "post"
+  name: string;
+  shortDetail: string;
+  detail: string;
+}
+
+interface ESPNCompetition {
+  competitors?: ESPNCompetitor[];
+  status?: {
+    clock: number;
+    displayClock: string;
+    type: ESPNStatusType;
   };
 }
 
-function formatFallbackClock(dateString?: string): string {
-  if (!dateString) return "Matchday";
-  const date = new Date(dateString);
-  if (Number.isNaN(date.getTime())) return "Matchday";
-  return date.toLocaleString("en-US", {
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  });
+interface ESPNEvent {
+  id: string;
+  name: string;
+  competitions?: ESPNCompetition[];
 }
 
-function formatScore(score?: number | string): string {
-  if (typeof score === "number") return String(score);
-  if (typeof score === "string" && score.trim().length > 0) return score;
-  return "0";
+interface ESPNResponse {
+  events?: ESPNEvent[];
+  leagues?: { abbreviation?: string }[];
 }
 
-async function resolveMatchContext(request: Request): Promise<OgMatchContext | null> {
-  const { searchParams } = new URL(request.url);
-  const eventId = searchParams.get("eventId");
-  const league = searchParams.get("league") || parseLeagueFromEventId(eventId);
-  const fallbackTeams = parseTeamsFromEventId(eventId);
-  const fallbackHomeTeam = searchParams.get("homeTeam") || fallbackTeams.homeTeam;
-  const fallbackAwayTeam = searchParams.get("awayTeam") || fallbackTeams.awayTeam;
-  const fallbackHomeScore = searchParams.get("homeScore") || "0";
-  const fallbackAwayScore = searchParams.get("awayScore") || "0";
-  const fallbackClock = searchParams.get("clock") || "Matchday";
+interface MatchCard {
+  homeAbbr: string;
+  awayAbbr: string;
+  homeScore: string;
+  awayScore: string;
+  statusLabel: string; // e.g. "LIVE", "HT", "FT", "KO 15:00"
+  isLive: boolean;
+  leagueName: string;
+}
 
-  if (!league || !fallbackHomeTeam || !fallbackAwayTeam) {
-    return null;
-  }
+const LEAGUES = [
+  { name: "EPL", id: "eng.1" },
+  { name: "UCL", id: "uefa.champions" },
+  { name: "La Liga", id: "esp.1" },
+  { name: "Serie A", id: "ita.1" },
+  { name: "Bundesliga", id: "ger.1" },
+  { name: "Ligue 1", id: "fra.1" },
+  { name: "FA Cup", id: "eng.fa" },
+  { name: "UEL", id: "uefa.europa" },
+  { name: "CWC", id: "fifa.cwc" },
+];
 
-  const upcomingDates = Array.from({ length: 5 }, (_, index) => {
-    const date = new Date();
-    date.setDate(date.getDate() + index);
-    const year = date.getFullYear();
-    const month = `${date.getMonth() + 1}`.padStart(2, "0");
-    const day = `${date.getDate()}`.padStart(2, "0");
-    return `${year}${month}${day}`;
-  });
+async function fetchBestMatch(): Promise<MatchCard | null> {
+  // Try each league in priority order until we find a live → post → pre match
+  let bestLive: MatchCard | null = null;
+  let bestPost: MatchCard | null = null;
+  let bestPre: MatchCard | null = null;
 
-  try {
-    for (const dateKey of upcomingDates) {
-      const response = await fetch(
-        `https://site.api.espn.com/apis/site/v2/sports/soccer/${league}/scoreboard?dates=${dateKey}`,
-        { cache: "no-store" }
-      );
-      if (!response.ok) {
-        continue;
-      }
-
-      const data = (await response.json()) as { events?: EspnEventLike[] };
-      const events = Array.isArray(data.events) ? data.events : [];
-      const matched = events.find((event) => {
-        const competitors = event.competitions?.[0]?.competitors || [];
-        const homeTeam = competitors.find((competitor) => competitor.homeAway === "home")?.team?.abbreviation?.toUpperCase();
-        const awayTeam = competitors.find((competitor) => competitor.homeAway === "away")?.team?.abbreviation?.toUpperCase();
-        return homeTeam === fallbackHomeTeam.toUpperCase() && awayTeam === fallbackAwayTeam.toUpperCase();
+  for (const league of LEAGUES) {
+    try {
+      const url = `https://site.api.espn.com/apis/site/v2/sports/soccer/${league.id}/scoreboard`;
+      const res = await fetch(url, {
+        cache: "no-store",
+        signal: AbortSignal.timeout(4000),
       });
+      if (!res.ok) continue;
+      const data = (await res.json()) as ESPNResponse;
+      if (!data.events?.length) continue;
 
-      if (matched) {
-        const competitors = matched.competitions?.[0]?.competitors || [];
-        const homeCompetitor = competitors.find((competitor) => competitor.homeAway === "home");
-        const awayCompetitor = competitors.find((competitor) => competitor.homeAway === "away");
-        return {
-          homeTeam: homeCompetitor?.team?.abbreviation?.toUpperCase() || fallbackHomeTeam.toUpperCase(),
-          awayTeam: awayCompetitor?.team?.abbreviation?.toUpperCase() || fallbackAwayTeam.toUpperCase(),
-          homeScore: formatScore(homeCompetitor?.score),
-          awayScore: formatScore(awayCompetitor?.score),
-          clock: matched.status?.type?.detail || matched.status?.displayClock || formatFallbackClock(matched.date),
-          label: matched.status?.type?.state === "in" ? "LIVE NOW" : "UP NEXT",
+      const leagueName =
+        data.leagues?.[0]?.abbreviation ?? league.name;
+
+      for (const event of data.events) {
+        const comp = event.competitions?.[0];
+        if (!comp?.competitors || !comp.status) continue;
+
+        const home = comp.competitors.find((c) => c.homeAway === "home");
+        const away = comp.competitors.find((c) => c.homeAway === "away");
+        if (!home || !away) continue;
+
+        const state = comp.status.type.state;
+        const statusName = comp.status.type.name;
+
+        let statusLabel = "";
+        let isLive = false;
+
+        if (state === "in") {
+          isLive = true;
+          if (statusName === "STATUS_HALFTIME") {
+            statusLabel = "HT";
+          } else {
+            statusLabel = comp.status.type.shortDetail || "LIVE";
+          }
+        } else if (state === "post") {
+          statusLabel = "FT";
+        } else {
+          // pre
+          statusLabel = comp.status.type.shortDetail || "Upcoming";
+        }
+
+        const card: MatchCard = {
+          homeAbbr:
+            home.team.abbreviation ||
+            (home.team.shortDisplayName || home.team.displayName)
+              .substring(0, 3)
+              .toUpperCase(),
+          awayAbbr:
+            away.team.abbreviation ||
+            (away.team.shortDisplayName || away.team.displayName)
+              .substring(0, 3)
+              .toUpperCase(),
+          homeScore: home.score ?? "0",
+          awayScore: away.score ?? "0",
+          statusLabel,
+          isLive,
+          leagueName,
         };
+
+        if (state === "in" && !bestLive) {
+          bestLive = card;
+        } else if (state === "post" && !bestPost) {
+          bestPost = card;
+        } else if (state === "pre" && !bestPre) {
+          bestPre = card;
+        }
       }
+
+      // Prefer live matches – break early if we found one
+      if (bestLive) break;
+    } catch {
+      // network error – skip league
+      continue;
     }
-  } catch (error) {
-    console.error("[api/og] failed to resolve live match context", error);
   }
 
-  return {
-    homeTeam: fallbackHomeTeam.toUpperCase(),
-    awayTeam: fallbackAwayTeam.toUpperCase(),
-    homeScore: fallbackHomeScore,
-    awayScore: fallbackAwayScore,
-    clock: fallbackClock,
-    label: "MATCHDAY",
-  };
+  return bestLive ?? bestPost ?? bestPre ?? null;
 }
+
+/* ------------------------------------------------------------------ */
+/*  OG Image route                                                    */
+/* ------------------------------------------------------------------ */
 
 export async function GET(request: Request) {
-  const matchContext = await resolveMatchContext(request);
+  const { searchParams } = new URL(request.url);
+
+  // Check for override params
+  const homeParam = searchParams.get("home");
+  const awayParam = searchParams.get("away");
+  const homeScoreParam = searchParams.get("homeScore");
+  const awayScoreParam = searchParams.get("awayScore");
+  const statusParam = searchParams.get("status");
+  const leagueParam = searchParams.get("league");
+  const isLiveParam = searchParams.get("isLive");
+
+  let match: MatchCard | null = null;
+
+  if (homeParam && awayParam) {
+    // Use params if provided
+    match = {
+      homeAbbr: homeParam.substring(0, 3).toUpperCase(),
+      awayAbbr: awayParam.substring(0, 3).toUpperCase(),
+      homeScore: homeScoreParam || "0",
+      awayScore: awayScoreParam || "0",
+      statusLabel: statusParam || "LIVE",
+      isLive: isLiveParam === "true",
+      leagueName: leagueParam || "MATCH",
+    };
+  } else {
+    // Otherwise fetch best match
+    try {
+      match = await fetchBestMatch();
+    } catch {
+      // Fail silently, use fallback
+    }
+  }
 
   return new ImageResponse(
     (
@@ -377,6 +438,7 @@ export async function GET(request: Request) {
               minWidth: 0,
             }}
           >
+            {/* ---- Score card ---- */}
             <div
               style={{
                 ...statCardStyle,
@@ -385,60 +447,221 @@ export async function GET(request: Request) {
                   "linear-gradient(180deg, rgba(33,24,52,0.96), rgba(15,11,26,0.98))",
               }}
             >
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                }}
-              >
-                <div
-                  style={{
-                    color: colors.accent,
-                    fontSize: 13,
-                    fontWeight: 800,
-                    letterSpacing: "0.18em",
-                  }}
-                >
-                  {matchContext?.label || "LIVE NOW"}
-                </div>
-                <Dot color={colors.lime} />
-              </div>
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: 10,
-                }}
-              >
+              {match ? (
+                /* ---------- Dynamic match card ---------- */
                 <div
                   style={{
                     display: "flex",
+                    flexDirection: "column",
                     justifyContent: "space-between",
-                    alignItems: "baseline",
-                    fontSize: 36,
-                    fontWeight: 800,
-                    letterSpacing: "-0.06em",
+                    height: "100%",
+                    gap: 6,
                   }}
                 >
-                  <span>{matchContext?.homeScore || "2"}</span>
-                  <span style={{ color: colors.muted, fontSize: 16 }}>-</span>
-                  <span>{matchContext?.awayScore || "1"}</span>
+                  {/* Header row: league + status */}
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                    }}
+                  >
+                    <div
+                      style={{
+                        color: colors.muted,
+                        fontSize: 11,
+                        fontWeight: 800,
+                        letterSpacing: "0.14em",
+                        textTransform: "uppercase",
+                      }}
+                    >
+                      {match.leagueName}
+                    </div>
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 6,
+                      }}
+                    >
+                      {match.isLive && <Dot color={colors.lime} />}
+                      <div
+                        style={{
+                          color: match.isLive
+                            ? colors.lime
+                            : match.statusLabel === "FT"
+                              ? colors.accentSoft
+                              : colors.muted,
+                          fontSize: 12,
+                          fontWeight: 800,
+                          letterSpacing: "0.12em",
+                        }}
+                      >
+                        {match.statusLabel}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Scoreline */}
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "center",
+                      alignItems: "center",
+                      gap: 14,
+                      padding: "6px 0",
+                    }}
+                  >
+                    {/* Home */}
+                    <div
+                      style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: "center",
+                        gap: 4,
+                      }}
+                    >
+                      <div
+                        style={{
+                          fontSize: 38,
+                          fontWeight: 800,
+                          letterSpacing: "-0.04em",
+                          lineHeight: 1,
+                        }}
+                      >
+                        {match.homeScore}
+                      </div>
+                      <div
+                        style={{
+                          fontSize: 15,
+                          fontWeight: 700,
+                          color: colors.muted,
+                          letterSpacing: "0.04em",
+                        }}
+                      >
+                        {match.homeAbbr}
+                      </div>
+                    </div>
+
+                    {/* Separator */}
+                    <div
+                      style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: "center",
+                        gap: 2,
+                      }}
+                    >
+                      <div
+                        style={{
+                          width: 4,
+                          height: 4,
+                          borderRadius: 999,
+                          background: colors.muted,
+                        }}
+                      />
+                      <div
+                        style={{
+                          width: 4,
+                          height: 4,
+                          borderRadius: 999,
+                          background: colors.muted,
+                        }}
+                      />
+                    </div>
+
+                    {/* Away */}
+                    <div
+                      style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: "center",
+                        gap: 4,
+                      }}
+                    >
+                      <div
+                        style={{
+                          fontSize: 38,
+                          fontWeight: 800,
+                          letterSpacing: "-0.04em",
+                          lineHeight: 1,
+                        }}
+                      >
+                        {match.awayScore}
+                      </div>
+                      <div
+                        style={{
+                          fontSize: 15,
+                          fontWeight: 700,
+                          color: colors.muted,
+                          letterSpacing: "0.04em",
+                        }}
+                      >
+                        {match.awayAbbr}
+                      </div>
+                    </div>
+                  </div>
                 </div>
+              ) : (
+                /* ---------- Fallback: no live/recent match ---------- */
                 <div
                   style={{
                     display: "flex",
+                    flexDirection: "column",
                     justifyContent: "space-between",
-                    color: colors.muted,
-                    fontSize: 16,
-                    fontWeight: 700,
+                    height: "100%",
+                    gap: 6,
                   }}
                 >
-                  <span>{matchContext?.homeTeam || "LIV"}</span>
-                  <span>{matchContext?.clock || "81'"}</span>
-                  <span>{matchContext?.awayTeam || "ARS"}</span>
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                    }}
+                  >
+                    <div
+                      style={{
+                        color: colors.accent,
+                        fontSize: 13,
+                        fontWeight: 800,
+                        letterSpacing: "0.18em",
+                      }}
+                    >
+                      MATCH DAY
+                    </div>
+                    <Dot color={colors.accentSoft} />
+                  </div>
+                  <div
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 6,
+                    }}
+                  >
+                    <div
+                      style={{
+                        fontSize: 28,
+                        fontWeight: 800,
+                        letterSpacing: "-0.05em",
+                      }}
+                    >
+                      Live scores
+                    </div>
+                    <div
+                      style={{
+                        color: colors.muted,
+                        fontSize: 15,
+                        fontWeight: 700,
+                        lineHeight: 1.3,
+                      }}
+                    >
+                      Real-time scorelines across top leagues, updated every
+                      matchday.
+                    </div>
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
 
             <div style={{ ...statCardStyle, minHeight: 156 }}>
@@ -484,6 +707,11 @@ export async function GET(request: Request) {
         </div>
       </div>
     ),
-    { ...size }
+    {
+      ...size,
+      headers: {
+        "Cache-Control": "public, max-age=120, s-maxage=120, stale-while-revalidate=60",
+      },
+    }
   );
 }

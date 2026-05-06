@@ -1,14 +1,12 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { sdk } from "@farcaster/miniapp-sdk";
 import { BASE_URL } from '~/lib/config';
-import { useFootyFarcaster } from '~/lib/farcaster/useFootyFarcaster';
 import { useCommentator } from '~/hooks/useCommentator';
 import { findMostSignificantEvent } from '~/utils/matchDataUtils';
 import { RichMatchEvent } from '~/types/commentatorTypes';
 import { CommentaryPipeline, CommentaryContext } from '~/services/CommentaryPipeline';
 
 const imageLoadCache = new Map<string, Promise<HTMLImageElement>>();
-const FARCASTER_CAST_MAX_BYTES = 320;
 
 function getInitials(name: string) {
   const parts = name
@@ -58,72 +56,6 @@ function canvasToBlob(canvas: HTMLCanvasElement, type = 'image/png') {
       resolve(blob);
     }, type);
   });
-}
-
-function getUtf8ByteLength(value: string) {
-  return new TextEncoder().encode(value).length;
-}
-
-function truncateToUtf8Bytes(value: string, maxBytes: number) {
-  if (maxBytes <= 0) {
-    return '';
-  }
-
-  if (getUtf8ByteLength(value) <= maxBytes) {
-    return value;
-  }
-
-  let low = 0;
-  let high = value.length;
-
-  while (low < high) {
-    const mid = Math.ceil((low + high) / 2);
-    const slice = value.slice(0, mid);
-    if (getUtf8ByteLength(slice) <= maxBytes) {
-      low = mid;
-    } else {
-      high = mid - 1;
-    }
-  }
-
-  return value.slice(0, low).trimEnd();
-}
-
-function fitCastText(parts: string[]) {
-  const normalized = parts
-    .map((part) => part.trim())
-    .filter((part) => part.length > 0);
-
-  let text = normalized.join('\n\n');
-  if (getUtf8ByteLength(text) <= FARCASTER_CAST_MAX_BYTES) {
-    return text;
-  }
-
-  const lastIndex = normalized.length - 1;
-  if (lastIndex < 0) {
-    return '';
-  }
-
-  const head = normalized.slice(0, lastIndex);
-  const tail = normalized[lastIndex];
-  const prefix = head.length > 0 ? `${head.join('\n\n')}\n\n` : '';
-  const prefixBytes = getUtf8ByteLength(prefix);
-  const ellipsis = '…';
-  const ellipsisBytes = getUtf8ByteLength(ellipsis);
-  const remainingBytes = FARCASTER_CAST_MAX_BYTES - prefixBytes - ellipsisBytes;
-
-  if (remainingBytes <= 0) {
-    return truncateToUtf8Bytes(text, FARCASTER_CAST_MAX_BYTES - ellipsisBytes) + ellipsis;
-  }
-
-  const truncatedTail = truncateToUtf8Bytes(tail, remainingBytes);
-  text = `${prefix}${truncatedTail}${ellipsis}`;
-
-  if (getUtf8ByteLength(text) <= FARCASTER_CAST_MAX_BYTES) {
-    return text;
-  }
-
-  return truncateToUtf8Bytes(text, FARCASTER_CAST_MAX_BYTES);
 }
 
 function withTimeout<T>(promise: Promise<T>, timeoutMs: number, fallback: T): Promise<T> {
@@ -317,37 +249,9 @@ interface WarpcastShareButtonProps {
 
 export function WarpcastShareButton({ selectedMatch, compositeImage, leagueId, moneyGamesParams, ticketPriceEth, prizePoolEth }: WarpcastShareButtonProps) {
   const { isGenerating, currentCommentator } = useCommentator();
-  const {
-    runtime,
-    hasFootySession,
-    hasLinkedFarcaster,
-    hasSigner,
-    onboardingState,
-    beginPrivyLogin,
-    beginLinkFarcaster,
-    beginSignerAuthorization,
-    signCast,
-    submitSignedMessage,
-  } = useFootyFarcaster();
   const [ethUsdPrice, setEthUsdPrice] = useState<number | null>(null);
   const [isCreatingRoom, setIsCreatingRoom] = useState<boolean>(false);
   const [messageIndex, setMessageIndex] = useState<number>(0);
-  const [personalCommentary, setPersonalCommentary] = useState('');
-  const [shareStatus, setShareStatus] = useState<'idle' | 'sent'>('idle');
-  const [shareMessage, setShareMessage] = useState<string | null>(null);
-  const [isAdvancingOnboarding, setIsAdvancingOnboarding] = useState(false);
-
-  useEffect(() => {
-    if (shareStatus !== 'sent') {
-      return;
-    }
-
-    const timer = window.setTimeout(() => {
-      setShareStatus('idle');
-    }, 4000);
-
-    return () => window.clearTimeout(timer);
-  }, [shareStatus]);
 
   useEffect(() => {
     if (!compositeImage) {
@@ -407,44 +311,6 @@ export function WarpcastShareButton({ selectedMatch, compositeImage, leagueId, m
     return messages[messageIndex];
   };
 
-  const shareButtonLabel =
-    isGenerating ? '🎤 Generating Commentary...' :
-    isAdvancingOnboarding ? 'Opening Footy sign in...' :
-    isCreatingRoom ? getLoadingMessage() :
-    shareStatus === 'sent' ? 'Shared to Farcaster' :
-    !hasFootySession && runtime === 'miniapp' ? 'Authorize Footy to cast' :
-    !hasFootySession ? 'Sign in to share' :
-    !hasLinkedFarcaster ? 'Continue with Farcaster' :
-    !hasSigner ? 'Authorize Footy to cast' :
-    onboardingState === 'needs_email' ? 'Add email to share' :
-    onboardingState === 'needs_wallet' ? 'Create wallet to share' :
-    'Share Score';
-
-  const onboardingMessage = (() => {
-    if (!hasFootySession) {
-      return runtime === 'miniapp'
-        ? 'Sign in to Footy with Privy so your Farcaster signer can cast from the mini app.'
-        : 'Sign in to Footy App before sharing this match on Farcaster.';
-    }
-
-    if (!hasLinkedFarcaster) {
-      return 'Connect your Farcaster account to Footy before sharing this match.';
-    }
-
-    if (!hasSigner) {
-      return 'Authorize Footy to use your Farcaster signer before sharing this match.';
-    }
-
-    switch (onboardingState) {
-      case 'needs_email':
-        return 'Add your email to your Footy account before sharing this match.';
-      case 'needs_wallet':
-        return 'Create your wallet before sharing this match to Farcaster.';
-      default:
-        return null;
-    }
-  })();
-
 const generateCommentaryForMatch = async (
     homeTeam: string,
     awayTeam: string,
@@ -492,40 +358,6 @@ const generateCommentaryForMatch = async (
   };
 
   const openWarpcastUrl = useCallback(async () => {
-    setShareMessage(null);
-
-    if (onboardingState !== 'ready') {
-      if (runtime === 'miniapp' && onboardingState === 'needs_auth') {
-        setShareMessage('Sign in to Footy to enable casting.');
-        setIsAdvancingOnboarding(true);
-        try {
-          await beginPrivyLogin();
-        } catch (error) {
-          setShareMessage(error instanceof Error ? error.message : 'Unable to open Footy sign in.');
-        } finally {
-          setIsAdvancingOnboarding(false);
-        }
-        return;
-      }
-
-      if (!hasLinkedFarcaster || !hasSigner) {
-        setShareMessage(onboardingMessage);
-        setIsAdvancingOnboarding(true);
-        try {
-          if (!hasLinkedFarcaster) {
-            await beginLinkFarcaster();
-          } else {
-            await beginSignerAuthorization();
-          }
-        } catch (error) {
-          setShareMessage(error instanceof Error ? error.message : 'Unable to continue Footy sign in.');
-        } finally {
-          setIsAdvancingOnboarding(false);
-        }
-        return;
-      }
-    }
-
     // Set creating room state for loading message
     setIsCreatingRoom(true);
     
@@ -547,9 +379,14 @@ const generateCommentaryForMatch = async (
       const frameUrl = frameUrlRaw.startsWith('http') ? frameUrlRaw : `https://${frameUrlRaw}`;
       const {
         competitorsLong,
+        homeTeam,
+        awayTeam,
         homeScore,
         awayScore,
         clock,
+        homeLogo,
+        awayLogo,
+        eventStarted,
         keyMoments,
         matchEvents,
         competition,
@@ -558,9 +395,6 @@ const generateCommentaryForMatch = async (
       const keyMomentsText = keyMoments && keyMoments.length > 0
         ? `\n\nKey Moments:\n${keyMoments.join('\n')}`
         : "";
-      const personalCommentaryText = personalCommentary.trim()
-        ? `\n\n${personalCommentary.trim()}`
-        : '';
 
       const search = new URLSearchParams();
 
@@ -582,6 +416,19 @@ const generateCommentaryForMatch = async (
         }
       }
 
+      // Add match details for the OG image
+      search.set("home", homeTeam);
+      search.set("away", awayTeam);
+      search.set("homeScore", homeScore.toString());
+      search.set("awayScore", awayScore.toString());
+      search.set("status", clock);
+      search.set("isLive", eventStarted.toString());
+
+      const currentQuery = search.toString() ? `?${search.toString()}` : "";
+
+      // Build the base mini app URL from frameUrl and current query string.
+      const miniAppUrl = `${frameUrl}${currentQuery}`;
+
       const commentaryPromise =
         matchEvents && matchEvents.length > 0 && !moneyGamesParams
           ? withTimeout(
@@ -598,26 +445,49 @@ const generateCommentaryForMatch = async (
             )
           : Promise.resolve('');
 
-      if (!moneyGamesParams) {
-        if (selectedMatch.eventId) {
-          search.set("eventId", selectedMatch.eventId);
-        }
-        search.set("homeTeam", selectedMatch.homeTeam);
-        search.set("awayTeam", selectedMatch.awayTeam);
-        search.set("homeScore", String(homeScore));
-        search.set("awayScore", String(awayScore));
-        search.set("clock", clock);
-      }
+      const shareTargetPromise =
+        compositeImage
+          ? (async () => {
+              const blob = await generateCompositeImageBlob(
+                homeLogo,
+                awayLogo,
+                selectedMatch.homeTeam,
+                selectedMatch.awayTeam,
+                homeScore,
+                awayScore,
+                clock
+              );
+              const uploadRes = await fetch('/api/upload', { method: 'POST', body: blob });
+              const uploadResult: { objectKey: string; publicUrl: string } = await uploadRes.json();
+              if (!uploadRes.ok) throw new Error('Image upload failed');
 
-      const shareUrl = `${frameUrl}${search.toString() ? `?${search.toString()}` : ""}`;
-      const [commentary] = await Promise.all([commentaryPromise]);
+              if (uploadResult?.objectKey) {
+                console.log('Composite image uploaded. Key:', uploadResult.objectKey);
+              }
+
+              const urlObj = new URL(miniAppUrl);
+              urlObj.searchParams.set('imageKey', uploadResult.objectKey);
+              return {
+                shareUrl: urlObj.toString(),
+                imageUrl: uploadResult.publicUrl,
+              };
+            })().catch((error) => {
+              console.error("Error generating composite image:", error);
+              return {
+                shareUrl: miniAppUrl,
+                imageUrl: null,
+              };
+            })
+          : Promise.resolve({
+              shareUrl: miniAppUrl,
+              imageUrl: null,
+            });
+
+      const [commentary, shareTarget] = await Promise.all([commentaryPromise, shareTargetPromise]);
 
       // Build the cast text
       const isMoneyGame = Boolean(moneyGamesParams);
-      let matchSummary = fitCastText([
-        `${competitorsLong}${personalCommentaryText}${keyMomentsText}`,
-        '@gabedev.eth @kmacb.eth are you in on this one?',
-      ]);
+      let matchSummary = `${competitorsLong} ${keyMomentsText}\n\n@gabedev.eth @kmacb.eth are you in on this one?`;
       
       if (isMoneyGame) {
         const ticketEthStr = typeof ticketPriceEth === 'number' && !isNaN(ticketPriceEth)
@@ -632,80 +502,45 @@ const generateCommentaryForMatch = async (
         const prizeUsdStr = ethUsdPrice && typeof prizePoolEth === 'number'
           ? ` (~$${(prizePoolEth * ethUsdPrice).toFixed(2)})`
           : '';
-        matchSummary = fitCastText([
-          `${selectedMatch.homeTeam} v ${selectedMatch.awayTeam} ScoreSquare 🎟️ 25 squares, 2 winners\nTicket: ${ticketEthStr}${ticketUsdStr} \nPrize: ${prizeEthStr}${prizeUsdStr}`,
-        ]);
+        matchSummary = `${selectedMatch.homeTeam} v ${selectedMatch.awayTeam} ScoreSquare 🎟️ 25 squares, 2 winners\nTicket: ${ticketEthStr}${ticketUsdStr} \nPrize: ${prizeEthStr}${prizeUsdStr}`;
       } else if (commentary) {
         // Prepend commentary for regular matches with proper formatting
         const commentatorDisplay = currentCommentator?.displayName || 'Hattrick Homer';
-        matchSummary = fitCastText([
-          `🎤 ${commentary} — ${commentatorDisplay} ai`,
-          `${competitorsLong}${personalCommentaryText}${keyMomentsText}`,
-          '@gabedev.eth @kmacb.eth are you in on this one?',
-        ]);
+        matchSummary = `🎤 ${commentary} — ${commentatorDisplay} ai\n\n${competitorsLong} ${keyMomentsText}\n\n@gabedev.eth @kmacb.eth are you in on this one?`;
       }
 
       //let imageUrl = '';
 
-      const signedMessage = await signCast({
-        text: matchSummary,
-        embeds: [shareUrl],
-      });
-
-      await submitSignedMessage(signedMessage);
-      setPersonalCommentary('');
-      setShareStatus('sent');
-      setShareMessage('Cast sent from Footy.');
+      const embeds: [] | [string] | [string, string] = shareTarget.imageUrl
+        ? [shareTarget.imageUrl, shareTarget.shareUrl]
+        : [shareTarget.shareUrl];
+   
+      try {
+        await sdk.actions.ready({});
+        const result = await sdk.actions.composeCast({ text: matchSummary, embeds, channelKey: 'football' });
+        if (result?.cast === null) {
+          console.log('User cancelled the cast');
+        }
+      } catch (e) {
+        console.error('composeCast failed:', e);
       }
-    } catch (error) {
-      setShareMessage(error instanceof Error ? error.message : 'Unable to share this match right now.');
+      }
     } finally {
       // Reset creating room state
       setIsCreatingRoom(false);
     }
-  }, [
-    compositeImage,
-    beginLinkFarcaster,
-    beginPrivyLogin,
-    beginSignerAuthorization,
-    currentCommentator?.displayName,
-    ethUsdPrice,
-    hasLinkedFarcaster,
-    hasSigner,
-    leagueId,
-    moneyGamesParams,
-    onboardingState,
-    onboardingMessage,
-    personalCommentary,
-    prizePoolEth,
-    runtime,
-    selectedMatch,
-    signCast,
-    submitSignedMessage,
-    ticketPriceEth,
-  ]);
+  }, [selectedMatch, compositeImage, leagueId, moneyGamesParams, ticketPriceEth, prizePoolEth, ethUsdPrice, currentCommentator?.displayName]);
 
   return (
-    <div className="w-full space-y-3">
-      <textarea
-        value={personalCommentary}
-        onChange={(event) => setPersonalCommentary(event.target.value)}
-        placeholder="Add your commentary"
-        maxLength={220}
-        rows={3}
-        className="w-full rounded-lg border border-limeGreenOpacity/30 bg-darkPurple px-3 py-2 text-[16px] text-notWhite placeholder:text-lightPurple/60 focus:border-deepPink focus:outline-none"
-      />
-      <button
-        onClick={openWarpcastUrl}
-        disabled={isGenerating || isCreatingRoom || isAdvancingOnboarding || shareStatus === 'sent'}
-        className="w-full sm:w-38 bg-deepPink text-white py-2 px-4 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-deepPink hover:bg-fontRed"
-      >
-        {shareButtonLabel}
-      </button>
-      {shareMessage ? (
-        <p className="text-sm text-lightPurple">{shareMessage}</p>
-      ) : null}
-    </div>
+    <button
+      onClick={openWarpcastUrl}
+      disabled={isGenerating || isCreatingRoom}
+      className="w-full sm:w-38 bg-deepPink text-white py-2 px-4 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-deepPink hover:bg-fontRed"
+    >
+      {isGenerating ? '🎤 Generating Commentary...' : 
+       isCreatingRoom ? getLoadingMessage() :
+       'Share Score'}
+    </button>
   );
 }
 
