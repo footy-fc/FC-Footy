@@ -24,8 +24,43 @@ function useInView(ref: React.RefObject<HTMLDivElement | null>, threshold = 0.6)
 function VideoSlide({ highlight, index, total }: {
   highlight: VideoHighlight; index: number; total: number;
 }) {
+  const [isMuted, setIsMuted] = useState(true);
+  const toggleMute = () => setIsMuted(prev => !prev);
   const ref = useRef<HTMLDivElement>(null);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
   const inView = useInView(ref);
+
+  useEffect(() => {
+    if (!iframeRef.current || !inView) return;
+    
+    // YouTube Iframe API requires messages to be sent like this
+    if (isMuted) {
+      iframeRef.current.contentWindow?.postMessage(
+        JSON.stringify({ event: "command", func: "mute", args: [] }),
+        "*"
+      );
+    } else {
+      iframeRef.current.contentWindow?.postMessage(
+        JSON.stringify({ event: "command", func: "unMute", args: [] }),
+        "*"
+      );
+      iframeRef.current.contentWindow?.postMessage(
+        JSON.stringify({ event: "command", func: "setVolume", args: [100] }),
+        "*"
+      );
+      iframeRef.current.contentWindow?.postMessage(
+        JSON.stringify({ event: "command", func: "playVideo", args: [] }),
+        "*"
+      );
+    }
+  }, [isMuted, inView]);
+
+  // Reset mute state when scrolling away to ensure it can autoplay if scrolled back
+  useEffect(() => {
+    if (!inView) {
+      setIsMuted(true);
+    }
+  }, [inView]);
 
   const thumbUrl = `https://img.youtube.com/vi/${highlight.videoId}/maxresdefault.jpg`;
   const freshnessLabel = highlight.daysAgo === 0 ? "🔴 Today" : highlight.daysAgo === 1 ? "Yesterday" : `${highlight.daysAgo}d ago`;
@@ -33,10 +68,11 @@ function VideoSlide({ highlight, index, total }: {
 
   // autoplay=1 ensures it plays automatically when mounted.
   // controls=0 & mute=1 helps it autoplay on mobile browsers without interaction.
-  const src = `https://www.youtube.com/embed/${highlight.videoId}?autoplay=1&mute=1&controls=0&rel=0&modestbranding=1&playsinline=1&loop=1&playlist=${highlight.videoId}`;
+  // enablejsapi=1 allows us to send mute/unMute commands.
+  const src = `https://www.youtube.com/embed/${highlight.videoId}?autoplay=1&mute=${isMuted ? 1 : 0}&controls=0&rel=0&modestbranding=1&playsinline=1&loop=1&playlist=${highlight.videoId}&enablejsapi=1`;
 
   return (
-    <div ref={ref} className="snap-start relative h-full w-full flex-shrink-0 bg-black overflow-hidden">
+    <div ref={ref} className="snap-start relative h-full w-full flex-shrink-0 bg-black overflow-hidden group">
       {/* Show Thumbnail initially or if not in view to save resources */}
       <Image 
         src={thumbUrl} 
@@ -51,6 +87,7 @@ function VideoSlide({ highlight, index, total }: {
       {inView && (
         <div className="absolute inset-0 pointer-events-none">
           <iframe 
+            ref={iframeRef}
             src={src} 
             title={highlight.event}
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
@@ -63,22 +100,45 @@ function VideoSlide({ highlight, index, total }: {
       <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-black/95 via-black/50 to-transparent pointer-events-none" />
 
       {/* Info */}
-      <div className="absolute bottom-0 left-0 right-0 p-4 pointer-events-none">
+      <div className="absolute bottom-0 left-0 right-0 p-4 pointer-events-none z-10">
         <div className="flex items-center gap-2 mb-1">
           <p className="text-[10px] font-black tracking-[0.18em] text-deepPink uppercase">{highlight.league}</p>
           <span className={`text-[10px] font-bold ${freshnessColor}`}>{freshnessLabel}</span>
         </div>
-        <p className="text-[15px] font-bold text-white leading-snug line-clamp-2">{highlight.event}</p>
+        <p className="text-[15px] font-bold text-white leading-snug line-clamp-2 pr-12">{highlight.event}</p>
       </div>
 
       {/* Counter */}
-      <div className="absolute top-3 right-3 bg-black/60 backdrop-blur-sm rounded-full px-2.5 py-1 text-[10px] font-bold text-white">
+      <div className="absolute top-3 right-3 bg-black/60 backdrop-blur-sm rounded-full px-2.5 py-1 text-[10px] font-bold text-white z-10">
         {index + 1}&thinsp;/&thinsp;{total}
       </div>
 
+      {/* Sound Toggle Button */}
+      {inView && (
+        <button 
+          onClick={toggleMute}
+          className="absolute bottom-4 right-3 z-20 w-10 h-10 rounded-full bg-black/50 backdrop-blur-md flex items-center justify-center border border-white/10 active:scale-95 transition-transform"
+          aria-label={isMuted ? "Unmute video" : "Mute video"}
+        >
+          {isMuted ? (
+            <svg viewBox="0 0 24 24" className="w-5 h-5 text-white" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+              <line x1="23" y1="9" x2="17" y2="15"></line>
+              <line x1="17" y1="9" x2="23" y2="15"></line>
+            </svg>
+          ) : (
+            <svg viewBox="0 0 24 24" className="w-5 h-5 text-white" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+              <path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+              <path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path>
+            </svg>
+          )}
+        </button>
+      )}
+
       {/* Swipe hint */}
       {index === 0 && inView && (
-        <div className="absolute bottom-20 inset-x-0 flex flex-col items-center gap-1 pointer-events-none">
+        <div className="absolute bottom-24 inset-x-0 flex flex-col items-center gap-1 pointer-events-none z-10">
           <svg viewBox="0 0 24 24" className="w-5 h-5 text-white/40 animate-bounce" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M12 5v14M5 12l7 7 7-7" />
           </svg>
@@ -149,7 +209,12 @@ export default function HighlightsFeed() {
             className="h-full w-full overflow-y-auto snap-y snap-mandatory scrollbar-hide rounded-[22px]"
           >
             {highlights.map((h, i) => (
-              <VideoSlide key={h.id} highlight={h} index={i} total={highlights.length} />
+              <VideoSlide 
+                key={h.id} 
+                highlight={h} 
+                index={i} 
+                total={highlights.length} 
+              />
             ))}
           </div>
         )}
