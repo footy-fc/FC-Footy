@@ -17,7 +17,6 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
     "highlights",
     "fanClubs",
     "fantasy",
-    "tools",
   ];
   const iconMap: Record<string, JSX.Element> = {
     home: (
@@ -46,14 +45,6 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
         <path d="M12 3l2.8 5.67L21 9.6l-4.5 4.38L17.6 21 12 18.02 6.4 21l1.1-7.02L3 9.6l6.2-.93L12 3z" />
       </svg>
     ),
-    tools: (
-      <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2">
-        <path d="M4 19h16" />
-        <path d="M7 16V9" />
-        <path d="M12 16V5" />
-        <path d="M17 16v-3" />
-      </svg>
-    ),
     highlights: (
       <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2">
         <polygon points="5 3 19 12 5 21 5 3" />
@@ -70,7 +61,7 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
 
   return (
     <div className="fixed bottom-4 left-1/2 z-50 w-[calc(100%-20px)] max-w-[380px] -translate-x-1/2 rounded-[28px] border border-limeGreenOpacity/20 bg-darkPurple/90 px-2 py-2 shadow-[0_18px_50px_rgba(0,0,0,0.45)] backdrop-blur-xl">
-      <div className="grid grid-cols-6 gap-0.5">
+      <div className="grid grid-cols-5 gap-0.5">
       {tabs.map((tab) => (
         <button
           key={tab}

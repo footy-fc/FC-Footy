@@ -59,7 +59,7 @@ function VideoSlide({ highlight, index, total, onPlay }: {
   const freshnessColor = highlight.daysAgo === 0 ? "text-limeGreen" : "text-lightPurple/60";
 
   return (
-    <div ref={ref} className="snap-start relative w-full flex-shrink-0 bg-black overflow-hidden" style={{ height: SLIDE_HEIGHT }}>
+    <div ref={ref} className="snap-start relative h-full w-full flex-shrink-0 bg-black overflow-hidden">
       <Image src={thumbUrl} alt={highlight.event} fill className="object-cover" unoptimized priority={index <= 1} />
       <div className="absolute inset-0 bg-black/20" />
       <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-black/95 via-black/50 to-transparent pointer-events-none" />
@@ -101,7 +101,7 @@ function VideoSlide({ highlight, index, total, onPlay }: {
 // ── Skeleton ──────────────────────────────────────────────────────
 function Skeleton() {
   return (
-    <div className="w-full rounded-[22px] bg-purplePanel animate-pulse overflow-hidden relative" style={{ height: SLIDE_HEIGHT }}>
+    <div className="h-full w-full rounded-[22px] bg-purplePanel animate-pulse overflow-hidden relative">
       <div className="absolute inset-0 bg-white/5" />
       <div className="absolute bottom-0 left-0 right-0 p-4 space-y-2">
         <div className="h-2.5 w-20 bg-white/10 rounded-full" />
@@ -141,31 +141,24 @@ export default function HighlightsFeed() {
     <>
       {activeVideo && <VideoPlayer highlight={activeVideo} onClose={() => setActiveVideo(null)} />}
 
-      <div className="mb-5">
-        <div className="flex items-center gap-2 mb-3">
-          <span className="text-base">🎬</span>
-          <span className="text-[11px] font-black tracking-[0.14em] text-notWhite uppercase">Highlights</span>
-          <span className="text-[10px] text-lightPurple/50 ml-auto">Swipe to browse</span>
-        </div>
-
+      <div className="h-full w-full">
         {loading && <Skeleton />}
 
         {!loading && error && (
-          <div className="rounded-[22px] border border-fontRed/20 bg-purplePanel p-6 text-sm text-lightPurple/70 text-center">
+          <div className="flex h-full items-center justify-center rounded-[22px] border border-fontRed/20 bg-purplePanel p-6 text-sm text-lightPurple/70 text-center">
             Couldn&apos;t load highlights right now.
           </div>
         )}
 
         {!loading && !error && highlights.length === 0 && (
-          <div className="rounded-[22px] border border-limeGreenOpacity/10 bg-purplePanel p-6 text-sm text-lightPurple/70 text-center">
+          <div className="flex h-full items-center justify-center rounded-[22px] border border-limeGreenOpacity/10 bg-purplePanel p-6 text-sm text-lightPurple/70 text-center">
             No highlight videos yet — check back after matches finish.
           </div>
         )}
 
         {!loading && !error && highlights.length > 0 && (
           <div
-            className="overflow-y-auto snap-y snap-mandatory rounded-[22px] scrollbar-hide"
-            style={{ height: SLIDE_HEIGHT }}
+            className="h-full w-full overflow-y-auto snap-y snap-mandatory scrollbar-hide rounded-[22px]"
           >
             {highlights.map((h, i) => (
               <VideoSlide key={h.id} highlight={h} index={i} total={highlights.length} onPlay={() => setActiveVideo(h)} />

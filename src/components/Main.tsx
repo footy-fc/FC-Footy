@@ -495,6 +495,7 @@ export default function Main() {
                 selectedTab={selectedTab}
                 onOpenProfile={() => handleTabChange("profile")}
                 onOpenAdmins={() => handleTabChange("admins")}
+                onOpenTools={() => handleTabChange("tools")}
                 onOpenTeam={handleOpenTeam}
                 isAdminFid={isAdminFid}
                 viewerFid={currentViewerFid}
