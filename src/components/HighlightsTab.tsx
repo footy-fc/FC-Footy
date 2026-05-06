@@ -4,15 +4,14 @@ import React from "react";
 import HighlightsFeed from "./HighlightsFeed";
 
 /**
- * HighlightsTab — renders as a fullscreen overlay above the tab bar.
- * Escapes the normal rounded card container so videos fill the whole screen.
+ * HighlightsTab — uses negative margins to escape the parent card's p-3 padding,
+ * then fills the available viewport height. No position:fixed needed.
  */
 const HighlightsTab: React.FC = () => {
   return (
-    // z-40 keeps us below the tab bar (z-50) but above everything else
     <div
-      className="fixed left-0 right-0 top-0 bg-black z-40"
-      style={{ bottom: 88 }} // tab bar is ~88px from bottom
+      className="-m-3 bg-black overflow-hidden"
+      style={{ height: "calc(100dvh - 112px)" }}
     >
       <HighlightsFeed />
     </div>
