@@ -18,8 +18,6 @@ export interface VideoHighlight {
 const CHANNELS = [
   { id: "UC4i_9WvfPRTuRWEaWyfKuFw", name: "TNT Sports", league: "Champions League / Premier League" },
   { id: "UCNAf1k0yIjyGu3k9BwAg3lg", name: "Sky Sports Football", league: "Premier League / EFL" },
-  { id: "UCX_tjI6Q_4JD1E3234CwemA", name: "CBS Sports Golazo", league: "Champions League / Serie A" },
-  { id: "UC0YatYmg5JRYzXJPxIdRd8g", name: "beIN SPORTS", league: "LaLiga / Ligue 1 / Copa Libertadores" },
 ];
 
 function calculateDaysAgo(published: Date): number {
