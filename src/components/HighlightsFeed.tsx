@@ -21,22 +21,46 @@ function useInView(ref: React.RefObject<HTMLDivElement | null>, threshold = 0.6)
 }
 
 // ── Slide — Auto-plays inline when in view ───────────────────────
-function VideoSlide({ highlight, index, total, isMuted, toggleMute }: {
-  highlight: VideoHighlight; index: number; total: number; isMuted: boolean; toggleMute: () => void;
+function VideoSlide({ highlight, index, total }: {
+  highlight: VideoHighlight; index: number; total: number;
 }) {
+  const [isMuted, setIsMuted] = useState(true);
+  const toggleMute = () => setIsMuted(prev => !prev);
   const ref = useRef<HTMLDivElement>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const inView = useInView(ref);
 
   useEffect(() => {
     if (!iframeRef.current || !inView) return;
-    const command = isMuted ? "mute" : "unMute";
+    
     // YouTube Iframe API requires messages to be sent like this
-    iframeRef.current.contentWindow?.postMessage(
-      JSON.stringify({ event: "command", func: command, args: [] }),
-      "*"
-    );
+    if (isMuted) {
+      iframeRef.current.contentWindow?.postMessage(
+        JSON.stringify({ event: "command", func: "mute", args: [] }),
+        "*"
+      );
+    } else {
+      iframeRef.current.contentWindow?.postMessage(
+        JSON.stringify({ event: "command", func: "unMute", args: [] }),
+        "*"
+      );
+      iframeRef.current.contentWindow?.postMessage(
+        JSON.stringify({ event: "command", func: "setVolume", args: [100] }),
+        "*"
+      );
+      iframeRef.current.contentWindow?.postMessage(
+        JSON.stringify({ event: "command", func: "playVideo", args: [] }),
+        "*"
+      );
+    }
   }, [isMuted, inView]);
+
+  // Reset mute state when scrolling away to ensure it can autoplay if scrolled back
+  useEffect(() => {
+    if (!inView) {
+      setIsMuted(true);
+    }
+  }, [inView]);
 
   const thumbUrl = `https://img.youtube.com/vi/${highlight.videoId}/maxresdefault.jpg`;
   const freshnessLabel = highlight.daysAgo === 0 ? "🔴 Today" : highlight.daysAgo === 1 ? "Yesterday" : `${highlight.daysAgo}d ago`;
@@ -45,7 +69,7 @@ function VideoSlide({ highlight, index, total, isMuted, toggleMute }: {
   // autoplay=1 ensures it plays automatically when mounted.
   // controls=0 & mute=1 helps it autoplay on mobile browsers without interaction.
   // enablejsapi=1 allows us to send mute/unMute commands.
-  const src = `https://www.youtube.com/embed/${highlight.videoId}?autoplay=1&mute=1&controls=0&rel=0&modestbranding=1&playsinline=1&loop=1&playlist=${highlight.videoId}&enablejsapi=1`;
+  const src = `https://www.youtube.com/embed/${highlight.videoId}?autoplay=1&mute=${isMuted ? 1 : 0}&controls=0&rel=0&modestbranding=1&playsinline=1&loop=1&playlist=${highlight.videoId}&enablejsapi=1`;
 
   return (
     <div ref={ref} className="snap-start relative h-full w-full flex-shrink-0 bg-black overflow-hidden group">
@@ -143,7 +167,6 @@ export default function HighlightsFeed() {
   const [highlights, setHighlights] = useState<VideoHighlight[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
-  const [isMuted, setIsMuted] = useState(true);
 
   // Data fetch
   useEffect(() => {
@@ -191,8 +214,6 @@ export default function HighlightsFeed() {
                 highlight={h} 
                 index={i} 
                 total={highlights.length} 
-                isMuted={isMuted}
-                toggleMute={() => setIsMuted(prev => !prev)}
               />
             ))}
           </div>
