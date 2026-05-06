@@ -84,34 +84,25 @@ export async function GET() {
     const seen = new Set<string>();
     const allHighlights: VideoHighlight[] = [];
 
-    // Fetch the last 30 hours = today (0), yesterday (1), day-before-yesterday (2)
-    // Run all 3 in parallel for speed, then sort today-first
-    const [day0, day1, day2] = await Promise.all([
+    // Fetch the last 5 days (today, yesterday, and 3 days prior)
+    // Run all in parallel for speed, then sort today-first
+    const [day0, day1, day2, day3, day4] = await Promise.all([
       fetchHighlightsForDate(toDateStr(0), 0),
       fetchHighlightsForDate(toDateStr(1), 1),
       fetchHighlightsForDate(toDateStr(2), 2),
+      fetchHighlightsForDate(toDateStr(3), 3),
+      fetchHighlightsForDate(toDateStr(4), 4),
     ]);
 
     // Merge in recency order (most recent first)
-    for (const h of [...day0, ...day1, ...day2]) {
+    for (const h of [...day0, ...day1, ...day2, ...day3, ...day4]) {
       if (!seen.has(h.videoId)) {
         seen.add(h.videoId);
         allHighlights.push(h);
       }
     }
 
-    // If still thin, extend one more day
-    if (allHighlights.length < 5) {
-      const day3 = await fetchHighlightsForDate(toDateStr(3), 3);
-      for (const h of day3) {
-        if (!seen.has(h.videoId)) {
-          seen.add(h.videoId);
-          allHighlights.push(h);
-        }
-      }
-    }
-
-    return NextResponse.json(allHighlights.slice(0, 15), {
+    return NextResponse.json(allHighlights.slice(0, 30), {
       headers: {
         // Cache for 15 minutes — new highlights typically appear within 2-4 hrs of FT
         "Cache-Control": "public, max-age=900, s-maxage=900, stale-while-revalidate=300",
