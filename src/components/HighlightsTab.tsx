@@ -3,13 +3,17 @@
 import React from "react";
 import HighlightsFeed from "./HighlightsFeed";
 
+/**
+ * HighlightsTab — renders as a fullscreen overlay above the tab bar.
+ * Escapes the normal rounded card container so videos fill the whole screen.
+ */
 const HighlightsTab: React.FC = () => {
   return (
-    <div className="mb-4">
-      <div className="mb-4">
-        <div className="app-eyebrow mb-2">Highlights</div>
-        <h2 className="app-title">Recent Games</h2>
-      </div>
+    // z-40 keeps us below the tab bar (z-50) but above everything else
+    <div
+      className="fixed left-0 right-0 top-0 bg-black z-40"
+      style={{ bottom: 88 }} // tab bar is ~88px from bottom
+    >
       <HighlightsFeed />
     </div>
   );

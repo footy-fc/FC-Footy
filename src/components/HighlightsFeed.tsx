@@ -4,27 +4,10 @@ import React, { useEffect, useRef, useState } from "react";
 import type { VideoHighlight } from "~/app/api/highlights/route";
 import Image from "next/image";
 
-const SLIDE_HEIGHT = 480;
-const SWIPE_THRESHOLD = 45;
+const SWIPE_THRESHOLD = 40;
 
-// ── Skeleton ─────────────────────────────────────────────────────
-function Skeleton() {
-  return (
-    <div
-      className="w-full rounded-[22px] bg-purplePanel animate-pulse overflow-hidden relative"
-      style={{ height: SLIDE_HEIGHT }}
-    >
-      <div className="absolute inset-0 bg-white/5" />
-      <div className="absolute bottom-0 left-0 right-0 p-4 space-y-2">
-        <div className="h-2.5 w-24 bg-white/10 rounded-full" />
-        <div className="h-4 w-4/5 bg-white/10 rounded-full" />
-      </div>
-    </div>
-  );
-}
-
-// ── Fullscreen overlay player ─────────────────────────────────────
-function VideoOverlay({
+// ── Fullscreen video player overlay ──────────────────────────────
+function VideoPlayer({
   highlight,
   onClose,
 }: {
@@ -34,25 +17,21 @@ function VideoOverlay({
   const embedUrl = `https://www.youtube.com/embed/${highlight.videoId}?autoplay=1&rel=0&modestbranding=1&playsinline=1`;
   return (
     <div className="fixed inset-0 z-50 bg-black flex flex-col">
-      <div className="flex items-center justify-between px-4 py-3 bg-black/80 backdrop-blur shrink-0">
-        <div className="min-w-0">
-          <p className="text-[10px] font-black tracking-widest text-deepPink uppercase truncate">
-            {highlight.league}
-          </p>
-          <p className="text-[13px] font-semibold text-white leading-tight line-clamp-1">
-            {highlight.event}
-          </p>
-        </div>
+      <div className="flex items-center gap-3 px-4 py-3 bg-black shrink-0">
         <button
           onClick={onClose}
-          className="ml-3 shrink-0 w-9 h-9 rounded-full bg-white/10 flex items-center justify-center"
+          className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center active:bg-white/20"
         >
           <svg viewBox="0 0 24 24" className="w-5 h-5 text-white" fill="none" stroke="currentColor" strokeWidth="2.5">
             <path d="M18 6L6 18M6 6l12 12" />
           </svg>
         </button>
+        <div className="min-w-0">
+          <p className="text-[10px] font-black tracking-widest text-deepPink uppercase">{highlight.league}</p>
+          <p className="text-[13px] font-semibold text-white line-clamp-1">{highlight.event}</p>
+        </div>
       </div>
-      <div className="flex-1 relative bg-black">
+      <div className="flex-1 relative">
         <iframe
           src={embedUrl}
           title={highlight.event}
@@ -65,98 +44,120 @@ function VideoOverlay({
   );
 }
 
-// ── Thumbnail slide ───────────────────────────────────────────────
-function VideoSlide({
+// ── Single slide (thumbnail only — no iframe in swipe track) ─────
+function Slide({
   highlight,
   index,
   total,
+  height,
   onPlay,
 }: {
   highlight: VideoHighlight;
   index: number;
   total: number;
+  height: number;
   onPlay: () => void;
 }) {
   const thumbUrl =
     highlight.thumbnailUrl ||
     `https://img.youtube.com/vi/${highlight.videoId}/hqdefault.jpg`;
 
-  const freshnessLabel =
+  const age =
     highlight.hoursAgo <= 1
       ? "🔴 Just now"
-      : highlight.hoursAgo < 6
-      ? `🔴 ${highlight.hoursAgo}h ago`
       : highlight.hoursAgo < 24
-      ? `${highlight.hoursAgo}h ago`
+      ? `🔴 ${highlight.hoursAgo}h ago`
       : "Yesterday";
 
-  const freshnessColor =
-    highlight.hoursAgo < 6 ? "text-limeGreen" : "text-lightPurple/60";
-
   return (
-    <div
-      className="relative w-full overflow-hidden bg-black"
-      style={{ height: SLIDE_HEIGHT }}
-    >
+    <div className="relative w-full bg-black overflow-hidden shrink-0" style={{ height }}>
+      {/* Full-bleed thumbnail */}
       <Image
         src={thumbUrl}
         alt={highlight.event}
         fill
         className="object-cover"
         unoptimized
-        priority={index === 0}
+        priority={index <= 1}
       />
-      <div className="absolute inset-0 bg-black/25" />
-      <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-black/95 via-black/50 to-transparent" />
 
-      {/* Play button */}
-      <button
-        onClick={onPlay}
-        className="absolute inset-0 flex items-center justify-center"
-        aria-label={`Play ${highlight.event}`}
-      >
-        <div className="w-16 h-16 rounded-full bg-deepPink/90 flex items-center justify-center shadow-[0_0_32px_rgba(189,25,93,0.7)] active:scale-95 transition-transform">
-          <svg viewBox="0 0 24 24" className="w-7 h-7 text-white ml-1" fill="currentColor">
-            <path d="M8 5v14l11-7z" />
-          </svg>
-        </div>
-      </button>
+      {/* Gradient vignette — stronger at bottom like TikTok */}
+      <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent" style={{ backgroundImage: "linear-gradient(to top, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.3) 35%, transparent 65%)" }} />
 
-      {/* Info */}
-      <div className="absolute bottom-0 left-0 right-0 p-4 pointer-events-none">
-        <div className="flex items-center gap-2 mb-1">
-          <span className="text-[10px] font-black tracking-[0.18em] text-deepPink uppercase">
-            {highlight.league}
-          </span>
-          <span className={`text-[10px] font-bold ${freshnessColor}`}>
-            {freshnessLabel}
-          </span>
-        </div>
-        <p className="text-[15px] font-bold text-white leading-snug line-clamp-2">
-          {highlight.event}
-        </p>
-      </div>
-
-      {/* Dot indicator */}
-      <div className="absolute top-3 inset-x-0 flex justify-center gap-1.5 pointer-events-none">
-        {Array.from({ length: Math.min(total, 10) }).map((_, i) => (
-          <span
+      {/* Top: progress dots */}
+      <div className="absolute top-4 inset-x-0 flex justify-center gap-1.5 pointer-events-none px-6">
+        {Array.from({ length: Math.min(total, 12) }).map((_, i) => (
+          <div
             key={i}
-            className={`block rounded-full transition-all duration-200 ${
-              i === index ? "w-4 h-1.5 bg-white" : "w-1.5 h-1.5 bg-white/30"
-            }`}
-          />
+            className="flex-1 h-[2px] rounded-full max-w-[32px] overflow-hidden bg-white/20"
+          >
+            <div
+              className={`h-full rounded-full transition-all duration-300 ${
+                i === index ? "bg-white w-full" : i < index ? "bg-white/50 w-full" : "w-0"
+              }`}
+            />
+          </div>
         ))}
       </div>
 
-      {index === 0 && (
-        <div className="absolute bottom-24 inset-x-0 flex flex-col items-center gap-1 pointer-events-none">
-          <svg viewBox="0 0 24 24" className="w-5 h-5 text-white/40 animate-bounce" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M12 5v14M5 12l7 7 7-7" />
-          </svg>
-          <span className="text-[10px] text-white/30 font-medium">Swipe for more</span>
+      {/* Bottom info — TikTok style */}
+      <div className="absolute bottom-0 left-0 right-0 px-4 pb-6 pt-20 pointer-events-none">
+        {/* League + freshness */}
+        <div className="flex items-center gap-2 mb-2">
+          <span className="text-[11px] font-black tracking-widest text-deepPink uppercase">
+            {highlight.league}
+          </span>
+          <span className="text-[11px] text-limeGreen font-bold">{age}</span>
         </div>
-      )}
+        {/* Match title */}
+        <p className="text-[17px] font-bold text-white leading-snug line-clamp-2 mb-5">
+          {highlight.event}
+        </p>
+        {/* Swipe hint on first */}
+        {index === 0 && (
+          <div className="flex flex-col items-start gap-1">
+            <div className="flex items-center gap-1.5 text-white/50">
+              <svg viewBox="0 0 24 24" className="w-4 h-4 animate-bounce" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M12 5v14M5 12l7 7 7-7" />
+              </svg>
+              <span className="text-[11px]">Swipe up for next</span>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Right-side actions — TikTok style */}
+      <div className="absolute right-3 bottom-24 flex flex-col items-center gap-5">
+        {/* Play button */}
+        <button
+          onClick={onPlay}
+          className="flex flex-col items-center gap-1 active:scale-90 transition-transform"
+        >
+          <div className="w-12 h-12 rounded-full bg-deepPink flex items-center justify-center shadow-[0_0_20px_rgba(189,25,93,0.7)]">
+            <svg viewBox="0 0 24 24" className="w-6 h-6 text-white ml-0.5" fill="currentColor">
+              <path d="M8 5v14l11-7z" />
+            </svg>
+          </div>
+          <span className="text-[10px] text-white/80 font-semibold">Watch</span>
+        </button>
+
+        {/* Index counter */}
+        <div className="flex flex-col items-center">
+          <span className="text-[18px] font-black text-white">{index + 1}</span>
+          <span className="text-[10px] text-white/50">of {total}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Skeleton ──────────────────────────────────────────────────────
+function Skeleton({ height }: { height: number }) {
+  return (
+    <div className="w-full bg-black animate-pulse flex flex-col justify-end pb-8 px-4" style={{ height }}>
+      <div className="h-2 w-20 bg-white/10 rounded mb-3" />
+      <div className="h-5 w-3/4 bg-white/10 rounded mb-2" />
+      <div className="h-4 w-1/2 bg-white/10 rounded" />
     </div>
   );
 }
@@ -167,13 +168,14 @@ export default function HighlightsFeed() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [activeVideo, setActiveVideo] = useState<VideoHighlight | null>(null);
-
-  // Rendering state
   const [currentIndex, setCurrentIndex] = useState(0);
   const [dragDeltaY, setDragDeltaY] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
+  const [slideHeight, setSlideHeight] = useState(0);
 
-  // All mutable values for event handlers live in a ref to avoid stale closures
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // All handler state in a ref (avoids stale closures in native listeners)
   const s = useRef({
     isDragging: false,
     startY: 0,
@@ -183,25 +185,26 @@ export default function HighlightsFeed() {
     total: 0,
   });
 
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  // Keep ref in sync with highlights length
+  // Measure container height dynamically
   useEffect(() => {
-    s.current.total = highlights.length;
-  }, [highlights.length]);
+    const el = containerRef.current;
+    if (!el) return;
+    const update = () => setSlideHeight(el.clientHeight);
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
-  // Keep ref in sync with currentIndex
-  useEffect(() => {
-    s.current.index = currentIndex;
-  }, [currentIndex]);
+  // Sync index and total to ref
+  useEffect(() => { s.current.index = currentIndex; }, [currentIndex]);
+  useEffect(() => { s.current.total = highlights.length; }, [highlights.length]);
 
-  // ── Data fetch ───────────────────────────────────────────────
+  // Fetch highlights
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
       try {
-        setLoading(true);
-        setError(false);
         const res = await fetch("/api/highlights");
         if (!res.ok) throw new Error("failed");
         const data = (await res.json()) as VideoHighlight[];
@@ -216,8 +219,7 @@ export default function HighlightsFeed() {
     return () => { cancelled = true; };
   }, []);
 
-  // ── Non-passive touch listeners (attached via ref, not React props) ──
-  // This is the ONLY way to call e.preventDefault() and stop parent scroll.
+  // ── Non-passive touch listeners — only way to preventDefault ───
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
@@ -233,13 +235,11 @@ export default function HighlightsFeed() {
 
     function onMove(e: TouchEvent) {
       if (!s.current.isDragging) return;
-      // CRITICAL: prevent parent page from scrolling
-      e.preventDefault();
-
+      e.preventDefault(); // block parent scroll — only works with passive:false
       const raw = e.touches[0].clientY - s.current.startY;
       const atTop = s.current.index === 0 && raw > 0;
       const atBottom = s.current.index === s.current.total - 1 && raw < 0;
-      const delta = atTop || atBottom ? raw * 0.18 : raw;
+      const delta = atTop || atBottom ? raw * 0.15 : raw;
       s.current.delta = delta;
       setDragDeltaY(delta);
     }
@@ -251,94 +251,82 @@ export default function HighlightsFeed() {
 
       const { delta, index, total, startTime } = s.current;
       const elapsed = Math.max(1, Date.now() - startTime);
-      const velocity = Math.abs(delta) / elapsed; // px/ms
-      const isFlick = velocity > 0.35;
+      const velocity = Math.abs(delta) / elapsed;
+      const commit = Math.abs(delta) > SWIPE_THRESHOLD || velocity > 0.3;
 
-      if ((Math.abs(delta) > SWIPE_THRESHOLD || isFlick) && delta < 0 && index < total - 1) {
-        const next = index + 1;
-        s.current.index = next;
-        setCurrentIndex(next);
-      } else if ((Math.abs(delta) > SWIPE_THRESHOLD || isFlick) && delta > 0 && index > 0) {
-        const prev = index - 1;
-        s.current.index = prev;
-        setCurrentIndex(prev);
+      if (commit && delta < 0 && index < total - 1) {
+        const n = index + 1;
+        s.current.index = n;
+        setCurrentIndex(n);
+      } else if (commit && delta > 0 && index > 0) {
+        const n = index - 1;
+        s.current.index = n;
+        setCurrentIndex(n);
       }
-
       s.current.delta = 0;
       setDragDeltaY(0);
     }
 
     el.addEventListener("touchstart", onStart, { passive: true });
-    el.addEventListener("touchmove", onMove, { passive: false }); // ← non-passive = can preventDefault
+    el.addEventListener("touchmove", onMove, { passive: false });
     el.addEventListener("touchend", onEnd, { passive: true });
-
     return () => {
       el.removeEventListener("touchstart", onStart);
       el.removeEventListener("touchmove", onMove);
       el.removeEventListener("touchend", onEnd);
     };
-  }, []); // attach once, read state via s ref
+  }, []);
 
-  const translateY = -currentIndex * SLIDE_HEIGHT + dragDeltaY;
+  const translateY =
+    slideHeight > 0 ? -currentIndex * slideHeight + dragDeltaY : 0;
+
   const transition = isDragging
     ? "none"
-    : "transform 0.36s cubic-bezier(0.25, 0.46, 0.45, 0.94)";
+    : "transform 0.32s cubic-bezier(0.23, 1, 0.32, 1)";
 
   return (
     <>
       {activeVideo && (
-        <VideoOverlay highlight={activeVideo} onClose={() => setActiveVideo(null)} />
+        <VideoPlayer highlight={activeVideo} onClose={() => setActiveVideo(null)} />
       )}
 
-      <div className="mb-5">
-        <div className="flex items-center gap-2 mb-3">
-          <span className="text-base">🎬</span>
-          <span className="text-[11px] font-black tracking-[0.14em] text-notWhite uppercase">
-            Highlights
-          </span>
-          <span className="text-[10px] text-lightPurple/50 ml-auto">
-            Swipe up · tap to watch
-          </span>
-        </div>
-
-        {loading && <Skeleton />}
+      {/* Full container — fills whatever space HighlightsTab gives us */}
+      <div ref={containerRef} className="w-full h-full overflow-hidden bg-black select-none">
+        {loading && <Skeleton height={slideHeight || 500} />}
 
         {!loading && error && (
-          <div className="rounded-[22px] border border-fontRed/20 bg-purplePanel p-6 text-sm text-lightPurple/70 text-center">
-            Couldn&apos;t load highlights right now.
+          <div className="flex items-center justify-center h-full text-white/50 text-sm p-8 text-center">
+            Couldn&apos;t load highlights right now. Try again later.
           </div>
         )}
 
         {!loading && !error && highlights.length === 0 && (
-          <div className="rounded-[22px] border border-limeGreenOpacity/10 bg-purplePanel p-6 text-sm text-lightPurple/70 text-center">
-            No highlight videos in the last 30 hours — check back soon.
+          <div className="flex flex-col items-center justify-center h-full text-white/50 p-8 text-center gap-3">
+            <span className="text-4xl">⚽</span>
+            <p className="text-sm">No highlight videos in the last 30 hours.</p>
+            <p className="text-xs text-white/30">Check back after matches finish.</p>
           </div>
         )}
 
-        {!loading && !error && highlights.length > 0 && (
+        {!loading && !error && highlights.length > 0 && slideHeight > 0 && (
           <div
-            ref={containerRef}
-            className="overflow-hidden rounded-[22px] select-none touch-none"
-            style={{ height: SLIDE_HEIGHT }}
+            style={{
+              transform: `translateY(${translateY}px)`,
+              transition,
+              willChange: "transform",
+              height: highlights.length * slideHeight,
+            }}
           >
-            <div
-              style={{
-                transform: `translateY(${translateY}px)`,
-                transition,
-                willChange: "transform",
-                height: highlights.length * SLIDE_HEIGHT,
-              }}
-            >
-              {highlights.map((h, i) => (
-                <VideoSlide
-                  key={h.id}
-                  highlight={h}
-                  index={i}
-                  total={highlights.length}
-                  onPlay={() => setActiveVideo(h)}
-                />
-              ))}
-            </div>
+            {highlights.map((h, i) => (
+              <Slide
+                key={h.id}
+                highlight={h}
+                index={i}
+                total={highlights.length}
+                height={slideHeight}
+                onPlay={() => setActiveVideo(h)}
+              />
+            ))}
           </div>
         )}
       </div>
