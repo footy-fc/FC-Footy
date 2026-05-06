@@ -16,10 +16,13 @@ export interface VideoHighlight {
 }
 
 const CHANNELS = [
-  { id: "UC4i_9WvfPRTuRWEaWyfKuFw", name: "TNT Sports", league: "Champions League / Premier League" },
-  { id: "UCNAf1k0yIjyGu3k9BwAg3lg", name: "Sky Sports Football", league: "Premier League / EFL" },
-  { id: "UCX_tjI6Q_4JD1E3234CwemA", name: "CBS Sports Golazo", league: "Champions League / Serie A" },
-  { id: "UC0YatYmg5JRYzXJPxIdRd8g", name: "beIN SPORTS", league: "LaLiga / Ligue 1 / Copa Libertadores" },
+  { id: "UCSZbXT5TLLW_i-5W8FZpFsg", name: "MLS", league: "Major League Soccer" },
+  { id: "UCWV3obpZVGgJ3j9FVhEjF2Q", name: "Real Madrid", league: "LaLiga" },
+  { id: "UC14UlmYlSNiQCBe9Eookf_A", name: "FC Barcelona", league: "LaLiga" },
+  { id: "UCkzCjdRMrW2vXLx8mvPVLdQ", name: "Man City", league: "Premier League" },
+  { id: "UCpryVRk_VDudG8SHXgWcG0w", name: "Arsenal", league: "Premier League" },
+  { id: "UC9LQwHZoucFT94I2h6JOcjw", name: "Liverpool", league: "Premier League" },
+  { id: "UCt9a_qP9CqHCNwilf-iULag", name: "PSG", league: "Ligue 1" },
 ];
 
 function calculateDaysAgo(published: Date): number {
@@ -32,7 +35,7 @@ async function fetchChannelFeed(channel: typeof CHANNELS[0]): Promise<VideoHighl
   try {
     const res = await fetch(`https://www.youtube.com/feeds/videos.xml?channel_id=${channel.id}`, {
       cache: "no-store",
-      signal: AbortSignal.timeout(8000),
+      signal: AbortSignal.timeout(6000),
     });
     if (!res.ok) return [];
 
@@ -52,18 +55,19 @@ async function fetchChannelFeed(channel: typeof CHANNELS[0]): Promise<VideoHighl
       const videoId = entry["yt:videoId"];
       const published = new Date(entry.published);
 
-      // Filter out likely shorts and non-match content
-      // Focus on titles with keywords typical of match highlights
       const titleLower = title.toLowerCase();
-      const isHighlight = titleLower.includes("highlights") || 
+      
+      // Filter out shorts and non-match stuff, prioritize actual highlights & goals
+      const isShort = titleLower.includes("#shorts") || titleLower.includes("short") || titleLower.includes("tiktok");
+      const isHighlight = titleLower.includes("highlight") || 
                           titleLower.includes("goals") || 
                           titleLower.includes("goal") || 
                           titleLower.includes(" vs ") || 
                           titleLower.includes(" vs.") ||
                           titleLower.includes(" v ") ||
+                          titleLower.includes("movie") ||
+                          titleLower.includes("inside") ||
                           titleLower.includes("-");
-                          
-      const isShort = titleLower.includes("#shorts") || titleLower.includes("short") || titleLower.includes("tiktok");
 
       if (isHighlight && !isShort && videoId) {
         highlights.push({
@@ -71,7 +75,7 @@ async function fetchChannelFeed(channel: typeof CHANNELS[0]): Promise<VideoHighl
           event: title,
           league: channel.league,
           youtubeUrl: `https://www.youtube.com/watch?v=${videoId}`,
-          thumbnailUrl: `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`,
+          thumbnailUrl: `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`,
           videoId: videoId,
           daysAgo: calculateDaysAgo(published),
           publishedAt: published.getTime(),
@@ -88,7 +92,6 @@ async function fetchChannelFeed(channel: typeof CHANNELS[0]): Promise<VideoHighl
 
 export async function GET() {
   try {
-    // Fetch all channel feeds concurrently
     const feeds = await Promise.all(CHANNELS.map(channel => fetchChannelFeed(channel)));
     
     // Flatten and deduplicate
@@ -107,14 +110,16 @@ export async function GET() {
     uniqueHighlights.sort((a, b) => (b.publishedAt || 0) - (a.publishedAt || 0));
 
     // Remove publishedAt to save bandwidth
-    const finalHighlights = uniqueHighlights.slice(0, 40).map(h => {
+    const finalHighlights = uniqueHighlights.slice(0, 15).map(h => {
       const { publishedAt, ...rest } = h;
       return rest;
     });
 
     return NextResponse.json(finalHighlights, {
       headers: {
-        "Cache-Control": "public, max-age=900, s-maxage=900, stale-while-revalidate=300",
+        "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+        "Pragma": "no-cache",
+        "Expires": "0",
       },
     });
   } catch (err) {
