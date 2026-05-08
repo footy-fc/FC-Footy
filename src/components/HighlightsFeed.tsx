@@ -131,14 +131,14 @@ function VideoSlide({
   highlight,
   index,
   total,
-  muted,
+  autoplayMuted,
   onToggleMuted,
   onVisible,
 }: {
   highlight: VideoHighlight;
   index: number;
   total: number;
-  muted: boolean;
+  autoplayMuted: boolean;
   onToggleMuted: () => void;
   onVisible: (index: number) => void;
 }) {
@@ -269,7 +269,7 @@ function VideoSlide({
             ref={playerRef as React.Ref<unknown>}
             url={highlight.youtubeUrl}
             playing={isPlaying}
-            muted={muted}
+            muted={autoplayMuted}
             controls={false}
             width="100%"
             height="100%"
@@ -324,9 +324,9 @@ function VideoSlide({
             type="button"
             onClick={onToggleMuted}
             className="flex h-9 w-9 items-center justify-center rounded-full bg-black/60 text-white backdrop-blur-sm"
-            aria-label={muted ? "Unmute video" : "Mute video"}
+            aria-label={autoplayMuted ? "Unmute video" : "Mute video"}
           >
-            {muted ? (
+            {autoplayMuted ? (
               <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor">
                 <path d="M16.5 12A4.5 4.5 0 0 0 14 7.97V10.18l2.45 2.45c.03-.2.05-.41.05-.63ZM19 12c0 .94-.2 1.82-.54 2.64l1.51 1.51A8.796 8.796 0 0 0 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71ZM4.27 3 3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06A8.99 8.99 0 0 0 17.73 18L19.73 20 21 18.73l-18-18ZM12 4 9.91 6.09 12 8.18V4Z" />
               </svg>
@@ -424,8 +424,10 @@ export default function HighlightsFeed() {
   const [error, setError] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
   const [muted, setMuted] = useState(true);
+  const [hasPlaybackGesture, setHasPlaybackGesture] = useState(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const hasRestoredScrollRef = useRef(false);
+  const effectiveMuted = hasPlaybackGesture ? muted : true;
 
   useEffect(() => {
     setActiveIndex(readStoredNumber(ACTIVE_INDEX_KEY, 0));
@@ -533,8 +535,14 @@ export default function HighlightsFeed() {
   }, []);
 
   const handleToggleMuted = useCallback(() => {
+    if (!hasPlaybackGesture) {
+      setHasPlaybackGesture(true);
+      setMuted(false);
+      return;
+    }
+
     setMuted((current) => !current);
-  }, []);
+  }, [hasPlaybackGesture]);
 
   return (
     <div className="h-full w-full">
@@ -567,7 +575,7 @@ export default function HighlightsFeed() {
               highlight={highlight}
               index={index}
               total={highlights.length}
-              muted={muted}
+              autoplayMuted={effectiveMuted}
               onToggleMuted={handleToggleMuted}
               onVisible={handleVisible}
             />
