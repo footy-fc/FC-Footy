@@ -508,23 +508,6 @@ function VideoSlide({
         <div className="flex items-center gap-2">
           <button
             type="button"
-            onClick={handleTogglePlay}
-            className="flex h-9 w-9 items-center justify-center rounded-full bg-black/60 text-white backdrop-blur-sm"
-            aria-label={isPlaying ? "Pause video" : "Play video"}
-          >
-            {isPlaying ? (
-              <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor">
-                <rect x="6" y="4" width="4" height="16" />
-                <rect x="14" y="4" width="4" height="16" />
-              </svg>
-            ) : (
-              <svg viewBox="0 0 24 24" className="h-4 w-4 translate-x-[1px]" fill="currentColor">
-                <polygon points="5 3 19 12 5 21 5 3" />
-              </svg>
-            )}
-          </button>
-          <button
-            type="button"
             onClick={handleToggleExpandedControls}
             className={`flex h-9 w-9 items-center justify-center rounded-full backdrop-blur-sm ${showExpandedControls ? "bg-white text-black" : "bg-black/60 text-white"}`}
             aria-label={showExpandedControls ? "Hide playback settings" : "Show playback settings"}
