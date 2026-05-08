@@ -86,6 +86,17 @@ function formatFreshnessLabel(daysAgo: number) {
   return `${daysAgo}d ago`;
 }
 
+function formatTime(seconds: number) {
+  if (!Number.isFinite(seconds) || seconds <= 0) {
+    return "0:00";
+  }
+
+  const totalSeconds = Math.floor(seconds);
+  const minutes = Math.floor(totalSeconds / 60);
+  const remainder = totalSeconds % 60;
+  return `${minutes}:${String(remainder).padStart(2, "0")}`;
+}
+
 function buildShareText(highlight: VideoHighlight) {
   const matchup =
     highlight.homeTeam && highlight.awayTeam
@@ -170,21 +181,29 @@ function VideoSlide({
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [isPlaying, setIsPlaying] = useState(true);
   const [speedBoostActive, setSpeedBoostActive] = useState(false);
+  const [showChrome, setShowChrome] = useState(true);
+  const [showExpandedControls, setShowExpandedControls] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
   const freshnessLabel = formatFreshnessLabel(highlight.daysAgo);
   const thumbUrl = highlight.thumbnailUrl || `https://img.youtube.com/vi/${highlight.videoId}/hqdefault.jpg`;
   const embedUrl = `https://www.youtube.com/embed/${highlight.videoId}?autoplay=1&mute=${autoplayMuted ? 1 : 0}&controls=0&rel=0&modestbranding=1&playsinline=1&loop=1&playlist=${highlight.videoId}&enablejsapi=1&cc_load_policy=${captionsEnabled ? 1 : 0}&cc_lang_pref=en`;
   const homeLogoUrl = getTeamLogoUrl(highlight.homeTeam, highlight);
   const awayLogoUrl = getTeamLogoUrl(highlight.awayTeam, highlight);
+  const progressPercent = duration > 0 ? Math.min(100, (currentTime / duration) * 100) : 0;
 
   useEffect(() => {
     if (!inView) {
       setIsPlaying(false);
       setSpeedBoostActive(false);
+      setShowChrome(false);
+      setShowExpandedControls(false);
       return;
     }
 
     onVisible(index);
     setIsPlaying(true);
+    setShowChrome(true);
   }, [highlight.videoId, inView, index, onVisible]);
 
   useEffect(() => {
@@ -212,6 +231,58 @@ function VideoSlide({
 
     sendCommand("setPlaybackRate", [speedBoostActive ? 2 : 1]);
   }, [autoplayMuted, inView, isPlaying, highlight.videoId, speedBoostActive, volume]);
+
+  useEffect(() => {
+    if (!showChrome || showExpandedControls || !isPlaying) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      setShowChrome(false);
+    }, 2200);
+
+    return () => window.clearTimeout(timer);
+  }, [isPlaying, showChrome, showExpandedControls, currentTime]);
+
+  useEffect(() => {
+    const iframeWindow = iframeRef.current?.contentWindow;
+    if (!iframeWindow || !inView) {
+      return;
+    }
+
+    const handleMessage = (event: MessageEvent) => {
+      if (event.source !== iframeWindow || typeof event.data !== "string") {
+        return;
+      }
+
+      try {
+        const payload = JSON.parse(event.data) as {
+          event?: string;
+          info?: {
+            currentTime?: number;
+            duration?: number;
+          };
+        };
+
+        if (payload.event !== "infoDelivery" || !payload.info) {
+          return;
+        }
+
+        if (typeof payload.info.currentTime === "number") {
+          setCurrentTime(payload.info.currentTime);
+        }
+
+        if (typeof payload.info.duration === "number" && payload.info.duration > 0) {
+          setDuration(payload.info.duration);
+        }
+      } catch {
+        // Ignore non-JSON iframe messages.
+      }
+    };
+
+    window.addEventListener("message", handleMessage);
+    return () => window.removeEventListener("message", handleMessage);
+  }, [highlight.videoId, inView]);
 
   useEffect(() => {
     return () => {
@@ -289,10 +360,42 @@ function VideoSlide({
     onVolumeChange(Number(e.target.value));
   }, [onVolumeChange]);
 
+  const handleRevealChrome = useCallback(() => {
+    setShowChrome(true);
+  }, []);
+
+  const handleToggleExpandedControls = useCallback((e: React.MouseEvent<HTMLButtonElement>) => {
+    e.stopPropagation();
+    setShowChrome(true);
+    setShowExpandedControls((current) => !current);
+  }, []);
+
+  const handleSeek = useCallback((e: React.MouseEvent<HTMLButtonElement>) => {
+    e.stopPropagation();
+    const frame = iframeRef.current;
+    if (!frame?.contentWindow || duration <= 0) {
+      return;
+    }
+
+    const rect = e.currentTarget.getBoundingClientRect();
+    const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    const nextTime = ratio * duration;
+
+    frame.contentWindow.postMessage(JSON.stringify({
+      event: "command",
+      func: "seekTo",
+      args: [nextTime, true],
+    }), "*");
+
+    setCurrentTime(nextTime);
+    setShowChrome(true);
+  }, [duration]);
+
   return (
     <div
       ref={ref}
       className="snap-start relative h-full w-full flex-shrink-0 overflow-hidden bg-black"
+      onClick={handleRevealChrome}
     >
       <Image
         src={thumbUrl}
@@ -318,7 +421,7 @@ function VideoSlide({
 
       <div className="absolute inset-x-0 bottom-0 h-72 bg-gradient-to-t from-black via-black/70 to-transparent pointer-events-none" style={{ zIndex: 2 }} />
 
-      <div className="absolute inset-x-0 top-0 flex items-start justify-between p-3" style={{ zIndex: 5 }}>
+      <div className={`absolute inset-x-0 top-0 flex items-start justify-between p-3 transition-opacity duration-200 ${showChrome ? "opacity-100" : "opacity-0 pointer-events-none"}`} style={{ zIndex: 5 }}>
         <div className="flex items-center gap-2">
           <div className="rounded-full bg-black/60 px-2.5 py-1 text-[10px] font-bold text-white backdrop-blur-sm">
             {index + 1}&thinsp;/&thinsp;{total}
@@ -368,25 +471,36 @@ function VideoSlide({
           </button>
           <button
             type="button"
-            onClick={onToggleMuted}
-            className="flex h-9 w-9 items-center justify-center rounded-full bg-black/60 text-white backdrop-blur-sm"
-            aria-label={autoplayMuted ? "Unmute video" : "Mute video"}
+            onClick={handleToggleExpandedControls}
+            className={`inline-flex h-9 items-center justify-center rounded-full px-3 text-[11px] font-semibold backdrop-blur-sm ${showExpandedControls ? "bg-white text-black" : "bg-black/60 text-white"}`}
           >
-            {autoplayMuted ? (
-              <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor">
-                <path d="M16.5 12A4.5 4.5 0 0 0 14 7.97V10.18l2.45 2.45c.03-.2.05-.41.05-.63ZM19 12c0 .94-.2 1.82-.54 2.64l1.51 1.51A8.796 8.796 0 0 0 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71ZM4.27 3 3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06A8.99 8.99 0 0 0 17.73 18L19.73 20 21 18.73l-18-18ZM12 4 9.91 6.09 12 8.18V4Z" />
-              </svg>
-            ) : (
-              <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor">
-                <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3A4.5 4.5 0 0 0 14 7.97v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z" />
-              </svg>
-            )}
+            {showExpandedControls ? "Hide" : "Tune"}
           </button>
         </div>
       </div>
 
       <div className="absolute inset-x-0 bottom-0 p-4" style={{ zIndex: 4 }}>
-        <div className="mb-4 rounded-[22px] border border-white/10 bg-black/45 p-3 backdrop-blur-xl shadow-[0_10px_30px_rgba(0,0,0,0.28)]">
+        <div className={`mb-3 transition-all duration-200 ${showChrome ? "translate-y-0 opacity-100" : "translate-y-3 opacity-0 pointer-events-none"}`}>
+          <button
+            type="button"
+            onClick={handleSeek}
+            className="block w-full"
+            aria-label="Seek video"
+          >
+            <div className="mb-1 h-1.5 w-full overflow-hidden rounded-full bg-white/20">
+              <div
+                className="h-full rounded-full bg-white transition-[width] duration-150"
+                style={{ width: `${progressPercent}%` }}
+              />
+            </div>
+            <div className="flex items-center justify-between text-[11px] font-medium text-white/80">
+              <span>{formatTime(currentTime)}</span>
+              <span>{formatTime(duration)}</span>
+            </div>
+          </button>
+        </div>
+
+        <div className={`mb-4 overflow-hidden rounded-[22px] border border-white/10 bg-black/45 backdrop-blur-xl shadow-[0_10px_30px_rgba(0,0,0,0.28)] transition-all duration-200 ${showExpandedControls && showChrome ? "max-h-44 p-3 opacity-100" : "max-h-0 px-3 opacity-0 pointer-events-none"}`}>
           <div className="flex items-center gap-2">
             <button
               type="button"
@@ -395,36 +509,43 @@ function VideoSlide({
             >
               CC
             </button>
-            <div className="flex min-w-0 flex-1 items-center gap-2 rounded-full bg-white/8 px-3 py-2">
-              <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0 text-white/80" fill="currentColor">
-                {autoplayMuted || volume === 0 ? (
-                  <path d="M16.5 12A4.5 4.5 0 0 0 14 7.97V10.18l2.45 2.45c.03-.2.05-.41.05-.63ZM19 12c0 .94-.2 1.82-.54 2.64l1.51 1.51A8.796 8.796 0 0 0 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71ZM4.27 3 3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06A8.99 8.99 0 0 0 17.73 18L19.73 20 21 18.73l-18-18ZM12 4 9.91 6.09 12 8.18V4Z" />
-                ) : (
-                  <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3A4.5 4.5 0 0 0 14 7.97v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z" />
-                )}
-              </svg>
-              <input
-                type="range"
-                min="0"
-                max="100"
-                step="1"
-                value={autoplayMuted ? 0 : volume}
-                onChange={handleVolumeInput}
-                className="h-1 w-full cursor-pointer appearance-none rounded-full bg-white/20 accent-white"
-                aria-label="Volume"
-              />
-              <span className="w-8 text-right text-[10px] font-semibold text-white/70">{autoplayMuted ? 0 : volume}</span>
-            </div>
+            <button
+              type="button"
+              onClick={onToggleMuted}
+              className={`inline-flex h-10 items-center justify-center rounded-full px-3 text-[11px] font-semibold transition-colors ${autoplayMuted ? "bg-white/8 text-white" : "bg-white text-black"}`}
+            >
+              {autoplayMuted ? "Muted" : "Audio"}
+            </button>
             <button
               type="button"
               onPointerDown={handleBoostStart}
               onPointerUp={handleBoostEnd}
               onPointerLeave={handleBoostEnd}
               onPointerCancel={handleBoostEnd}
-              className={`inline-flex h-10 items-center justify-center rounded-full px-3 text-[11px] font-semibold transition-all ${speedBoostActive ? "bg-deepPink text-white shadow-[0_0_24px_rgba(189,25,93,0.45)]" : "bg-white/8 text-white"}`}
+              className={`ml-auto inline-flex h-10 items-center justify-center rounded-full px-3 text-[11px] font-semibold transition-all ${speedBoostActive ? "bg-deepPink text-white shadow-[0_0_24px_rgba(189,25,93,0.45)]" : "bg-white/8 text-white"}`}
             >
               {speedBoostActive ? "2X" : "Hold 2X"}
             </button>
+          </div>
+          <div className="mt-3 flex items-center gap-2 rounded-full bg-white/8 px-3 py-2">
+            <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0 text-white/80" fill="currentColor">
+              {autoplayMuted || volume === 0 ? (
+                <path d="M16.5 12A4.5 4.5 0 0 0 14 7.97V10.18l2.45 2.45c.03-.2.05-.41.05-.63ZM19 12c0 .94-.2 1.82-.54 2.64l1.51 1.51A8.796 8.796 0 0 0 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71ZM4.27 3 3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06A8.99 8.99 0 0 0 17.73 18L19.73 20 21 18.73l-18-18ZM12 4 9.91 6.09 12 8.18V4Z" />
+              ) : (
+                <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3A4.5 4.5 0 0 0 14 7.97v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z" />
+              )}
+            </svg>
+            <input
+              type="range"
+              min="0"
+              max="100"
+              step="1"
+              value={autoplayMuted ? 0 : volume}
+              onChange={handleVolumeInput}
+              className="h-1 w-full cursor-pointer appearance-none rounded-full bg-white/20 accent-white"
+              aria-label="Volume"
+            />
+            <span className="w-8 text-right text-[10px] font-semibold text-white/70">{autoplayMuted ? 0 : volume}</span>
           </div>
           <div className="mt-2 flex items-center justify-between text-[10px] text-white/50">
             <span>{captionsEnabled ? "Captions on" : "Captions off"}</span>
