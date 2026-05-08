@@ -5,6 +5,7 @@ import type { VideoHighlight } from "~/app/api/highlights/route";
 import Image from "next/image";
 import { getTeamLogo } from "~/components/utils/fetchTeamLogos";
 import { detectLeagueFromTeams, getTeamAbbreviation } from "~/components/utils/teamAbbreviations";
+import { BASE_URL } from "~/lib/config";
 
 const ACTIVE_INDEX_KEY = "footy_highlights_active_index";
 const MUTED_KEY = "footy_highlights_muted";
@@ -97,14 +98,25 @@ function formatTime(seconds: number) {
   return `${minutes}:${String(remainder).padStart(2, "0")}`;
 }
 
-function buildShareText(highlight: VideoHighlight) {
+function getHighlightsShareUrl(highlight: VideoHighlight) {
+  const appOrigin =
+    BASE_URL ||
+    (typeof window !== "undefined" ? window.location.origin : "https://fc-footy.vercel.app");
+
+  const url = new URL(appOrigin);
+  url.searchParams.set("tab", "highlights");
+  url.searchParams.set("highlight", highlight.videoId);
+  return url.toString();
+}
+
+function buildShareText(highlight: VideoHighlight, shareUrl: string) {
   const matchup =
     highlight.homeTeam && highlight.awayTeam
       ? `${highlight.homeTeam} vs ${highlight.awayTeam}`
       : highlight.event;
   const scoreline = highlight.scoreline ? ` ${highlight.scoreline}` : "";
 
-  return `${matchup}${scoreline} • ${highlight.league} • ${highlight.youtubeUrl}`;
+  return `${matchup}${scoreline} • ${highlight.league} • ${shareUrl}`;
 }
 
 function MetaRow({ label, value }: { label: string; value: string | null | undefined }) {
@@ -192,6 +204,7 @@ function VideoSlide({
   const homeLogoUrl = getTeamLogoUrl(highlight.homeTeam, highlight);
   const awayLogoUrl = getTeamLogoUrl(highlight.awayTeam, highlight);
   const progressPercent = duration > 0 ? Math.min(100, (currentTime / duration) * 100) : 0;
+  const shareUrl = getHighlightsShareUrl(highlight);
 
   const postPlayerCommand = useCallback((func: string, args: unknown[] = []) => {
     iframeRef.current?.contentWindow?.postMessage(JSON.stringify({
@@ -347,26 +360,26 @@ function VideoSlide({
 
   const handleShare = useCallback(async (e: React.MouseEvent<HTMLButtonElement>) => {
     e.stopPropagation();
-    const shareText = buildShareText(highlight);
+    const shareText = buildShareText(highlight, shareUrl);
 
     try {
       if (navigator.share) {
         await navigator.share({
           title: highlight.event,
           text: shareText,
-          url: highlight.youtubeUrl,
+          url: shareUrl,
         });
         setActionMessage("Shared");
         return;
       }
 
-      await navigator.clipboard.writeText(highlight.youtubeUrl);
+      await navigator.clipboard.writeText(shareUrl);
       setActionMessage("Link copied");
     } catch (error) {
       console.error("[HighlightsFeed] share failed", error);
       setActionMessage("Share failed");
     }
-  }, [highlight]);
+  }, [highlight, shareUrl]);
 
   const handleTogglePlay = useCallback((e: React.MouseEvent<HTMLButtonElement>) => {
     e.stopPropagation();
