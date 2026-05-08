@@ -188,7 +188,7 @@ function VideoSlide({
   const freshnessLabel = formatFreshnessLabel(highlight.daysAgo);
   const thumbUrl = highlight.thumbnailUrl || `https://img.youtube.com/vi/${highlight.videoId}/hqdefault.jpg`;
   const embedOrigin = typeof window !== "undefined" ? window.location.origin : "https://footy.club";
-  const embedUrl = `https://www.youtube.com/embed/${highlight.videoId}?autoplay=1&mute=${autoplayMuted ? 1 : 0}&controls=0&rel=0&modestbranding=1&playsinline=1&loop=1&playlist=${highlight.videoId}&enablejsapi=1&origin=${encodeURIComponent(embedOrigin)}&cc_load_policy=1&cc_lang_pref=en`;
+  const embedUrl = `https://www.youtube.com/embed/${highlight.videoId}?autoplay=1&mute=1&controls=0&rel=0&modestbranding=1&playsinline=1&loop=1&playlist=${highlight.videoId}&enablejsapi=1&origin=${encodeURIComponent(embedOrigin)}&cc_load_policy=1&cc_lang_pref=en`;
   const homeLogoUrl = getTeamLogoUrl(highlight.homeTeam, highlight);
   const awayLogoUrl = getTeamLogoUrl(highlight.awayTeam, highlight);
   const progressPercent = duration > 0 ? Math.min(100, (currentTime / duration) * 100) : 0;
