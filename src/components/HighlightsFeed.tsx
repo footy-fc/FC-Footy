@@ -19,6 +19,7 @@ type PlayerProgress = {
 const ReactPlayer = dynamic(() => import("react-player").then((mod) => ({ default: mod.default })), {
   ssr: false,
 });
+const TypedReactPlayer = ReactPlayer as any;
 
 const ACTIVE_INDEX_KEY = "footy_highlights_active_index";
 const PROGRESS_KEY_PREFIX = "footy_highlights_progress:";
@@ -264,8 +265,8 @@ function VideoSlide({
 
       {inView ? (
         <div className="absolute inset-0" style={{ zIndex: 1 }}>
-          <ReactPlayer
-            ref={playerRef}
+          <TypedReactPlayer
+            ref={playerRef as React.Ref<unknown>}
             url={highlight.youtubeUrl}
             playing={isPlaying}
             muted={muted}
