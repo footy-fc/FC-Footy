@@ -187,10 +187,19 @@ function VideoSlide({
   const [duration, setDuration] = useState(0);
   const freshnessLabel = formatFreshnessLabel(highlight.daysAgo);
   const thumbUrl = highlight.thumbnailUrl || `https://img.youtube.com/vi/${highlight.videoId}/hqdefault.jpg`;
-  const embedUrl = `https://www.youtube.com/embed/${highlight.videoId}?autoplay=1&mute=${autoplayMuted ? 1 : 0}&controls=0&rel=0&modestbranding=1&playsinline=1&loop=1&playlist=${highlight.videoId}&enablejsapi=1&cc_load_policy=${captionsEnabled ? 1 : 0}&cc_lang_pref=en`;
+  const embedOrigin = typeof window !== "undefined" ? window.location.origin : "https://footy.club";
+  const embedUrl = `https://www.youtube.com/embed/${highlight.videoId}?autoplay=1&mute=${autoplayMuted ? 1 : 0}&controls=0&rel=0&modestbranding=1&playsinline=1&loop=1&playlist=${highlight.videoId}&enablejsapi=1&origin=${encodeURIComponent(embedOrigin)}&cc_load_policy=1&cc_lang_pref=en`;
   const homeLogoUrl = getTeamLogoUrl(highlight.homeTeam, highlight);
   const awayLogoUrl = getTeamLogoUrl(highlight.awayTeam, highlight);
   const progressPercent = duration > 0 ? Math.min(100, (currentTime / duration) * 100) : 0;
+
+  const postPlayerCommand = useCallback((func: string, args: unknown[] = []) => {
+    iframeRef.current?.contentWindow?.postMessage(JSON.stringify({
+      event: "command",
+      func,
+      args,
+    }), "*");
+  }, []);
 
   useEffect(() => {
     if (!inView) {
@@ -207,30 +216,48 @@ function VideoSlide({
   }, [highlight.videoId, inView, index, onVisible]);
 
   useEffect(() => {
-    const frame = iframeRef.current;
-    if (!frame || !inView) {
+    if (!iframeRef.current || !inView) {
       return;
     }
 
-    const sendCommand = (func: string, args: unknown[] = []) => {
-      frame.contentWindow?.postMessage(JSON.stringify({
-        event: "command",
-        func,
-        args,
-      }), "*");
-    };
-
-    sendCommand(isPlaying ? "playVideo" : "pauseVideo");
+    postPlayerCommand(isPlaying ? "playVideo" : "pauseVideo");
 
     if (autoplayMuted) {
-      sendCommand("mute");
+      postPlayerCommand("mute");
     } else {
-      sendCommand("unMute");
-      sendCommand("setVolume", [volume]);
+      postPlayerCommand("unMute");
+      postPlayerCommand("setVolume", [volume]);
     }
 
-    sendCommand("setPlaybackRate", [speedBoostActive ? 2 : 1]);
-  }, [autoplayMuted, inView, isPlaying, highlight.videoId, speedBoostActive, volume]);
+    postPlayerCommand("setPlaybackRate", [speedBoostActive ? 2 : 1]);
+  }, [autoplayMuted, inView, isPlaying, postPlayerCommand, speedBoostActive, volume]);
+
+  useEffect(() => {
+    if (!inView) {
+      return;
+    }
+
+    postPlayerCommand("loadModule", ["captions"]);
+    if (captionsEnabled) {
+      postPlayerCommand("setOption", ["captions", "track", { languageCode: "en" }]);
+      postPlayerCommand("setOption", ["captions", "reload", true]);
+    } else {
+      postPlayerCommand("unloadModule", ["captions"]);
+    }
+  }, [captionsEnabled, inView, postPlayerCommand]);
+
+  useEffect(() => {
+    if (!inView) {
+      return;
+    }
+
+    const poll = window.setInterval(() => {
+      postPlayerCommand("getCurrentTime");
+      postPlayerCommand("getDuration");
+    }, 1000);
+
+    return () => window.clearInterval(poll);
+  }, [inView, postPlayerCommand]);
 
   useEffect(() => {
     if (!showChrome || showExpandedControls || !isPlaying) {
@@ -251,29 +278,34 @@ function VideoSlide({
     }
 
     const handleMessage = (event: MessageEvent) => {
-      if (event.source !== iframeWindow || typeof event.data !== "string") {
+      if (event.source !== iframeWindow) {
         return;
       }
 
       try {
-        const payload = JSON.parse(event.data) as {
+        const payload = (typeof event.data === "string"
+          ? JSON.parse(event.data)
+          : event.data) as {
           event?: string;
+          infoDelivery?: boolean;
+          id?: string;
           info?: {
             currentTime?: number;
             duration?: number;
           };
         };
 
-        if (payload.event !== "infoDelivery" || !payload.info) {
+        const info = payload.info;
+        if (!info) {
           return;
         }
 
-        if (typeof payload.info.currentTime === "number") {
-          setCurrentTime(payload.info.currentTime);
+        if (typeof info.currentTime === "number") {
+          setCurrentTime(info.currentTime);
         }
 
-        if (typeof payload.info.duration === "number" && payload.info.duration > 0) {
-          setDuration(payload.info.duration);
+        if (typeof info.duration === "number" && info.duration > 0) {
+          setDuration(info.duration);
         }
       } catch {
         // Ignore non-JSON iframe messages.
@@ -283,6 +315,15 @@ function VideoSlide({
     window.addEventListener("message", handleMessage);
     return () => window.removeEventListener("message", handleMessage);
   }, [highlight.videoId, inView]);
+
+  useEffect(() => {
+    const seedTimer = window.setTimeout(() => {
+      postPlayerCommand("getDuration");
+      postPlayerCommand("getCurrentTime");
+    }, 500);
+
+    return () => window.clearTimeout(seedTimer);
+  }, [highlight.videoId, inView, postPlayerCommand]);
 
   useEffect(() => {
     return () => {
@@ -410,7 +451,7 @@ function VideoSlide({
         <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 1 }}>
           <iframe
             ref={iframeRef}
-            key={`${highlight.videoId}:${autoplayMuted ? "muted" : "sound"}:${captionsEnabled ? "cc" : "nocaptions"}`}
+            key={highlight.videoId}
             src={embedUrl}
             title={highlight.event}
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
