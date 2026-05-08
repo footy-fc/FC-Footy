@@ -3,6 +3,8 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import type { VideoHighlight } from "~/app/api/highlights/route";
 import Image from "next/image";
+import { getTeamLogo } from "~/components/utils/fetchTeamLogos";
+import { detectLeagueFromTeams, getTeamAbbreviation } from "~/components/utils/teamAbbreviations";
 
 const ACTIVE_INDEX_KEY = "footy_highlights_active_index";
 const MUTED_KEY = "footy_highlights_muted";
@@ -105,6 +107,37 @@ function MetaRow({ label, value }: { label: string; value: string | null | undef
   );
 }
 
+function getLeagueCode(highlight: VideoHighlight): string {
+  const leagueName = highlight.league.toLowerCase();
+
+  if (highlight.homeTeam && highlight.awayTeam) {
+    const detectedLeague = detectLeagueFromTeams(highlight.homeTeam, highlight.awayTeam, "eng");
+    return detectedLeague.includes(".") ? detectedLeague : `${detectedLeague}.1`;
+  }
+
+  if (leagueName.includes("premier")) return "eng.1";
+  if (leagueName.includes("laliga")) return "esp.1";
+  if (leagueName.includes("major league")) return "usa.1";
+  if (leagueName.includes("ligue 1")) return "fra.1";
+  if (leagueName.includes("serie a")) return "ita.1";
+  if (leagueName.includes("bundesliga")) return "ger.1";
+  if (leagueName.includes("champions")) return "eng.1";
+
+  return "eng.1";
+}
+
+function getTeamLogoUrl(teamName: string | null | undefined, highlight: VideoHighlight): string | null {
+  if (!teamName) {
+    return null;
+  }
+
+  const leagueCode = getLeagueCode(highlight);
+  const abbreviation = getTeamAbbreviation(teamName).toLowerCase();
+  const logoUrl = getTeamLogo(abbreviation, leagueCode);
+
+  return logoUrl === "/defifa_spinner.gif" ? null : logoUrl;
+}
+
 function VideoSlide({
   highlight,
   index,
@@ -124,12 +157,16 @@ function VideoSlide({
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const inView = useInView(ref, 0.72);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
+  const [controlsEnabled, setControlsEnabled] = useState(false);
   const freshnessLabel = formatFreshnessLabel(highlight.daysAgo);
   const thumbUrl = highlight.thumbnailUrl || `https://img.youtube.com/vi/${highlight.videoId}/hqdefault.jpg`;
-  const embedUrl = `https://www.youtube.com/embed/${highlight.videoId}?autoplay=1&mute=${autoplayMuted ? 1 : 0}&controls=0&rel=0&modestbranding=1&playsinline=1&loop=1&playlist=${highlight.videoId}&enablejsapi=1`;
+  const embedUrl = `https://www.youtube.com/embed/${highlight.videoId}?autoplay=1&mute=${autoplayMuted ? 1 : 0}&controls=${controlsEnabled ? 1 : 0}&rel=0&modestbranding=1&playsinline=1&loop=1&playlist=${highlight.videoId}&enablejsapi=1`;
+  const homeLogoUrl = getTeamLogoUrl(highlight.homeTeam, highlight);
+  const awayLogoUrl = getTeamLogoUrl(highlight.awayTeam, highlight);
 
   useEffect(() => {
     if (!inView) {
+      setControlsEnabled(false);
       return;
     }
 
@@ -194,6 +231,11 @@ function VideoSlide({
     }
   }, [highlight]);
 
+  const handleToggleControls = useCallback((e: React.MouseEvent<HTMLButtonElement>) => {
+    e.stopPropagation();
+    setControlsEnabled((current) => !current);
+  }, []);
+
   return (
     <div
       ref={ref}
@@ -209,7 +251,7 @@ function VideoSlide({
       />
 
       {inView ? (
-        <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 1 }}>
+        <div className={`absolute inset-0 ${controlsEnabled ? "pointer-events-auto" : "pointer-events-none"}`} style={{ zIndex: 1 }}>
           <iframe
             ref={iframeRef}
             key={`${highlight.videoId}:${autoplayMuted ? "muted" : "sound"}`}
@@ -224,25 +266,60 @@ function VideoSlide({
       <div className="absolute inset-x-0 bottom-0 h-72 bg-gradient-to-t from-black via-black/70 to-transparent pointer-events-none" style={{ zIndex: 2 }} />
 
       <div className="absolute inset-x-0 top-0 flex items-start justify-between p-3" style={{ zIndex: 5 }}>
-        <div className="rounded-full bg-black/60 px-2.5 py-1 text-[10px] font-bold text-white backdrop-blur-sm">
-          {index + 1}&thinsp;/&thinsp;{total}
+        <div className="flex items-center gap-2">
+          <div className="rounded-full bg-black/60 px-2.5 py-1 text-[10px] font-bold text-white backdrop-blur-sm">
+            {index + 1}&thinsp;/&thinsp;{total}
+          </div>
+          {(homeLogoUrl || awayLogoUrl) ? (
+            <div className="flex items-center gap-1.5 rounded-full bg-black/60 px-2 py-1 backdrop-blur-sm">
+              {homeLogoUrl ? (
+                <Image
+                  src={homeLogoUrl}
+                  alt={highlight.homeTeam || "Home team"}
+                  width={20}
+                  height={20}
+                  className="h-5 w-5 rounded-full bg-white object-contain"
+                  unoptimized
+                />
+              ) : null}
+              {awayLogoUrl ? (
+                <Image
+                  src={awayLogoUrl}
+                  alt={highlight.awayTeam || "Away team"}
+                  width={20}
+                  height={20}
+                  className="h-5 w-5 rounded-full bg-white object-contain"
+                  unoptimized
+                />
+              ) : null}
+            </div>
+          ) : null}
         </div>
-        <button
-          type="button"
-          onClick={onToggleMuted}
-          className="flex h-9 w-9 items-center justify-center rounded-full bg-black/60 text-white backdrop-blur-sm"
-          aria-label={autoplayMuted ? "Unmute video" : "Mute video"}
-        >
-          {autoplayMuted ? (
-            <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor">
-              <path d="M16.5 12A4.5 4.5 0 0 0 14 7.97V10.18l2.45 2.45c.03-.2.05-.41.05-.63ZM19 12c0 .94-.2 1.82-.54 2.64l1.51 1.51A8.796 8.796 0 0 0 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71ZM4.27 3 3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06A8.99 8.99 0 0 0 17.73 18L19.73 20 21 18.73l-18-18ZM12 4 9.91 6.09 12 8.18V4Z" />
-            </svg>
-          ) : (
-            <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor">
-              <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3A4.5 4.5 0 0 0 14 7.97v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z" />
-            </svg>
-          )}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={handleToggleControls}
+            className={`inline-flex h-9 items-center justify-center rounded-full px-3 text-[11px] font-semibold backdrop-blur-sm ${controlsEnabled ? "bg-white text-black" : "bg-black/60 text-white"}`}
+          >
+            {controlsEnabled ? "Done" : "Controls"}
+          </button>
+          <button
+            type="button"
+            onClick={onToggleMuted}
+            className="flex h-9 w-9 items-center justify-center rounded-full bg-black/60 text-white backdrop-blur-sm"
+            aria-label={autoplayMuted ? "Unmute video" : "Mute video"}
+          >
+            {autoplayMuted ? (
+              <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor">
+                <path d="M16.5 12A4.5 4.5 0 0 0 14 7.97V10.18l2.45 2.45c.03-.2.05-.41.05-.63ZM19 12c0 .94-.2 1.82-.54 2.64l1.51 1.51A8.796 8.796 0 0 0 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71ZM4.27 3 3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06A8.99 8.99 0 0 0 17.73 18L19.73 20 21 18.73l-18-18ZM12 4 9.91 6.09 12 8.18V4Z" />
+              </svg>
+            ) : (
+              <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor">
+                <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3A4.5 4.5 0 0 0 14 7.97v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z" />
+              </svg>
+            )}
+          </button>
+        </div>
       </div>
 
       <div className="absolute inset-x-0 bottom-0 p-4" style={{ zIndex: 4 }}>
@@ -259,14 +336,6 @@ function VideoSlide({
         </p>
 
         <div className="mb-4 space-y-1">
-          <MetaRow
-            label="Match"
-            value={
-              highlight.homeTeam && highlight.awayTeam
-                ? `${highlight.homeTeam} vs ${highlight.awayTeam}`
-                : null
-            }
-          />
           <MetaRow label="Score" value={highlight.scoreline} />
           <MetaRow label="Competition" value={highlight.league} />
           <MetaRow label="Source" value={highlight.sourceChannel} />
@@ -284,6 +353,11 @@ function VideoSlide({
             <span className="text-[11px] text-white/75">{actionMessage}</span>
           ) : null}
         </div>
+        {controlsEnabled ? (
+          <div className="mt-2 text-[10px] text-white/55">
+            YouTube controls unlocked for captions, volume, and settings.
+          </div>
+        ) : null}
       </div>
     </div>
   );
