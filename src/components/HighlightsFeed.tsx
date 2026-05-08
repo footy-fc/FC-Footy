@@ -8,6 +8,8 @@ import { detectLeagueFromTeams, getTeamAbbreviation } from "~/components/utils/t
 
 const ACTIVE_INDEX_KEY = "footy_highlights_active_index";
 const MUTED_KEY = "footy_highlights_muted";
+const VOLUME_KEY = "footy_highlights_volume";
+const CAPTIONS_KEY = "footy_highlights_captions";
 
 function readStoredNumber(key: string, fallback = 0): number {
   if (typeof window === "undefined") {
@@ -143,34 +145,46 @@ function VideoSlide({
   index,
   total,
   autoplayMuted,
+  volume,
+  captionsEnabled,
   onToggleMuted,
+  onVolumeChange,
+  onToggleCaptions,
   onVisible,
 }: {
   highlight: VideoHighlight;
   index: number;
   total: number;
   autoplayMuted: boolean;
+  volume: number;
+  captionsEnabled: boolean;
   onToggleMuted: () => void;
+  onVolumeChange: (nextVolume: number) => void;
+  onToggleCaptions: () => void;
   onVisible: (index: number) => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
+  const boostTimerRef = useRef<number | null>(null);
   const inView = useInView(ref, 0.72);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
-  const [controlsEnabled, setControlsEnabled] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(true);
+  const [speedBoostActive, setSpeedBoostActive] = useState(false);
   const freshnessLabel = formatFreshnessLabel(highlight.daysAgo);
   const thumbUrl = highlight.thumbnailUrl || `https://img.youtube.com/vi/${highlight.videoId}/hqdefault.jpg`;
-  const embedUrl = `https://www.youtube.com/embed/${highlight.videoId}?autoplay=1&mute=${autoplayMuted ? 1 : 0}&controls=${controlsEnabled ? 1 : 0}&rel=0&modestbranding=1&playsinline=1&loop=1&playlist=${highlight.videoId}&enablejsapi=1`;
+  const embedUrl = `https://www.youtube.com/embed/${highlight.videoId}?autoplay=1&mute=${autoplayMuted ? 1 : 0}&controls=0&rel=0&modestbranding=1&playsinline=1&loop=1&playlist=${highlight.videoId}&enablejsapi=1&cc_load_policy=${captionsEnabled ? 1 : 0}&cc_lang_pref=en`;
   const homeLogoUrl = getTeamLogoUrl(highlight.homeTeam, highlight);
   const awayLogoUrl = getTeamLogoUrl(highlight.awayTeam, highlight);
 
   useEffect(() => {
     if (!inView) {
-      setControlsEnabled(false);
+      setIsPlaying(false);
+      setSpeedBoostActive(false);
       return;
     }
 
     onVisible(index);
+    setIsPlaying(true);
   }, [highlight.videoId, inView, index, onVisible]);
 
   useEffect(() => {
@@ -187,15 +201,25 @@ function VideoSlide({
       }), "*");
     };
 
-    sendCommand("playVideo");
+    sendCommand(isPlaying ? "playVideo" : "pauseVideo");
 
     if (autoplayMuted) {
       sendCommand("mute");
     } else {
       sendCommand("unMute");
-      sendCommand("setVolume", [100]);
+      sendCommand("setVolume", [volume]);
     }
-  }, [autoplayMuted, inView, highlight.videoId]);
+
+    sendCommand("setPlaybackRate", [speedBoostActive ? 2 : 1]);
+  }, [autoplayMuted, inView, isPlaying, highlight.videoId, speedBoostActive, volume]);
+
+  useEffect(() => {
+    return () => {
+      if (boostTimerRef.current) {
+        window.clearTimeout(boostTimerRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (!actionMessage) {
@@ -208,6 +232,7 @@ function VideoSlide({
 
     return () => window.clearTimeout(timer);
   }, [actionMessage]);
+
   const handleShare = useCallback(async (e: React.MouseEvent<HTMLButtonElement>) => {
     e.stopPropagation();
     const shareText = buildShareText(highlight);
@@ -231,10 +256,38 @@ function VideoSlide({
     }
   }, [highlight]);
 
-  const handleToggleControls = useCallback((e: React.MouseEvent<HTMLButtonElement>) => {
+  const handleTogglePlay = useCallback((e: React.MouseEvent<HTMLButtonElement>) => {
     e.stopPropagation();
-    setControlsEnabled((current) => !current);
+    setIsPlaying((current) => !current);
   }, []);
+
+  const clearBoost = useCallback(() => {
+    if (boostTimerRef.current) {
+      window.clearTimeout(boostTimerRef.current);
+      boostTimerRef.current = null;
+    }
+    setSpeedBoostActive(false);
+  }, []);
+
+  const handleBoostStart = useCallback((e: React.PointerEvent<HTMLButtonElement>) => {
+    e.stopPropagation();
+    if (boostTimerRef.current) {
+      window.clearTimeout(boostTimerRef.current);
+    }
+    boostTimerRef.current = window.setTimeout(() => {
+      setSpeedBoostActive(true);
+    }, 120);
+  }, []);
+
+  const handleBoostEnd = useCallback((e: React.PointerEvent<HTMLButtonElement>) => {
+    e.stopPropagation();
+    clearBoost();
+  }, [clearBoost]);
+
+  const handleVolumeInput = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    e.stopPropagation();
+    onVolumeChange(Number(e.target.value));
+  }, [onVolumeChange]);
 
   return (
     <div
@@ -251,10 +304,10 @@ function VideoSlide({
       />
 
       {inView ? (
-        <div className={`absolute inset-0 ${controlsEnabled ? "pointer-events-auto" : "pointer-events-none"}`} style={{ zIndex: 1 }}>
+        <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 1 }}>
           <iframe
             ref={iframeRef}
-            key={`${highlight.videoId}:${autoplayMuted ? "muted" : "sound"}`}
+            key={`${highlight.videoId}:${autoplayMuted ? "muted" : "sound"}:${captionsEnabled ? "cc" : "nocaptions"}`}
             src={embedUrl}
             title={highlight.event}
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
@@ -298,10 +351,20 @@ function VideoSlide({
         <div className="flex items-center gap-2">
           <button
             type="button"
-            onClick={handleToggleControls}
-            className={`inline-flex h-9 items-center justify-center rounded-full px-3 text-[11px] font-semibold backdrop-blur-sm ${controlsEnabled ? "bg-white text-black" : "bg-black/60 text-white"}`}
+            onClick={handleTogglePlay}
+            className="flex h-9 w-9 items-center justify-center rounded-full bg-black/60 text-white backdrop-blur-sm"
+            aria-label={isPlaying ? "Pause video" : "Play video"}
           >
-            {controlsEnabled ? "Done" : "Controls"}
+            {isPlaying ? (
+              <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor">
+                <rect x="6" y="4" width="4" height="16" />
+                <rect x="14" y="4" width="4" height="16" />
+              </svg>
+            ) : (
+              <svg viewBox="0 0 24 24" className="h-4 w-4 translate-x-[1px]" fill="currentColor">
+                <polygon points="5 3 19 12 5 21 5 3" />
+              </svg>
+            )}
           </button>
           <button
             type="button"
@@ -323,6 +386,52 @@ function VideoSlide({
       </div>
 
       <div className="absolute inset-x-0 bottom-0 p-4" style={{ zIndex: 4 }}>
+        <div className="mb-4 rounded-[22px] border border-white/10 bg-black/45 p-3 backdrop-blur-xl shadow-[0_10px_30px_rgba(0,0,0,0.28)]">
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={onToggleCaptions}
+              className={`inline-flex h-10 items-center justify-center rounded-full px-3 text-[11px] font-semibold transition-colors ${captionsEnabled ? "bg-white text-black" : "bg-white/8 text-white"}`}
+            >
+              CC
+            </button>
+            <div className="flex min-w-0 flex-1 items-center gap-2 rounded-full bg-white/8 px-3 py-2">
+              <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0 text-white/80" fill="currentColor">
+                {autoplayMuted || volume === 0 ? (
+                  <path d="M16.5 12A4.5 4.5 0 0 0 14 7.97V10.18l2.45 2.45c.03-.2.05-.41.05-.63ZM19 12c0 .94-.2 1.82-.54 2.64l1.51 1.51A8.796 8.796 0 0 0 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71ZM4.27 3 3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06A8.99 8.99 0 0 0 17.73 18L19.73 20 21 18.73l-18-18ZM12 4 9.91 6.09 12 8.18V4Z" />
+                ) : (
+                  <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3A4.5 4.5 0 0 0 14 7.97v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z" />
+                )}
+              </svg>
+              <input
+                type="range"
+                min="0"
+                max="100"
+                step="1"
+                value={autoplayMuted ? 0 : volume}
+                onChange={handleVolumeInput}
+                className="h-1 w-full cursor-pointer appearance-none rounded-full bg-white/20 accent-white"
+                aria-label="Volume"
+              />
+              <span className="w-8 text-right text-[10px] font-semibold text-white/70">{autoplayMuted ? 0 : volume}</span>
+            </div>
+            <button
+              type="button"
+              onPointerDown={handleBoostStart}
+              onPointerUp={handleBoostEnd}
+              onPointerLeave={handleBoostEnd}
+              onPointerCancel={handleBoostEnd}
+              className={`inline-flex h-10 items-center justify-center rounded-full px-3 text-[11px] font-semibold transition-all ${speedBoostActive ? "bg-deepPink text-white shadow-[0_0_24px_rgba(189,25,93,0.45)]" : "bg-white/8 text-white"}`}
+            >
+              {speedBoostActive ? "2X" : "Hold 2X"}
+            </button>
+          </div>
+          <div className="mt-2 flex items-center justify-between text-[10px] text-white/50">
+            <span>{captionsEnabled ? "Captions on" : "Captions off"}</span>
+            <span>{speedBoostActive ? "Speed boost live" : "Press and hold for 2x replay speed"}</span>
+          </div>
+        </div>
+
         <div className="mb-3 flex items-center gap-2">
           <p className="text-[10px] font-black uppercase tracking-[0.18em] text-deepPink">
             {highlight.league}
@@ -353,11 +462,6 @@ function VideoSlide({
             <span className="text-[11px] text-white/75">{actionMessage}</span>
           ) : null}
         </div>
-        {controlsEnabled ? (
-          <div className="mt-2 text-[10px] text-white/55">
-            YouTube controls unlocked for captions, volume, and settings.
-          </div>
-        ) : null}
       </div>
     </div>
   );
@@ -381,6 +485,8 @@ export default function HighlightsFeed() {
   const [error, setError] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
   const [muted, setMuted] = useState(true);
+  const [volume, setVolume] = useState(72);
+  const [captionsEnabled, setCaptionsEnabled] = useState(false);
   const [hasPlaybackGesture, setHasPlaybackGesture] = useState(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const hasRestoredScrollRef = useRef(false);
@@ -389,6 +495,8 @@ export default function HighlightsFeed() {
   useEffect(() => {
     setActiveIndex(readStoredNumber(ACTIVE_INDEX_KEY, 0));
     setMuted(readStoredBoolean(MUTED_KEY, true));
+    setVolume(readStoredNumber(VOLUME_KEY, 72));
+    setCaptionsEnabled(readStoredBoolean(CAPTIONS_KEY, false));
   }, []);
 
   useEffect(() => {
@@ -455,6 +563,14 @@ export default function HighlightsFeed() {
   }, [muted]);
 
   useEffect(() => {
+    writeStoredNumber(VOLUME_KEY, volume);
+  }, [volume]);
+
+  useEffect(() => {
+    writeStoredBoolean(CAPTIONS_KEY, captionsEnabled);
+  }, [captionsEnabled]);
+
+  useEffect(() => {
     writeStoredNumber(ACTIVE_INDEX_KEY, activeIndex);
   }, [activeIndex]);
 
@@ -501,6 +617,16 @@ export default function HighlightsFeed() {
     setMuted((current) => !current);
   }, [hasPlaybackGesture]);
 
+  const handleVolumeChange = useCallback((nextVolume: number) => {
+    setHasPlaybackGesture(true);
+    setVolume(nextVolume);
+    setMuted(nextVolume === 0);
+  }, []);
+
+  const handleToggleCaptions = useCallback(() => {
+    setCaptionsEnabled((current) => !current);
+  }, []);
+
   return (
     <div className="h-full w-full">
       {loading && <Skeleton />}
@@ -533,7 +659,11 @@ export default function HighlightsFeed() {
               index={index}
               total={highlights.length}
               autoplayMuted={effectiveMuted}
+              volume={volume}
+              captionsEnabled={captionsEnabled}
               onToggleMuted={handleToggleMuted}
+              onVolumeChange={handleVolumeChange}
+              onToggleCaptions={handleToggleCaptions}
               onVisible={handleVisible}
             />
           ))}
