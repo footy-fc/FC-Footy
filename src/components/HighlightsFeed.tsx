@@ -1,33 +1,11 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import type { VideoHighlight } from "~/app/api/highlights/route";
 import Image from "next/image";
-import dynamic from "next/dynamic";
-
-type PlayerHandle = {
-  seekTo: (amount: number, type?: "seconds" | "fraction") => void;
-};
-
-type PlayerProgress = {
-  played: number;
-  playedSeconds: number;
-  loaded: number;
-  loadedSeconds: number;
-};
-
-const ReactPlayer = dynamic(() => import("react-player").then((mod) => ({ default: mod.default })), {
-  ssr: false,
-});
-const TypedReactPlayer = ReactPlayer as any;
 
 const ACTIVE_INDEX_KEY = "footy_highlights_active_index";
-const PROGRESS_KEY_PREFIX = "footy_highlights_progress:";
 const MUTED_KEY = "footy_highlights_muted";
-
-function getProgressKey(videoId: string) {
-  return `${PROGRESS_KEY_PREFIX}${videoId}`;
-}
 
 function readStoredNumber(key: string, fallback = 0): number {
   if (typeof window === "undefined") {
@@ -143,30 +121,44 @@ function VideoSlide({
   onVisible: (index: number) => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
-  const playerRef = useRef<PlayerHandle | null>(null);
-  const resumeProgressRef = useRef<number | null>(null);
-  const lastSavedPlayedSecondsRef = useRef(0);
+  const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const inView = useInView(ref, 0.72);
-
-  const [ready, setReady] = useState(false);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [progress, setProgress] = useState(0);
-  const [duration, setDuration] = useState(0);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
-
-  const freshnessLabel = useMemo(() => formatFreshnessLabel(highlight.daysAgo), [highlight.daysAgo]);
+  const freshnessLabel = formatFreshnessLabel(highlight.daysAgo);
+  const thumbUrl = highlight.thumbnailUrl || `https://img.youtube.com/vi/${highlight.videoId}/hqdefault.jpg`;
+  const embedUrl = `https://www.youtube.com/embed/${highlight.videoId}?autoplay=1&mute=${autoplayMuted ? 1 : 0}&controls=0&rel=0&modestbranding=1&playsinline=1&loop=1&playlist=${highlight.videoId}&enablejsapi=1`;
 
   useEffect(() => {
     if (!inView) {
-      setIsPlaying(false);
-      setReady(false);
       return;
     }
 
     onVisible(index);
-    setIsPlaying(true);
-    resumeProgressRef.current = readStoredNumber(getProgressKey(highlight.videoId), 0);
   }, [highlight.videoId, inView, index, onVisible]);
+
+  useEffect(() => {
+    const frame = iframeRef.current;
+    if (!frame || !inView) {
+      return;
+    }
+
+    const sendCommand = (func: string, args: unknown[] = []) => {
+      frame.contentWindow?.postMessage(JSON.stringify({
+        event: "command",
+        func,
+        args,
+      }), "*");
+    };
+
+    sendCommand("playVideo");
+
+    if (autoplayMuted) {
+      sendCommand("mute");
+    } else {
+      sendCommand("unMute");
+      sendCommand("setVolume", [100]);
+    }
+  }, [autoplayMuted, inView, highlight.videoId]);
 
   useEffect(() => {
     if (!actionMessage) {
@@ -179,53 +171,6 @@ function VideoSlide({
 
     return () => window.clearTimeout(timer);
   }, [actionMessage]);
-
-  const handleTogglePlay = useCallback(() => {
-    setIsPlaying((current) => !current);
-  }, []);
-
-  const handleSeek = useCallback((e: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>) => {
-    e.stopPropagation();
-    if (!playerRef.current || duration === 0) {
-      return;
-    }
-
-    const rect = e.currentTarget.getBoundingClientRect();
-    const clientX = "touches" in e ? e.touches[0].clientX : e.clientX;
-    const nextProgress = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
-
-    playerRef.current.seekTo(nextProgress, "fraction");
-    setProgress(nextProgress);
-    writeStoredNumber(getProgressKey(highlight.videoId), nextProgress);
-  }, [duration, highlight.videoId]);
-
-  const handleReady = useCallback(() => {
-    setReady(true);
-
-    const resumeProgress = resumeProgressRef.current;
-    if (playerRef.current && resumeProgress && resumeProgress > 0 && resumeProgress < 0.995) {
-      playerRef.current.seekTo(resumeProgress, "fraction");
-      setProgress(resumeProgress);
-    }
-  }, []);
-
-  const handleProgress = useCallback((state: PlayerProgress) => {
-    setProgress(state.played);
-
-    if (Math.abs(state.playedSeconds - lastSavedPlayedSecondsRef.current) >= 2) {
-      lastSavedPlayedSecondsRef.current = state.playedSeconds;
-      writeStoredNumber(getProgressKey(highlight.videoId), state.played);
-    }
-  }, [highlight.videoId]);
-
-  const handleDuration = useCallback((nextDuration: number) => {
-    setDuration(nextDuration);
-  }, []);
-
-  const handleWatchOnYouTube = useCallback((e: React.MouseEvent<HTMLAnchorElement>) => {
-    e.stopPropagation();
-  }, []);
-
   const handleShare = useCallback(async (e: React.MouseEvent<HTMLButtonElement>) => {
     e.stopPropagation();
     const shareText = buildShareText(highlight);
@@ -255,43 +200,23 @@ function VideoSlide({
       className="snap-start relative h-full w-full flex-shrink-0 overflow-hidden bg-black"
     >
       <Image
-        src={highlight.thumbnailUrl}
+        src={thumbUrl}
         alt={highlight.event}
         fill
-        className={`object-cover transition-opacity duration-500 pointer-events-none ${ready && inView ? "opacity-0" : "opacity-100"}`}
+        className={`object-cover transition-opacity duration-500 pointer-events-none ${inView ? "opacity-0" : "opacity-100"}`}
         unoptimized
         priority={index <= 1}
       />
 
       {inView ? (
-        <div className="absolute inset-0" style={{ zIndex: 1 }}>
-          <TypedReactPlayer
-            ref={playerRef as React.Ref<unknown>}
-            url={highlight.youtubeUrl}
-            playing={isPlaying}
-            muted={autoplayMuted}
-            controls={false}
-            width="100%"
-            height="100%"
-            playsinline
-            onReady={handleReady}
-            onPlay={() => setIsPlaying(true)}
-            onPause={() => setIsPlaying(false)}
-            onProgress={handleProgress}
-            onDuration={handleDuration}
-            config={{
-              youtube: {
-                playerVars: {
-                  modestbranding: 1,
-                  rel: 0,
-                  disablekb: 1,
-                  playsinline: 1,
-                  iv_load_policy: 3,
-                  fs: 0,
-                },
-              },
-            }}
-            style={{ pointerEvents: "none" }}
+        <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 1 }}>
+          <iframe
+            ref={iframeRef}
+            key={`${highlight.videoId}:${autoplayMuted ? "muted" : "sound"}`}
+            src={embedUrl}
+            title={highlight.event}
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+            className="absolute inset-0 h-[120%] w-full -top-[10%] border-0"
           />
         </div>
       ) : null}
@@ -302,41 +227,22 @@ function VideoSlide({
         <div className="rounded-full bg-black/60 px-2.5 py-1 text-[10px] font-bold text-white backdrop-blur-sm">
           {index + 1}&thinsp;/&thinsp;{total}
         </div>
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={handleTogglePlay}
-            className="flex h-9 w-9 items-center justify-center rounded-full bg-black/60 text-white backdrop-blur-sm"
-            aria-label={isPlaying ? "Pause video" : "Play video"}
-          >
-            {isPlaying ? (
-              <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor">
-                <rect x="6" y="4" width="4" height="16" />
-                <rect x="14" y="4" width="4" height="16" />
-              </svg>
-            ) : (
-              <svg viewBox="0 0 24 24" className="h-4 w-4 translate-x-[1px]" fill="currentColor">
-                <polygon points="5 3 19 12 5 21 5 3" />
-              </svg>
-            )}
-          </button>
-          <button
-            type="button"
-            onClick={onToggleMuted}
-            className="flex h-9 w-9 items-center justify-center rounded-full bg-black/60 text-white backdrop-blur-sm"
-            aria-label={autoplayMuted ? "Unmute video" : "Mute video"}
-          >
-            {autoplayMuted ? (
-              <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor">
-                <path d="M16.5 12A4.5 4.5 0 0 0 14 7.97V10.18l2.45 2.45c.03-.2.05-.41.05-.63ZM19 12c0 .94-.2 1.82-.54 2.64l1.51 1.51A8.796 8.796 0 0 0 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71ZM4.27 3 3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06A8.99 8.99 0 0 0 17.73 18L19.73 20 21 18.73l-18-18ZM12 4 9.91 6.09 12 8.18V4Z" />
-              </svg>
-            ) : (
-              <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor">
-                <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3A4.5 4.5 0 0 0 14 7.97v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z" />
-              </svg>
-            )}
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={onToggleMuted}
+          className="flex h-9 w-9 items-center justify-center rounded-full bg-black/60 text-white backdrop-blur-sm"
+          aria-label={autoplayMuted ? "Unmute video" : "Mute video"}
+        >
+          {autoplayMuted ? (
+            <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor">
+              <path d="M16.5 12A4.5 4.5 0 0 0 14 7.97V10.18l2.45 2.45c.03-.2.05-.41.05-.63ZM19 12c0 .94-.2 1.82-.54 2.64l1.51 1.51A8.796 8.796 0 0 0 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71ZM4.27 3 3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06A8.99 8.99 0 0 0 17.73 18L19.73 20 21 18.73l-18-18ZM12 4 9.91 6.09 12 8.18V4Z" />
+            </svg>
+          ) : (
+            <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor">
+              <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3A4.5 4.5 0 0 0 14 7.97v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z" />
+            </svg>
+          )}
+        </button>
       </div>
 
       <div className="absolute inset-x-0 bottom-0 p-4" style={{ zIndex: 4 }}>
@@ -367,15 +273,6 @@ function VideoSlide({
         </div>
 
         <div className="flex items-center gap-2">
-          <a
-            href={highlight.youtubeUrl}
-            target="_blank"
-            rel="noreferrer"
-            onClick={handleWatchOnYouTube}
-            className="inline-flex items-center rounded-full bg-white px-3 py-2 text-[11px] font-semibold text-black"
-          >
-            Watch on YouTube
-          </a>
           <button
             type="button"
             onClick={handleShare}
@@ -386,20 +283,6 @@ function VideoSlide({
           {actionMessage ? (
             <span className="text-[11px] text-white/75">{actionMessage}</span>
           ) : null}
-        </div>
-      </div>
-
-      <div
-        className="absolute bottom-0 left-0 right-0 h-5 cursor-pointer pb-1"
-        style={{ zIndex: 6 }}
-        onClick={handleSeek}
-        onTouchMove={handleSeek}
-      >
-        <div className="mt-3 h-1 w-full bg-white/20 transition-all hover:h-1.5">
-          <div
-            className="h-full bg-white transition-all duration-100 ease-linear"
-            style={{ width: `${progress * 100}%` }}
-          />
         </div>
       </div>
     </div>
