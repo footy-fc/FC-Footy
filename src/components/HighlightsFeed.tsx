@@ -188,6 +188,8 @@ function VideoSlide({
   const [showChrome, setShowChrome] = useState(true);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
+  const [playerLoaded, setPlayerLoaded] = useState(false);
+  const [embedBlocked, setEmbedBlocked] = useState(false);
   const freshnessLabel = formatFreshnessLabel(highlight.daysAgo);
   const thumbUrl = highlight.thumbnailUrl || `https://img.youtube.com/vi/${highlight.videoId}/hqdefault.jpg`;
   const embedOrigin = typeof window !== "undefined" ? window.location.origin : "https://footy.club";
@@ -196,6 +198,7 @@ function VideoSlide({
   const awayLogoUrl = getTeamLogoUrl(highlight.awayTeam, highlight);
   const progressPercent = duration > 0 ? Math.min(100, (currentTime / duration) * 100) : 0;
   const shareUrl = getHighlightsShareUrl(highlight);
+  const canApplyAudiblePlayback = currentTime > 0 || duration > 0;
 
   const postPlayerCommand = useCallback((func: string, args: unknown[] = []) => {
     iframeRef.current?.contentWindow?.postMessage(JSON.stringify({
@@ -208,7 +211,7 @@ function VideoSlide({
   const syncPlayerState = useCallback(() => {
     postPlayerCommand(isPlaying ? "playVideo" : "pauseVideo");
 
-    if (autoplayMuted) {
+    if (autoplayMuted || !canApplyAudiblePlayback) {
       postPlayerCommand("mute");
     } else {
       postPlayerCommand("unMute");
@@ -223,18 +226,26 @@ function VideoSlide({
     } else {
       postPlayerCommand("unloadModule", ["captions"]);
     }
-  }, [autoplayMuted, captionsEnabled, isPlaying, postPlayerCommand, volume]);
+  }, [autoplayMuted, canApplyAudiblePlayback, captionsEnabled, isPlaying, postPlayerCommand, volume]);
 
   useEffect(() => {
     if (!inView) {
       setIsPlaying(false);
       setShowChrome(false);
+      setPlayerLoaded(false);
+      setEmbedBlocked(false);
+      setCurrentTime(0);
+      setDuration(0);
       return;
     }
 
     onVisible(index);
     setIsPlaying(true);
     setShowChrome(true);
+    setPlayerLoaded(false);
+    setEmbedBlocked(false);
+    setCurrentTime(0);
+    setDuration(0);
   }, [highlight.videoId, inView, index, onVisible]);
 
   useEffect(() => {
@@ -333,6 +344,18 @@ function VideoSlide({
   }, [highlight.videoId, inView, postPlayerCommand]);
 
   useEffect(() => {
+    if (!inView || !playerLoaded || embedBlocked || currentTime > 0 || duration > 0) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      setEmbedBlocked(true);
+    }, 4500);
+
+    return () => window.clearTimeout(timer);
+  }, [currentTime, duration, embedBlocked, inView, playerLoaded]);
+
+  useEffect(() => {
     if (!actionMessage) {
       return;
     }
@@ -407,12 +430,12 @@ function VideoSlide({
         src={thumbUrl}
         alt={highlight.event}
         fill
-        className={`object-cover transition-opacity duration-500 pointer-events-none ${inView ? "opacity-0" : "opacity-100"}`}
+        className={`object-cover transition-opacity duration-500 pointer-events-none ${inView && !embedBlocked ? "opacity-0" : "opacity-100"}`}
         unoptimized
         priority={index <= 1}
       />
 
-      {inView ? (
+      {inView && !embedBlocked ? (
         <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 1 }}>
           <iframe
             ref={iframeRef}
@@ -421,8 +444,30 @@ function VideoSlide({
             title={highlight.event}
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
             className="absolute inset-0 h-[120%] w-full -top-[10%] border-0"
-            onLoad={syncPlayerState}
+            onLoad={() => {
+              setPlayerLoaded(true);
+              syncPlayerState();
+            }}
           />
+        </div>
+      ) : null}
+
+      {embedBlocked ? (
+        <div className="absolute inset-0 z-[3] flex items-center justify-center bg-black/35 px-6 text-center">
+          <div className="max-w-xs rounded-[24px] border border-white/15 bg-black/70 p-5 backdrop-blur-xl">
+            <div className="mb-2 text-sm font-semibold text-white">This highlight can’t play inline.</div>
+            <p className="mb-4 text-xs leading-5 text-white/70">
+              The current YouTube video is blocking embeds. Open it on YouTube or scroll to the next highlight.
+            </p>
+            <a
+              href={highlight.youtubeUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center rounded-full bg-white px-4 py-2 text-[11px] font-semibold text-black"
+            >
+              Watch on YouTube
+            </a>
+          </div>
         </div>
       ) : null}
 
