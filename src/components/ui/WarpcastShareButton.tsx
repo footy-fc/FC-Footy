@@ -8,7 +8,7 @@ import { RichMatchEvent } from '~/types/commentatorTypes';
 import { CommentaryPipeline, CommentaryContext } from '~/services/CommentaryPipeline';
 
 const imageLoadCache = new Map<string, Promise<HTMLImageElement>>();
-const FARCASTER_CAST_MAX_BYTES = 320;
+const FARCASTER_CAST_MAX_BYTES = 1024;
 
 function getInitials(name: string) {
   const parts = name

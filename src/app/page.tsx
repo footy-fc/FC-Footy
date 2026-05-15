@@ -43,7 +43,6 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
     }
   }
 
-  // Removed debug console.log
   const frame = {
     version: "next",
     imageUrl: imgUrl,
