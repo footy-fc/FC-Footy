@@ -170,9 +170,6 @@ function VideoSlide({
   autoplayMuted,
   volume,
   captionsEnabled,
-  onToggleMuted,
-  onVolumeChange,
-  onToggleCaptions,
   onVisible,
 }: {
   highlight: VideoHighlight;
@@ -181,20 +178,14 @@ function VideoSlide({
   autoplayMuted: boolean;
   volume: number;
   captionsEnabled: boolean;
-  onToggleMuted: () => void;
-  onVolumeChange: (nextVolume: number) => void;
-  onToggleCaptions: () => void;
   onVisible: (index: number) => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
-  const boostTimerRef = useRef<number | null>(null);
   const inView = useInView(ref, 0.72);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [isPlaying, setIsPlaying] = useState(true);
-  const [speedBoostActive, setSpeedBoostActive] = useState(false);
   const [showChrome, setShowChrome] = useState(true);
-  const [showExpandedControls, setShowExpandedControls] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const freshnessLabel = formatFreshnessLabel(highlight.daysAgo);
@@ -214,12 +205,30 @@ function VideoSlide({
     }), "*");
   }, []);
 
+  const syncPlayerState = useCallback(() => {
+    postPlayerCommand(isPlaying ? "playVideo" : "pauseVideo");
+
+    if (autoplayMuted) {
+      postPlayerCommand("mute");
+    } else {
+      postPlayerCommand("unMute");
+      postPlayerCommand("setVolume", [volume]);
+    }
+
+    postPlayerCommand("setPlaybackRate", [1]);
+    postPlayerCommand("loadModule", ["captions"]);
+    if (captionsEnabled) {
+      postPlayerCommand("setOption", ["captions", "track", { languageCode: "en" }]);
+      postPlayerCommand("setOption", ["captions", "reload", true]);
+    } else {
+      postPlayerCommand("unloadModule", ["captions"]);
+    }
+  }, [autoplayMuted, captionsEnabled, isPlaying, postPlayerCommand, volume]);
+
   useEffect(() => {
     if (!inView) {
       setIsPlaying(false);
-      setSpeedBoostActive(false);
       setShowChrome(false);
-      setShowExpandedControls(false);
       return;
     }
 
@@ -233,31 +242,16 @@ function VideoSlide({
       return;
     }
 
-    postPlayerCommand(isPlaying ? "playVideo" : "pauseVideo");
-
-    if (autoplayMuted) {
-      postPlayerCommand("mute");
-    } else {
-      postPlayerCommand("unMute");
-      postPlayerCommand("setVolume", [volume]);
-    }
-
-    postPlayerCommand("setPlaybackRate", [speedBoostActive ? 2 : 1]);
-  }, [autoplayMuted, inView, isPlaying, postPlayerCommand, speedBoostActive, volume]);
+    syncPlayerState();
+  }, [inView, syncPlayerState]);
 
   useEffect(() => {
     if (!inView) {
       return;
     }
 
-    postPlayerCommand("loadModule", ["captions"]);
-    if (captionsEnabled) {
-      postPlayerCommand("setOption", ["captions", "track", { languageCode: "en" }]);
-      postPlayerCommand("setOption", ["captions", "reload", true]);
-    } else {
-      postPlayerCommand("unloadModule", ["captions"]);
-    }
-  }, [captionsEnabled, inView, postPlayerCommand]);
+    syncPlayerState();
+  }, [captionsEnabled, inView, syncPlayerState]);
 
   useEffect(() => {
     if (!inView) {
@@ -273,7 +267,7 @@ function VideoSlide({
   }, [inView, postPlayerCommand]);
 
   useEffect(() => {
-    if (!showChrome || showExpandedControls || !isPlaying) {
+    if (!showChrome || !isPlaying) {
       return;
     }
 
@@ -282,7 +276,7 @@ function VideoSlide({
     }, 2200);
 
     return () => window.clearTimeout(timer);
-  }, [isPlaying, showChrome, showExpandedControls, currentTime]);
+  }, [isPlaying, showChrome, currentTime]);
 
   useEffect(() => {
     const iframeWindow = iframeRef.current?.contentWindow;
@@ -339,14 +333,6 @@ function VideoSlide({
   }, [highlight.videoId, inView, postPlayerCommand]);
 
   useEffect(() => {
-    return () => {
-      if (boostTimerRef.current) {
-        window.clearTimeout(boostTimerRef.current);
-      }
-    };
-  }, []);
-
-  useEffect(() => {
     if (!actionMessage) {
       return;
     }
@@ -386,42 +372,8 @@ function VideoSlide({
     setIsPlaying((current) => !current);
   }, []);
 
-  const clearBoost = useCallback(() => {
-    if (boostTimerRef.current) {
-      window.clearTimeout(boostTimerRef.current);
-      boostTimerRef.current = null;
-    }
-    setSpeedBoostActive(false);
-  }, []);
-
-  const handleBoostStart = useCallback((e: React.PointerEvent<HTMLButtonElement>) => {
-    e.stopPropagation();
-    if (boostTimerRef.current) {
-      window.clearTimeout(boostTimerRef.current);
-    }
-    boostTimerRef.current = window.setTimeout(() => {
-      setSpeedBoostActive(true);
-    }, 120);
-  }, []);
-
-  const handleBoostEnd = useCallback((e: React.PointerEvent<HTMLButtonElement>) => {
-    e.stopPropagation();
-    clearBoost();
-  }, [clearBoost]);
-
-  const handleVolumeInput = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    e.stopPropagation();
-    onVolumeChange(Number(e.target.value));
-  }, [onVolumeChange]);
-
   const handleRevealChrome = useCallback(() => {
     setShowChrome(true);
-  }, []);
-
-  const handleToggleExpandedControls = useCallback((e: React.MouseEvent<HTMLButtonElement>) => {
-    e.stopPropagation();
-    setShowChrome(true);
-    setShowExpandedControls((current) => !current);
   }, []);
 
   const handleSeek = useCallback((e: React.MouseEvent<HTMLButtonElement>) => {
@@ -469,6 +421,7 @@ function VideoSlide({
             title={highlight.event}
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
             className="absolute inset-0 h-[120%] w-full -top-[10%] border-0"
+            onLoad={syncPlayerState}
           />
         </div>
       ) : null}
@@ -523,24 +476,6 @@ function VideoSlide({
               </svg>
             )}
           </button>
-          <button
-            type="button"
-            onClick={handleToggleExpandedControls}
-            className={`flex h-9 w-9 items-center justify-center rounded-full backdrop-blur-sm ${showExpandedControls ? "bg-white text-black" : "bg-black/60 text-white"}`}
-            aria-label={showExpandedControls ? "Hide playback settings" : "Show playback settings"}
-          >
-            <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="4" y1="21" x2="4" y2="14" />
-              <line x1="4" y1="10" x2="4" y2="3" />
-              <line x1="12" y1="21" x2="12" y2="12" />
-              <line x1="12" y1="8" x2="12" y2="3" />
-              <line x1="20" y1="21" x2="20" y2="16" />
-              <line x1="20" y1="12" x2="20" y2="3" />
-              <line x1="1" y1="14" x2="7" y2="14" />
-              <line x1="9" y1="8" x2="15" y2="8" />
-              <line x1="17" y1="16" x2="23" y2="16" />
-            </svg>
-          </button>
         </div>
       </div>
 
@@ -563,59 +498,6 @@ function VideoSlide({
               <span>{formatTime(duration)}</span>
             </div>
           </button>
-        </div>
-
-        <div className={`mb-4 overflow-hidden rounded-[22px] border border-white/10 bg-black/45 backdrop-blur-xl shadow-[0_10px_30px_rgba(0,0,0,0.28)] transition-all duration-200 ${showExpandedControls && showChrome ? "max-h-44 p-3 opacity-100" : "max-h-0 px-3 opacity-0 pointer-events-none"}`}>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={onToggleCaptions}
-              className={`inline-flex h-10 items-center justify-center rounded-full px-3 text-[11px] font-semibold transition-colors ${captionsEnabled ? "bg-white text-black" : "bg-white/8 text-white"}`}
-            >
-              CC
-            </button>
-            <button
-              type="button"
-              onClick={onToggleMuted}
-              className={`inline-flex h-10 items-center justify-center rounded-full px-3 text-[11px] font-semibold transition-colors ${autoplayMuted ? "bg-white/8 text-white" : "bg-white text-black"}`}
-            >
-              {autoplayMuted ? "Muted" : "Audio"}
-            </button>
-            <button
-              type="button"
-              onPointerDown={handleBoostStart}
-              onPointerUp={handleBoostEnd}
-              onPointerLeave={handleBoostEnd}
-              onPointerCancel={handleBoostEnd}
-              className={`ml-auto inline-flex h-10 items-center justify-center rounded-full px-3 text-[11px] font-semibold transition-all ${speedBoostActive ? "bg-deepPink text-white shadow-[0_0_24px_rgba(189,25,93,0.45)]" : "bg-white/8 text-white"}`}
-            >
-              {speedBoostActive ? "2X" : "Hold 2X"}
-            </button>
-          </div>
-          <div className="mt-3 flex items-center gap-2 rounded-full bg-white/8 px-3 py-2">
-            <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0 text-white/80" fill="currentColor">
-              {autoplayMuted || volume === 0 ? (
-                <path d="M16.5 12A4.5 4.5 0 0 0 14 7.97V10.18l2.45 2.45c.03-.2.05-.41.05-.63ZM19 12c0 .94-.2 1.82-.54 2.64l1.51 1.51A8.796 8.796 0 0 0 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71ZM4.27 3 3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06A8.99 8.99 0 0 0 17.73 18L19.73 20 21 18.73l-18-18ZM12 4 9.91 6.09 12 8.18V4Z" />
-              ) : (
-                <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3A4.5 4.5 0 0 0 14 7.97v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z" />
-              )}
-            </svg>
-            <input
-              type="range"
-              min="0"
-              max="100"
-              step="1"
-              value={autoplayMuted ? 0 : volume}
-              onChange={handleVolumeInput}
-              className="h-1 w-full cursor-pointer appearance-none rounded-full bg-white/20 accent-white"
-              aria-label="Volume"
-            />
-            <span className="w-8 text-right text-[10px] font-semibold text-white/70">{autoplayMuted ? 0 : volume}</span>
-          </div>
-          <div className="mt-2 flex items-center justify-between text-[10px] text-white/50">
-            <span>{captionsEnabled ? "Captions on" : "Captions off"}</span>
-            <span>{speedBoostActive ? "Speed boost live" : "Press and hold for 2x replay speed"}</span>
-          </div>
         </div>
 
         <div className="mb-3 flex items-center gap-2">
@@ -803,14 +685,15 @@ export default function HighlightsFeed() {
     setMuted((current) => !current);
   }, [hasPlaybackGesture]);
 
-  const handleVolumeChange = useCallback((nextVolume: number) => {
+  const handleToggleCaptions = useCallback(() => {
+    setCaptionsEnabled((current) => !current);
+  }, []);
+
+  const handleVolumeInput = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const nextVolume = Number(e.target.value);
     setHasPlaybackGesture(true);
     setVolume(nextVolume);
     setMuted(nextVolume === 0);
-  }, []);
-
-  const handleToggleCaptions = useCallback(() => {
-    setCaptionsEnabled((current) => !current);
   }, []);
 
   return (
@@ -833,26 +716,64 @@ export default function HighlightsFeed() {
       )}
 
       {!loading && !error && highlights.length > 0 && (
-        <div
-          ref={containerRef}
-          className="h-full w-full overflow-y-auto snap-y snap-mandatory scrollbar-hide rounded-[22px]"
-          style={{ scrollSnapType: "y mandatory", WebkitOverflowScrolling: "touch" }}
-        >
-          {highlights.map((highlight, index) => (
-            <VideoSlide
-              key={highlight.id}
-              highlight={highlight}
-              index={index}
-              total={highlights.length}
-              autoplayMuted={effectiveMuted}
-              volume={volume}
-              captionsEnabled={captionsEnabled}
-              onToggleMuted={handleToggleMuted}
-              onVolumeChange={handleVolumeChange}
-              onToggleCaptions={handleToggleCaptions}
-              onVisible={handleVisible}
-            />
-          ))}
+        <div className="relative h-full w-full">
+          <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex justify-center px-3 pt-3">
+            <div className="pointer-events-auto flex w-full max-w-md items-center gap-2 rounded-full border border-white/10 bg-black/60 px-3 py-2 text-white backdrop-blur-xl shadow-[0_10px_30px_rgba(0,0,0,0.28)]">
+              <button
+                type="button"
+                onClick={handleToggleCaptions}
+                className={`inline-flex h-9 items-center justify-center rounded-full px-3 text-[11px] font-semibold transition-colors ${captionsEnabled ? "bg-white text-black" : "bg-white/8 text-white"}`}
+              >
+                CC
+              </button>
+              <button
+                type="button"
+                onClick={handleToggleMuted}
+                className={`inline-flex h-9 items-center justify-center rounded-full px-3 text-[11px] font-semibold transition-colors ${effectiveMuted ? "bg-white/8 text-white" : "bg-white text-black"}`}
+              >
+                {effectiveMuted ? "Muted" : "Audio"}
+              </button>
+              <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0 text-white/80" fill="currentColor">
+                {effectiveMuted || volume === 0 ? (
+                  <path d="M16.5 12A4.5 4.5 0 0 0 14 7.97V10.18l2.45 2.45c.03-.2.05-.41.05-.63ZM19 12c0 .94-.2 1.82-.54 2.64l1.51 1.51A8.796 8.796 0 0 0 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71ZM4.27 3 3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06A8.99 8.99 0 0 0 17.73 18L19.73 20 21 18.73l-18-18ZM12 4 9.91 6.09 12 8.18V4Z" />
+                ) : (
+                  <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3A4.5 4.5 0 0 0 14 7.97v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z" />
+                )}
+              </svg>
+              <input
+                type="range"
+                min="0"
+                max="100"
+                step="1"
+                value={effectiveMuted ? 0 : volume}
+                onChange={handleVolumeInput}
+                className="h-1 w-full cursor-pointer appearance-none rounded-full bg-white/20 accent-white"
+                aria-label="Highlights volume"
+              />
+              <span className="w-8 text-right text-[10px] font-semibold text-white/70">
+                {effectiveMuted ? 0 : volume}
+              </span>
+            </div>
+          </div>
+
+          <div
+            ref={containerRef}
+            className="h-full w-full overflow-y-auto snap-y snap-mandatory scrollbar-hide rounded-[22px]"
+            style={{ scrollSnapType: "y mandatory", WebkitOverflowScrolling: "touch" }}
+          >
+            {highlights.map((highlight, index) => (
+              <VideoSlide
+                key={highlight.id}
+                highlight={highlight}
+                index={index}
+                total={highlights.length}
+                autoplayMuted={effectiveMuted}
+                volume={volume}
+                captionsEnabled={captionsEnabled}
+                onVisible={handleVisible}
+              />
+            ))}
+          </div>
         </div>
       )}
     </div>
