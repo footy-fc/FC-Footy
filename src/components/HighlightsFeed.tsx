@@ -167,193 +167,48 @@ function VideoSlide({
   highlight,
   index,
   total,
-  autoplayMuted,
-  volume,
-  captionsEnabled,
+  isActive,
+  showPlayer,
+  embedBlocked,
+  showChrome,
+  isPlaying,
+  currentTime,
+  duration,
   onVisible,
+  onTogglePlay,
+  onSeek,
+  onRevealChrome,
 }: {
   highlight: VideoHighlight;
   index: number;
   total: number;
-  autoplayMuted: boolean;
-  volume: number;
-  captionsEnabled: boolean;
+  isActive: boolean;
+  showPlayer: boolean;
+  embedBlocked: boolean;
+  showChrome: boolean;
+  isPlaying: boolean;
+  currentTime: number;
+  duration: number;
   onVisible: (index: number) => void;
+  onTogglePlay: () => void;
+  onSeek: (ratio: number) => void;
+  onRevealChrome: () => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
-  const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const inView = useInView(ref, 0.72);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
-  const [isPlaying, setIsPlaying] = useState(true);
-  const [showChrome, setShowChrome] = useState(true);
-  const [currentTime, setCurrentTime] = useState(0);
-  const [duration, setDuration] = useState(0);
-  const [playerLoaded, setPlayerLoaded] = useState(false);
-  const [embedBlocked, setEmbedBlocked] = useState(false);
   const freshnessLabel = formatFreshnessLabel(highlight.daysAgo);
   const thumbUrl = highlight.thumbnailUrl || `https://img.youtube.com/vi/${highlight.videoId}/hqdefault.jpg`;
-  const embedOrigin = typeof window !== "undefined" ? window.location.origin : "https://footy.club";
-  const embedUrl = `https://www.youtube.com/embed/${highlight.videoId}?autoplay=1&mute=1&controls=0&rel=0&modestbranding=1&playsinline=1&loop=1&playlist=${highlight.videoId}&enablejsapi=1&origin=${encodeURIComponent(embedOrigin)}&cc_load_policy=1&cc_lang_pref=en`;
   const homeLogoUrl = getTeamLogoUrl(highlight.homeTeam, highlight);
   const awayLogoUrl = getTeamLogoUrl(highlight.awayTeam, highlight);
   const progressPercent = duration > 0 ? Math.min(100, (currentTime / duration) * 100) : 0;
   const shareUrl = getHighlightsShareUrl(highlight);
-  const canApplyAudiblePlayback = currentTime > 0 || duration > 0;
-
-  const postPlayerCommand = useCallback((func: string, args: unknown[] = []) => {
-    iframeRef.current?.contentWindow?.postMessage(JSON.stringify({
-      event: "command",
-      func,
-      args,
-    }), "*");
-  }, []);
-
-  const syncPlayerState = useCallback(() => {
-    postPlayerCommand(isPlaying ? "playVideo" : "pauseVideo");
-
-    if (autoplayMuted || !canApplyAudiblePlayback) {
-      postPlayerCommand("mute");
-    } else {
-      postPlayerCommand("unMute");
-      postPlayerCommand("setVolume", [volume]);
-    }
-
-    postPlayerCommand("setPlaybackRate", [1]);
-    postPlayerCommand("loadModule", ["captions"]);
-    if (captionsEnabled) {
-      postPlayerCommand("setOption", ["captions", "track", { languageCode: "en" }]);
-      postPlayerCommand("setOption", ["captions", "reload", true]);
-    } else {
-      postPlayerCommand("unloadModule", ["captions"]);
-    }
-  }, [autoplayMuted, canApplyAudiblePlayback, captionsEnabled, isPlaying, postPlayerCommand, volume]);
 
   useEffect(() => {
-    if (!inView) {
-      setIsPlaying(false);
-      setShowChrome(false);
-      setPlayerLoaded(false);
-      setEmbedBlocked(false);
-      setCurrentTime(0);
-      setDuration(0);
-      return;
+    if (inView) {
+      onVisible(index);
     }
-
-    onVisible(index);
-    setIsPlaying(true);
-    setShowChrome(true);
-    setPlayerLoaded(false);
-    setEmbedBlocked(false);
-    setCurrentTime(0);
-    setDuration(0);
-  }, [highlight.videoId, inView, index, onVisible]);
-
-  useEffect(() => {
-    if (!iframeRef.current || !inView) {
-      return;
-    }
-
-    syncPlayerState();
-  }, [inView, syncPlayerState]);
-
-  useEffect(() => {
-    if (!inView) {
-      return;
-    }
-
-    syncPlayerState();
-  }, [captionsEnabled, inView, syncPlayerState]);
-
-  useEffect(() => {
-    if (!inView) {
-      return;
-    }
-
-    const poll = window.setInterval(() => {
-      postPlayerCommand("getCurrentTime");
-      postPlayerCommand("getDuration");
-    }, 1000);
-
-    return () => window.clearInterval(poll);
-  }, [inView, postPlayerCommand]);
-
-  useEffect(() => {
-    if (!showChrome || !isPlaying) {
-      return;
-    }
-
-    const timer = window.setTimeout(() => {
-      setShowChrome(false);
-    }, 2200);
-
-    return () => window.clearTimeout(timer);
-  }, [isPlaying, showChrome, currentTime]);
-
-  useEffect(() => {
-    const iframeWindow = iframeRef.current?.contentWindow;
-    if (!iframeWindow || !inView) {
-      return;
-    }
-
-    const handleMessage = (event: MessageEvent) => {
-      if (event.source !== iframeWindow) {
-        return;
-      }
-
-      try {
-        const payload = (typeof event.data === "string"
-          ? JSON.parse(event.data)
-          : event.data) as {
-          event?: string;
-          infoDelivery?: boolean;
-          id?: string;
-          info?: {
-            currentTime?: number;
-            duration?: number;
-          };
-        };
-
-        const info = payload.info;
-        if (!info) {
-          return;
-        }
-
-        if (typeof info.currentTime === "number") {
-          setCurrentTime(info.currentTime);
-        }
-
-        if (typeof info.duration === "number" && info.duration > 0) {
-          setDuration(info.duration);
-        }
-      } catch {
-        // Ignore non-JSON iframe messages.
-      }
-    };
-
-    window.addEventListener("message", handleMessage);
-    return () => window.removeEventListener("message", handleMessage);
-  }, [highlight.videoId, inView]);
-
-  useEffect(() => {
-    const seedTimer = window.setTimeout(() => {
-      postPlayerCommand("getDuration");
-      postPlayerCommand("getCurrentTime");
-    }, 500);
-
-    return () => window.clearTimeout(seedTimer);
-  }, [highlight.videoId, inView, postPlayerCommand]);
-
-  useEffect(() => {
-    if (!inView || !playerLoaded || embedBlocked || currentTime > 0 || duration > 0) {
-      return;
-    }
-
-    const timer = window.setTimeout(() => {
-      setEmbedBlocked(true);
-    }, 4500);
-
-    return () => window.clearTimeout(timer);
-  }, [currentTime, duration, embedBlocked, inView, playerLoaded]);
+  }, [inView, index, onVisible]);
 
   useEffect(() => {
     if (!actionMessage) {
@@ -392,67 +247,36 @@ function VideoSlide({
 
   const handleTogglePlay = useCallback((e: React.MouseEvent<HTMLButtonElement>) => {
     e.stopPropagation();
-    setIsPlaying((current) => !current);
-  }, []);
-
-  const handleRevealChrome = useCallback(() => {
-    setShowChrome(true);
-  }, []);
+    onTogglePlay();
+  }, [onTogglePlay]);
 
   const handleSeek = useCallback((e: React.MouseEvent<HTMLButtonElement>) => {
     e.stopPropagation();
-    const frame = iframeRef.current;
-    if (!frame?.contentWindow || duration <= 0) {
+    if (duration <= 0) {
       return;
     }
 
     const rect = e.currentTarget.getBoundingClientRect();
     const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-    const nextTime = ratio * duration;
-
-    frame.contentWindow.postMessage(JSON.stringify({
-      event: "command",
-      func: "seekTo",
-      args: [nextTime, true],
-    }), "*");
-
-    setCurrentTime(nextTime);
-    setShowChrome(true);
-  }, [duration]);
+    onSeek(ratio);
+  }, [duration, onSeek]);
 
   return (
     <div
       ref={ref}
-      className="snap-start relative h-full w-full flex-shrink-0 overflow-hidden bg-black"
-      onClick={handleRevealChrome}
+      className={`snap-start relative h-full w-full flex-shrink-0 overflow-hidden ${isActive && showPlayer ? "bg-transparent" : "bg-black"}`}
+      onClick={onRevealChrome}
     >
       <Image
         src={thumbUrl}
         alt={highlight.event}
         fill
-        className={`object-cover transition-opacity duration-500 pointer-events-none ${inView && !embedBlocked ? "opacity-0" : "opacity-100"}`}
+        className={`object-cover transition-opacity duration-500 pointer-events-none ${isActive && showPlayer ? "opacity-0" : "opacity-100"}`}
         unoptimized
         priority={index <= 1}
       />
 
-      {inView && !embedBlocked ? (
-        <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 1 }}>
-          <iframe
-            ref={iframeRef}
-            key={highlight.videoId}
-            src={embedUrl}
-            title={highlight.event}
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-            className="absolute inset-0 h-[120%] w-full -top-[10%] border-0"
-            onLoad={() => {
-              setPlayerLoaded(true);
-              syncPlayerState();
-            }}
-          />
-        </div>
-      ) : null}
-
-      {embedBlocked ? (
+      {isActive && embedBlocked ? (
         <div className="absolute inset-0 z-[3] flex items-center justify-center bg-black/35 px-6 text-center">
           <div className="max-w-xs rounded-[24px] border border-white/15 bg-black/70 p-5 backdrop-blur-xl">
             <div className="mb-2 text-sm font-semibold text-white">This highlight can’t play inline.</div>
@@ -473,7 +297,7 @@ function VideoSlide({
 
       <div className="absolute inset-x-0 bottom-0 h-72 bg-gradient-to-t from-black via-black/70 to-transparent pointer-events-none" style={{ zIndex: 2 }} />
 
-      <div className={`absolute inset-x-0 top-0 flex items-start justify-between p-3 transition-opacity duration-200 ${showChrome ? "opacity-100" : "opacity-0 pointer-events-none"}`} style={{ zIndex: 5 }}>
+      <div className={`absolute inset-x-0 top-0 flex items-start justify-between p-3 transition-opacity duration-200 ${isActive && showChrome ? "opacity-100" : "opacity-0 pointer-events-none"}`} style={{ zIndex: 5 }}>
         <div className="flex items-center gap-2">
           <div className="rounded-full bg-black/60 px-2.5 py-1 text-[10px] font-bold text-white backdrop-blur-sm">
             {index + 1}&thinsp;/&thinsp;{total}
@@ -525,7 +349,7 @@ function VideoSlide({
       </div>
 
       <div className="absolute inset-x-0 bottom-0 p-4" style={{ zIndex: 4 }}>
-        <div className={`mb-3 transition-all duration-200 ${showChrome ? "translate-y-0 opacity-100" : "translate-y-3 opacity-0 pointer-events-none"}`}>
+        <div className={`mb-3 transition-all duration-200 ${isActive && showChrome ? "translate-y-0 opacity-100" : "translate-y-3 opacity-0 pointer-events-none"}`}>
           <button
             type="button"
             onClick={handleSeek}
@@ -601,9 +425,28 @@ export default function HighlightsFeed() {
   const [volume, setVolume] = useState(72);
   const [captionsEnabled, setCaptionsEnabled] = useState(false);
   const [hasPlaybackGesture, setHasPlaybackGesture] = useState(false);
+  const [playerLoaded, setPlayerLoaded] = useState(false);
+  const [initialPlayerVideoId, setInitialPlayerVideoId] = useState<string | null>(null);
+  const [currentVideoId, setCurrentVideoId] = useState<string | null>(null);
+  const [isPlaying, setIsPlaying] = useState(true);
+  const [showChrome, setShowChrome] = useState(true);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [blockedVideoIds, setBlockedVideoIds] = useState<Record<string, true>>({});
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const playerIframeRef = useRef<HTMLIFrameElement | null>(null);
   const hasRestoredScrollRef = useRef(false);
+  const loadedVideoIdRef = useRef<string | null>(null);
   const effectiveMuted = hasPlaybackGesture ? muted : true;
+  const activeHighlight = highlights[activeIndex] || null;
+  const activeVideoId = activeHighlight?.videoId || null;
+  const activeVideoBlocked = activeVideoId ? blockedVideoIds[activeVideoId] === true : false;
+  const showPlayer = Boolean(activeHighlight && currentVideoId && !activeVideoBlocked);
+  const canApplyAudiblePlayback = currentTime > 0 || duration > 0;
+  const embedOrigin = typeof window !== "undefined" ? window.location.origin : "https://footy.club";
+  const initialPlayerUrl = initialPlayerVideoId
+    ? `https://www.youtube.com/embed/${initialPlayerVideoId}?autoplay=1&mute=1&controls=0&rel=0&modestbranding=1&playsinline=1&loop=1&playlist=${initialPlayerVideoId}&enablejsapi=1&origin=${encodeURIComponent(embedOrigin)}&cc_load_policy=1&cc_lang_pref=en`
+    : null;
 
   useEffect(() => {
     setActiveIndex(readStoredNumber(ACTIVE_INDEX_KEY, 0));
@@ -716,6 +559,163 @@ export default function HighlightsFeed() {
     }
   }, [activeIndex, highlights]);
 
+  const postPlayerCommand = useCallback((func: string, args: unknown[] = []) => {
+    playerIframeRef.current?.contentWindow?.postMessage(JSON.stringify({
+      event: "command",
+      func,
+      args,
+    }), "*");
+  }, []);
+
+  const syncPlayerState = useCallback(() => {
+    if (!playerLoaded || !currentVideoId) {
+      return;
+    }
+
+    postPlayerCommand(isPlaying ? "playVideo" : "pauseVideo");
+
+    if (effectiveMuted || !canApplyAudiblePlayback) {
+      postPlayerCommand("mute");
+    } else {
+      postPlayerCommand("unMute");
+      postPlayerCommand("setVolume", [volume]);
+    }
+
+    postPlayerCommand("setPlaybackRate", [1]);
+    postPlayerCommand("loadModule", ["captions"]);
+    if (captionsEnabled) {
+      postPlayerCommand("setOption", ["captions", "track", { languageCode: "en" }]);
+      postPlayerCommand("setOption", ["captions", "reload", true]);
+    } else {
+      postPlayerCommand("unloadModule", ["captions"]);
+    }
+  }, [canApplyAudiblePlayback, captionsEnabled, currentVideoId, effectiveMuted, isPlaying, playerLoaded, postPlayerCommand, volume]);
+
+  useEffect(() => {
+    if (!activeVideoId) {
+      return;
+    }
+
+    setCurrentTime(0);
+    setDuration(0);
+    setIsPlaying(true);
+    setShowChrome(true);
+
+    if (!initialPlayerVideoId) {
+      setInitialPlayerVideoId(activeVideoId);
+    }
+
+    if (!currentVideoId) {
+      setCurrentVideoId(activeVideoId);
+    } else if (currentVideoId !== activeVideoId) {
+      setCurrentVideoId(activeVideoId);
+    }
+  }, [activeVideoId, currentVideoId, initialPlayerVideoId]);
+
+  useEffect(() => {
+    if (!playerLoaded || !currentVideoId) {
+      return;
+    }
+
+    if (loadedVideoIdRef.current === currentVideoId) {
+      syncPlayerState();
+      return;
+    }
+
+    loadedVideoIdRef.current = currentVideoId;
+    postPlayerCommand("loadVideoById", [currentVideoId, 0]);
+    window.setTimeout(() => {
+      syncPlayerState();
+      postPlayerCommand("getDuration");
+      postPlayerCommand("getCurrentTime");
+    }, 250);
+  }, [currentVideoId, playerLoaded, postPlayerCommand, syncPlayerState]);
+
+  useEffect(() => {
+    syncPlayerState();
+  }, [syncPlayerState]);
+
+  useEffect(() => {
+    if (!playerLoaded || !activeVideoId) {
+      return;
+    }
+
+    const poll = window.setInterval(() => {
+      postPlayerCommand("getCurrentTime");
+      postPlayerCommand("getDuration");
+    }, 1000);
+
+    return () => window.clearInterval(poll);
+  }, [activeVideoId, playerLoaded, postPlayerCommand]);
+
+  useEffect(() => {
+    const iframeWindow = playerIframeRef.current?.contentWindow;
+    if (!iframeWindow) {
+      return;
+    }
+
+    const handleMessage = (event: MessageEvent) => {
+      if (event.source !== iframeWindow) {
+        return;
+      }
+
+      try {
+        const payload = (typeof event.data === "string"
+          ? JSON.parse(event.data)
+          : event.data) as {
+          info?: {
+            currentTime?: number;
+            duration?: number;
+          };
+        };
+
+        const info = payload.info;
+        if (!info) {
+          return;
+        }
+
+        if (typeof info.currentTime === "number") {
+          setCurrentTime(info.currentTime);
+        }
+
+        if (typeof info.duration === "number" && info.duration > 0) {
+          setDuration(info.duration);
+        }
+      } catch {
+        // Ignore non-JSON iframe messages.
+      }
+    };
+
+    window.addEventListener("message", handleMessage);
+    return () => window.removeEventListener("message", handleMessage);
+  }, [currentVideoId, playerLoaded]);
+
+  useEffect(() => {
+    if (!showChrome || !isPlaying) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      setShowChrome(false);
+    }, 2200);
+
+    return () => window.clearTimeout(timer);
+  }, [currentTime, isPlaying, showChrome]);
+
+  useEffect(() => {
+    if (!playerLoaded || !activeVideoId || activeVideoBlocked || !isPlaying || currentTime > 0 || duration > 0) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      setBlockedVideoIds((current) => (
+        current[activeVideoId] ? current : { ...current, [activeVideoId]: true }
+      ));
+    }, 4500);
+
+    return () => window.clearTimeout(timer);
+  }, [activeVideoBlocked, activeVideoId, currentTime, duration, isPlaying, playerLoaded]);
+
   const handleVisible = useCallback((index: number) => {
     setActiveIndex((current) => (current === index ? current : index));
   }, []);
@@ -741,6 +741,26 @@ export default function HighlightsFeed() {
     setMuted(nextVolume === 0);
   }, []);
 
+  const handleTogglePlay = useCallback(() => {
+    setShowChrome(true);
+    setIsPlaying((current) => !current);
+  }, []);
+
+  const handleSeek = useCallback((ratio: number) => {
+    if (duration <= 0) {
+      return;
+    }
+
+    const nextTime = ratio * duration;
+    postPlayerCommand("seekTo", [nextTime, true]);
+    setCurrentTime(nextTime);
+    setShowChrome(true);
+  }, [duration, postPlayerCommand]);
+
+  const handleRevealChrome = useCallback(() => {
+    setShowChrome(true);
+  }, []);
+
   return (
     <div className="h-full w-full">
       {loading && <Skeleton />}
@@ -762,6 +782,21 @@ export default function HighlightsFeed() {
 
       {!loading && !error && highlights.length > 0 && (
         <div className="relative h-full w-full">
+          {initialPlayerUrl ? (
+            <div className={`pointer-events-none absolute inset-0 z-0 overflow-hidden ${showPlayer ? "opacity-100" : "opacity-0"}`}>
+              <iframe
+                ref={playerIframeRef}
+                src={initialPlayerUrl}
+                title="Highlights player"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                className="absolute inset-0 h-[120%] w-full -top-[10%] border-0"
+                onLoad={() => {
+                  setPlayerLoaded(true);
+                }}
+              />
+            </div>
+          ) : null}
+
           <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex justify-center px-3 pt-3">
             <div className="pointer-events-auto flex w-full max-w-md items-center gap-2 rounded-full border border-white/10 bg-black/60 px-3 py-2 text-white backdrop-blur-xl shadow-[0_10px_30px_rgba(0,0,0,0.28)]">
               <button
@@ -803,7 +838,7 @@ export default function HighlightsFeed() {
 
           <div
             ref={containerRef}
-            className="h-full w-full overflow-y-auto snap-y snap-mandatory scrollbar-hide rounded-[22px]"
+            className="relative z-10 h-full w-full overflow-y-auto snap-y snap-mandatory scrollbar-hide rounded-[22px]"
             style={{ scrollSnapType: "y mandatory", WebkitOverflowScrolling: "touch" }}
           >
             {highlights.map((highlight, index) => (
@@ -812,10 +847,17 @@ export default function HighlightsFeed() {
                 highlight={highlight}
                 index={index}
                 total={highlights.length}
-                autoplayMuted={effectiveMuted}
-                volume={volume}
-                captionsEnabled={captionsEnabled}
+                isActive={index === activeIndex}
+                showPlayer={showPlayer && index === activeIndex}
+                embedBlocked={Boolean(blockedVideoIds[highlight.videoId])}
+                showChrome={showChrome}
+                isPlaying={isPlaying}
+                currentTime={index === activeIndex ? currentTime : 0}
+                duration={index === activeIndex ? duration : 0}
                 onVisible={handleVisible}
+                onTogglePlay={handleTogglePlay}
+                onSeek={handleSeek}
+                onRevealChrome={handleRevealChrome}
               />
             ))}
           </div>
