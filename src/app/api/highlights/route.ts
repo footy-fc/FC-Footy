@@ -47,6 +47,7 @@ type ParsedFeed = {
 
 type InternalVideoHighlight = VideoHighlight & {
   publishedAtMs: number;
+  priority: number;
 };
 
 const CHANNELS: FeedChannel[] = [
@@ -144,6 +145,7 @@ function isLikelyHighlight(title: string): boolean {
 
   return (
     titleLower.includes("highlight") ||
+    titleLower.includes("recap") ||
     titleLower.includes("goals") ||
     titleLower.includes("goal") ||
     titleLower.includes(" vs ") ||
@@ -151,6 +153,58 @@ function isLikelyHighlight(title: string): boolean {
     titleLower.includes(" v ") ||
     /\d+\s*[-:]\s*\d+/.test(titleLower)
   );
+}
+
+function isLikelyBlockedOrNonPlayable(title: string): boolean {
+  const titleLower = title.toLowerCase();
+
+  if (
+    titleLower.includes("live") ||
+    titleLower.includes("build-up") ||
+    titleLower.includes("build up") ||
+    titleLower.includes("team news") ||
+    titleLower.includes("reaction") ||
+    titleLower.includes("training") ||
+    titleLower.includes("press conference") ||
+    titleLower.includes("full match") ||
+    titleLower.includes("watchalong") ||
+    titleLower.includes("stream")
+  ) {
+    return true;
+  }
+
+  const mentionsFutureFixtureDate =
+    /\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)\b/i.test(title) &&
+    /\b20\d{2}\b/.test(title);
+  const explicitlyHighlightLike =
+    titleLower.includes("highlight") ||
+    titleLower.includes("recap") ||
+    titleLower.includes("all goals") ||
+    /\d+\s*[-:]\s*\d+/.test(titleLower);
+
+  if (mentionsFutureFixtureDate && !explicitlyHighlightLike) {
+    return true;
+  }
+
+  return false;
+}
+
+function highlightPriority(title: string): number {
+  const titleLower = title.toLowerCase();
+  let score = 0;
+
+  if (titleLower.includes("extended highlights")) score += 8;
+  if (titleLower.includes("highlights")) score += 6;
+  if (titleLower.includes("highlight")) score += 5;
+  if (titleLower.includes("recap")) score += 4;
+  if (titleLower.includes("all goals")) score += 4;
+  if (titleLower.includes("goals")) score += 3;
+  if (/\d+\s*[-:]\s*\d+/.test(titleLower)) score += 3;
+  if (titleLower.includes(" vs ") || titleLower.includes(" vs.") || titleLower.includes(" v ")) {
+    score += 1;
+  }
+
+  return score;
 }
 
 function toExternalHighlight(item: InternalVideoHighlight): VideoHighlight {
@@ -237,7 +291,13 @@ async function fetchChannelFeed(channel: FeedChannel): Promise<InternalVideoHigh
       const videoId = entry["yt:videoId"];
       const published = entry.published ? new Date(entry.published) : null;
 
-      if (!videoId || !published || Number.isNaN(published.getTime()) || !isLikelyHighlight(title)) {
+      if (
+        !videoId ||
+        !published ||
+        Number.isNaN(published.getTime()) ||
+        !isLikelyHighlight(title) ||
+        isLikelyBlockedOrNonPlayable(title)
+      ) {
         continue;
       }
 
@@ -258,6 +318,7 @@ async function fetchChannelFeed(channel: FeedChannel): Promise<InternalVideoHigh
         awayTeam: metadata.awayTeam,
         scoreline: metadata.scoreline,
         publishedAtMs: published.getTime(),
+        priority: highlightPriority(title),
       });
     }
 
@@ -284,7 +345,13 @@ async function fetchFreshHighlights(): Promise<VideoHighlight[]> {
     uniqueHighlights.push(highlight);
   }
 
-  uniqueHighlights.sort((a, b) => b.publishedAtMs - a.publishedAtMs);
+  uniqueHighlights.sort((a, b) => {
+    if (b.priority !== a.priority) {
+      return b.priority - a.priority;
+    }
+
+    return b.publishedAtMs - a.publishedAtMs;
+  });
 
   const finalHighlights = uniqueHighlights
     .slice(0, HIGHLIGHTS_LIMIT)
