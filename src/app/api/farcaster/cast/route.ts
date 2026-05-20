@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { authenticateFootyUser } from '~/lib/farcaster/serverAuth';
 import { getSignerSecret, getUserFarcasterAccount, appendFarcasterActionLog } from '~/lib/farcaster/store';
 import { signFootyCast } from '~/lib/farcaster/footySignerServer';
-import { extractSubmissionHash, formatFarcasterError, getFarcasterErrorStatus, submitSignedMessageToHaatz } from '~/lib/farcaster/submitMessage';
+import { extractSubmissionHash, formatFarcasterError, getFarcasterErrorStatus, submitSignedFarcasterMessage } from '~/lib/farcaster/submitMessage';
 
 type CastSubmitPayload = {
   fid?: number;
@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    const submission = await submitSignedMessageToHaatz(messageToSubmit);
+    const submission = await submitSignedFarcasterMessage(messageToSubmit);
     await appendFarcasterActionLog({
       userId: authUser.userId,
       fid: body.fid,

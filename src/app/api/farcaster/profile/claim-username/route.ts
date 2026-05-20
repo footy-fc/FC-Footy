@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { authenticateFootyUser } from '~/lib/farcaster/serverAuth';
 import { getFidCustodyAddress, signFootyUserData } from '~/lib/farcaster/footySignerServer';
 import { normalizeUsernameInput, validateUsernameInput } from '~/lib/farcaster/profileValidation';
-import { formatFarcasterError, getFarcasterErrorStatus, submitSignedMessageToHaatz } from '~/lib/farcaster/submitMessage';
+import { formatFarcasterError, getFarcasterErrorStatus, submitSignedFarcasterMessage } from '~/lib/farcaster/submitMessage';
 import { getSignerSecret, getUserFarcasterAccount, upsertUserFarcasterAccount } from '~/lib/farcaster/store';
 
 type UsernameClaimPayload = {
@@ -13,14 +13,14 @@ type UsernameClaimPayload = {
 };
 
 const DEFAULT_FNAME_REGISTRY_URL = 'https://fnames.farcaster.xyz';
-const DEFAULT_HUB_HTTP_URL = 'https://haatz.quilibrium.com';
+const DEFAULT_HUB_HTTP_URL = 'http://154.16.171.247';
 
 function getFnameRegistryUrl() {
   return (process.env.FARCASTER_FNAME_REGISTRY_URL || DEFAULT_FNAME_REGISTRY_URL).replace(/\/+$/, '');
 }
 
 function getHubHttpUrl() {
-  return (process.env.FARCASTER_HTTP_API_URL || process.env.HYPERSNAP_SUBMIT_HUB_URL || DEFAULT_HUB_HTTP_URL).replace(/\/+$/, '');
+  return (process.env.NEXT_PUBLIC_FARCASTER_HTTP_API_URL || DEFAULT_HUB_HTTP_URL).replace(/\/+$/, '');
 }
 
 type UsernameProofLookup = {
@@ -179,7 +179,7 @@ export async function POST(request: NextRequest) {
           type: 'username',
           value: validation.normalized,
         });
-        await submitSignedMessageToHaatz(usernameMessage);
+        await submitSignedFarcasterMessage(usernameMessage);
       }
     }
 

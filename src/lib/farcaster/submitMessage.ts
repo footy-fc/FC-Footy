@@ -1,6 +1,7 @@
 import { Message, makeMessageHash } from '@farcaster/hub-web';
 
-const HAATZ_SUBMIT_TIMEOUT_MS = 30000;
+const FARCASTER_SUBMIT_TIMEOUT_MS = 30000;
+const DEFAULT_FARCASTER_HTTP_API_URL = 'http://154.16.171.247';
 
 function isByteObject(value: unknown): value is Record<string, number> {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
@@ -75,7 +76,7 @@ export function getFarcasterErrorStatus(error: unknown): number {
   if (
     message.includes('bad_request') ||
     message.includes('validation_failure') ||
-    message.includes('haatz submit failed (400)') ||
+    message.includes('farcaster submit failed (400)') ||
     message.includes('failed to submit message')
   ) {
     return 400;
@@ -94,10 +95,10 @@ export function extractSubmissionHash(submission: unknown): string | null {
 }
 
 function resolveHttpApiBaseUrl() {
-  return process.env.FARCASTER_HTTP_API_URL || process.env.HYPERSNAP_SUBMIT_HUB_URL || '';
+  return process.env.NEXT_PUBLIC_FARCASTER_HTTP_API_URL || DEFAULT_FARCASTER_HTTP_API_URL;
 }
 
-function resolveHaatzSubmitUrl() {
+function resolveFarcasterSubmitUrl() {
   const baseUrl = resolveHttpApiBaseUrl().replace(/\/$/, '');
   if (!baseUrl) {
     return '';
@@ -118,8 +119,8 @@ function resolveHaatzSubmitUrl() {
   return `${baseUrl}/v1/submitMessage`;
 }
 
-export async function submitSignedMessageToHaatz(message: unknown) {
-  const submitUrl = resolveHaatzSubmitUrl();
+export async function submitSignedFarcasterMessage(message: unknown) {
+  const submitUrl = resolveFarcasterSubmitUrl();
   if (!submitUrl) {
     throw new Error('No Farcaster submit transport is configured');
   }
@@ -137,7 +138,7 @@ export async function submitSignedMessageToHaatz(message: unknown) {
   ).finish();
 
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), HAATZ_SUBMIT_TIMEOUT_MS);
+  const timeout = setTimeout(() => controller.abort(), FARCASTER_SUBMIT_TIMEOUT_MS);
   const startedAt = Date.now();
 
   let response: Response;
@@ -153,14 +154,14 @@ export async function submitSignedMessageToHaatz(message: unknown) {
     });
   } catch (error) {
     const durationMs = Date.now() - startedAt;
-    console.error('[farcaster/submitMessage] haatz submit failed', {
+    console.error('[farcaster/submitMessage] farcaster submit failed', {
       submitUrl,
       durationMs,
       error: formatFarcasterError(error),
     });
 
     if (error instanceof Error && error.name === 'AbortError') {
-      throw new Error(`Haatz submit timed out after ${HAATZ_SUBMIT_TIMEOUT_MS}ms`);
+      throw new Error(`Farcaster submit timed out after ${FARCASTER_SUBMIT_TIMEOUT_MS}ms`);
     }
 
     throw error;
@@ -177,14 +178,14 @@ export async function submitSignedMessageToHaatz(message: unknown) {
   }
 
   if (!response.ok) {
-    console.error('[farcaster/submitMessage] haatz submit rejected', {
+    console.error('[farcaster/submitMessage] farcaster submit rejected', {
       submitUrl,
       status: response.status,
       payload: typeof payload === 'string' ? payload : payload && typeof payload === 'object' ? JSON.stringify(payload) : null,
     });
 
     if (typeof payload === 'string' && payload.trim().length > 0) {
-      throw new Error(`Haatz submit failed (${response.status}): ${payload}`);
+      throw new Error(`Farcaster submit failed (${response.status}): ${payload}`);
     }
 
     const errorFromObject =
@@ -207,14 +208,14 @@ export async function submitSignedMessageToHaatz(message: unknown) {
 
     throw new Error(
       errorFromObject
-        ? `Haatz submit failed (${response.status}): ${errorFromObject}`
+        ? `Farcaster submit failed (${response.status}): ${errorFromObject}`
         : fallbackPayload
-          ? `Haatz submit failed (${response.status}): ${fallbackPayload}`
-          : `Haatz submit failed (${response.status})`
+          ? `Farcaster submit failed (${response.status}): ${fallbackPayload}`
+          : `Farcaster submit failed (${response.status})`
     );
   }
 
-  console.log('[farcaster/submitMessage] haatz submit ok', {
+  console.log('[farcaster/submitMessage] farcaster submit ok', {
     submitUrl,
     status: response.status,
     durationMs: Date.now() - startedAt,

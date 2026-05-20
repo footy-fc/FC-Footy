@@ -3,7 +3,7 @@ import { authenticateFootyUser } from '~/lib/farcaster/serverAuth';
 import { signFootyUserData } from '~/lib/farcaster/footySignerServer';
 import { normalizeProfileText, normalizeUsernameInput, validateBioInput, validateDisplayNameInput, validatePfpUrlInput, validateUsernameInput } from '~/lib/farcaster/profileValidation';
 import { getSignerSecret, getUserFarcasterAccount, upsertUserFarcasterAccount } from '~/lib/farcaster/store';
-import { formatFarcasterError, getFarcasterErrorStatus, submitSignedMessageToHaatz } from '~/lib/farcaster/submitMessage';
+import { formatFarcasterError, getFarcasterErrorStatus, submitSignedFarcasterMessage } from '~/lib/farcaster/submitMessage';
 
 type ProfileUpdatePayload = {
   username?: string;
@@ -87,7 +87,7 @@ export async function POST(request: NextRequest) {
     for (const update of updates) {
       try {
         const message = await signFootyUserData(account, encryptedPrivateKey, update);
-        await submitSignedMessageToHaatz(message);
+        await submitSignedFarcasterMessage(message);
       } catch (error) {
         const label =
           update.type === 'display'

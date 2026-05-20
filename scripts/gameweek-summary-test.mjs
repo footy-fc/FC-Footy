@@ -73,9 +73,11 @@ async function fetchFPLLeagueData(leagueId = 18526) {
 /**
  * Fetch username from HyperSnap by FID
  */
+const FARCASTER_HTTP_API_URL = process.env.NEXT_PUBLIC_FARCASTER_HTTP_API_URL || 'http://154.16.171.247';
+
 async function fetchUsernameByFid(fid) {
   try {
-    const response = await axios.get(`https://haatz.quilibrium.com/v2/farcaster/user/bulk?fids=${fid}`);
+    const response = await axios.get(`${FARCASTER_HTTP_API_URL}/v2/farcaster/user/bulk?fids=${fid}`);
     return response.data?.users?.[0]?.username?.toLowerCase() || null;
   } catch (error) {
     console.error(`Error fetching username for fid ${fid}:`, error.message);
