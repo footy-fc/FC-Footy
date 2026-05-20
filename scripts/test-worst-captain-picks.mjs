@@ -6,11 +6,17 @@
  */
 
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+const FARCASTER_HTTP_API_URL =
+  process.env.FARCASTER_HTTP_API_URL ||
+  process.env.HYPERSNAP_BASE_URL ||
+  process.env.NEXT_PUBLIC_FARCASTER_HTTP_API_URL ||
+  process.env.NEXT_PUBLIC_HYPERSNAP_BASE_URL ||
+  'http://154.16.171.247:3381';
 
 // Function to fetch Farcaster username by FID
 async function fetchFanUserData(fanFid) {
   try {
-    const response = await fetch(`https://haatz.quilibrium.com/v2/farcaster/user/bulk?fids=${fanFid}`);
+    const response = await fetch(`${FARCASTER_HTTP_API_URL}/v2/farcaster/user/bulk?fids=${fanFid}`);
     const data = await response.json();
     const user = data?.users?.[0];
     if (!user) {

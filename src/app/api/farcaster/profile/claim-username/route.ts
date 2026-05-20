@@ -13,14 +13,19 @@ type UsernameClaimPayload = {
 };
 
 const DEFAULT_FNAME_REGISTRY_URL = 'https://fnames.farcaster.xyz';
-const DEFAULT_HUB_HTTP_URL = 'https://haatz.quilibrium.com';
+const DEFAULT_HUB_HTTP_URL = 'http://154.16.171.247:3381';
 
 function getFnameRegistryUrl() {
   return (process.env.FARCASTER_FNAME_REGISTRY_URL || DEFAULT_FNAME_REGISTRY_URL).replace(/\/+$/, '');
 }
 
 function getHubHttpUrl() {
-  return (process.env.FARCASTER_HTTP_API_URL || process.env.HYPERSNAP_SUBMIT_HUB_URL || DEFAULT_HUB_HTTP_URL).replace(/\/+$/, '');
+  return (
+    process.env.FARCASTER_HTTP_API_URL ||
+    process.env.HYPERSNAP_SUBMIT_HUB_URL ||
+    process.env.HYPERSNAP_BASE_URL ||
+    DEFAULT_HUB_HTTP_URL
+  ).replace(/\/+$/, '');
 }
 
 type UsernameProofLookup = {

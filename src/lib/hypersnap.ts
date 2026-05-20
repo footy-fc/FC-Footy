@@ -1,4 +1,4 @@
-const DEFAULT_HYPERSNAP_BASE_URL = 'https://haatz.quilibrium.com';
+const DEFAULT_FARCASTER_HTTP_API_URL = 'http://154.16.171.247:3381';
 
 function trimTrailingSlash(value: string) {
   return value.replace(/\/+$/, '');
@@ -6,9 +6,10 @@ function trimTrailingSlash(value: string) {
 
 export function getHypersnapBaseUrl(): string {
   const envValue =
+    process.env.FARCASTER_HTTP_API_URL ||
     process.env.HYPERSNAP_BASE_URL ||
     process.env.NEXT_PUBLIC_HYPERSNAP_BASE_URL ||
-    DEFAULT_HYPERSNAP_BASE_URL;
+    DEFAULT_FARCASTER_HTTP_API_URL;
 
   return trimTrailingSlash(envValue);
 }
