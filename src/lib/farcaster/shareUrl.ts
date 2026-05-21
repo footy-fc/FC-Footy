@@ -29,8 +29,10 @@ export function normalizeFootyShareUrl(input: string): string {
     }
 
     url.hash = '';
+    const normalizedPath = url.pathname.replace(/\/+$/, '') || '/';
+    const normalizedSearch = url.searchParams.toString();
 
-    return url.toString();
+    return normalizedSearch ? `${normalizedPath}?${normalizedSearch}` : normalizedPath;
   } catch {
     return input.trim();
   }

@@ -52,7 +52,7 @@ const HomeTab: React.FC<HomeTabProps> = ({ onNavigate, viewerFid }) => {
       <div className="mb-4">
         <div className="app-eyebrow mb-2">Home</div>
         <div className="flex items-end justify-between gap-3">
-          <h2 className="app-title">Footy App adapts to you</h2>
+          <h2 className="app-title">Footy App</h2>
           <button
             onClick={() => onNavigate("fanClubs")}
             title="Follow teams to personalize Home"

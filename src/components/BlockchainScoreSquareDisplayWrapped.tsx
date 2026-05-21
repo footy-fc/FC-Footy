@@ -262,6 +262,8 @@ useEffect(() => {
   const selectedMatch = {
     homeTeam: home,
     awayTeam: away,
+    homeTeamId: undefined,
+    awayTeamId: undefined,
     competitorsLong: `${home} vs ${away}`,
     homeLogo: getTeamLogo(home, getLeagueCode(leagueId)),
     awayLogo: getTeamLogo(away, getLeagueCode(leagueId)),
@@ -269,6 +271,8 @@ useEffect(() => {
     awayScore: Number(awayScore) || 0,
     clock: isMatchLive ? 'LIVE' : (timeUntilMatch || ''),
     eventStarted: !!isMatchLive,
+    matchDate: undefined,
+    espnEventId: undefined,
     keyMoments: [],
     // Add rich match data for commentator integration (empty for ScoreSquare games)
     matchEvents: [],

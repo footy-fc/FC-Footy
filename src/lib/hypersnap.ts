@@ -76,6 +76,7 @@ export interface HypersnapConversationCast {
   text?: string;
   timestamp?: string | number;
   author?: HypersnapUser;
+  direct_replies?: HypersnapConversationCast[];
 }
 
 export interface HypersnapFeedCast {

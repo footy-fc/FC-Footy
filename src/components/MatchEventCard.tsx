@@ -79,6 +79,8 @@ interface EventCardProps {
 interface SelectedMatch {
   homeTeam: string;
   awayTeam: string;
+  homeTeamId?: string;
+  awayTeamId?: string;
   competitorsLong: string;
   homeLogo: string;
   awayLogo: string;
@@ -86,6 +88,8 @@ interface SelectedMatch {
   awayScore: number;
   clock: string;
   eventStarted: boolean;
+  matchDate?: string;
+  espnEventId?: string;
   keyMoments: string[];
   // Rich match data for Peter Drury integration
   matchEvents?: Detail[];
@@ -287,6 +291,8 @@ const MatchEventCard: React.FC<EventCardProps> = ({ event, sportId, isOpen: isOp
       setSelectedMatch({
         homeTeam,
         awayTeam,
+        homeTeamId: event.competitions[0]?.competitors[0]?.team.id,
+        awayTeamId: event.competitions[0]?.competitors[1]?.team.id,
         competitorsLong,
         homeLogo: homeTeamLogo,
         awayLogo: awayTeamLogo,
@@ -294,6 +300,8 @@ const MatchEventCard: React.FC<EventCardProps> = ({ event, sportId, isOpen: isOp
         awayScore,
         clock,
         eventStarted,
+        matchDate: event.date,
+        espnEventId: event.id,
         keyMoments: keyMomentStrings,
         // Add rich match data for commentator integration
         matchEvents: matchData.matchEvents,

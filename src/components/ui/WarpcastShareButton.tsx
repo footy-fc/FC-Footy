@@ -289,12 +289,16 @@ interface SelectedMatch {
   competitorsLong: string;
   homeTeam: string;
   awayTeam: string;
+  homeTeamId?: string;
+  awayTeamId?: string;
   homeScore: number;
   awayScore: number;
   clock: string;
   homeLogo: string;
   awayLogo: string;
   eventStarted: boolean;
+  matchDate?: string;
+  espnEventId?: string;
   keyMoments?: string[];
   // New rich data fields
   matchEvents?: RichMatchEvent[];
@@ -316,6 +320,19 @@ interface WarpcastShareButtonProps {
   prizePoolEth?: number;
 }
 
+interface MatchThreadParticipant {
+  fid: number;
+  displayName: string;
+  pfpUrl: string | null;
+}
+
+interface BanterSuggestion {
+  id: string;
+  label: string;
+  text: string;
+  mode: 'same-side' | 'rival-poke' | 'player-specific';
+}
+
 export function WarpcastShareButton({ selectedMatch, compositeImage, leagueId, moneyGamesParams, ticketPriceEth, prizePoolEth }: WarpcastShareButtonProps) {
   const { isGenerating, currentCommentator } = useCommentator();
   const {
@@ -329,6 +346,7 @@ export function WarpcastShareButton({ selectedMatch, compositeImage, leagueId, m
     beginSignerAuthorization,
     signCast,
     submitSignedMessage,
+    fid,
   } = useFootyFarcaster();
   const [ethUsdPrice, setEthUsdPrice] = useState<number | null>(null);
   const [isCreatingRoom, setIsCreatingRoom] = useState<boolean>(false);
@@ -338,6 +356,11 @@ export function WarpcastShareButton({ selectedMatch, compositeImage, leagueId, m
   const [shareMessage, setShareMessage] = useState<string | null>(null);
   const [isAdvancingOnboarding, setIsAdvancingOnboarding] = useState(false);
   const [matchThreadState, setMatchThreadState] = useState<'unknown' | 'first' | 'existing'>('unknown');
+  const [matchThreadParticipants, setMatchThreadParticipants] = useState<MatchThreadParticipant[]>([]);
+  const [matchThreadReplyCount, setMatchThreadReplyCount] = useState(0);
+  const [banterSuggestions, setBanterSuggestions] = useState<BanterSuggestion[]>([]);
+  const [isLoadingBanterSuggestions, setIsLoadingBanterSuggestions] = useState(false);
+  const [isResolvingThreadContext, setIsResolvingThreadContext] = useState(true);
 
   useEffect(() => {
     if (shareStatus !== 'sent') {
@@ -414,6 +437,11 @@ export function WarpcastShareButton({ selectedMatch, compositeImage, leagueId, m
     const canonicalShareUrl = normalizeFootyShareUrl(`${frameUrl}${query ? `?${query}` : ''}`);
 
     setMatchThreadState('unknown');
+    setMatchThreadParticipants([]);
+    setMatchThreadReplyCount(0);
+    setBanterSuggestions([]);
+    setIsLoadingBanterSuggestions(false);
+    setIsResolvingThreadContext(true);
 
     const loadMatchThreadState = async () => {
       try {
@@ -421,15 +449,69 @@ export function WarpcastShareButton({ selectedMatch, compositeImage, leagueId, m
           `/api/farcaster/match-thread?shareUrl=${encodeURIComponent(canonicalShareUrl)}&limit=25`
         );
         const payload = (await response.json().catch(() => null)) as
-          | { found?: boolean; parentCast?: { fid?: number; hash?: string } | null }
+          | {
+              found?: boolean;
+              parentCast?: { fid?: number; hash?: string } | null;
+              replyParticipants?: MatchThreadParticipant[];
+              replyCount?: number;
+            }
           | null;
 
         if (!cancelled) {
-          setMatchThreadState(response.ok && payload?.found ? 'existing' : 'first');
+          const hasExistingThread = Boolean(response.ok && payload?.found);
+          setMatchThreadState(hasExistingThread ? 'existing' : 'first');
+          setMatchThreadParticipants(hasExistingThread && Array.isArray(payload?.replyParticipants) ? payload.replyParticipants : []);
+          setMatchThreadReplyCount(hasExistingThread && typeof payload?.replyCount === 'number' ? payload.replyCount : 0);
+
+          setIsLoadingBanterSuggestions(true);
+
+          try {
+            const suggestionsRes = await fetch('/api/farcaster/banter-suggestions', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                shareUrl: canonicalShareUrl,
+                viewerFid: fid,
+                selectedMatch: {
+                  homeTeam: selectedMatch.homeTeam,
+                  awayTeam: selectedMatch.awayTeam,
+                  competition: selectedMatch.competition,
+                  espnEventId: selectedMatch.espnEventId,
+                  matchDate: selectedMatch.matchDate,
+                  keyMoments: selectedMatch.keyMoments || [],
+                  matchEvents: selectedMatch.matchEvents || [],
+                },
+              }),
+            });
+
+            const suggestionsPayload = (await suggestionsRes.json().catch(() => null)) as
+              | { suggestions?: BanterSuggestion[] }
+              | null;
+
+            if (!cancelled) {
+              setBanterSuggestions(Array.isArray(suggestionsPayload?.suggestions) ? suggestionsPayload.suggestions : []);
+            }
+          } catch {
+            if (!cancelled) {
+              setBanterSuggestions([]);
+            }
+          } finally {
+            if (!cancelled) {
+              setIsLoadingBanterSuggestions(false);
+              setIsResolvingThreadContext(false);
+            }
+          }
         }
       } catch {
         if (!cancelled) {
           setMatchThreadState('unknown');
+          setMatchThreadParticipants([]);
+          setMatchThreadReplyCount(0);
+          setBanterSuggestions([]);
+          setIsLoadingBanterSuggestions(false);
+          setIsResolvingThreadContext(false);
         }
       }
     };
@@ -446,8 +528,15 @@ export function WarpcastShareButton({ selectedMatch, compositeImage, leagueId, m
     selectedMatch.awayTeam,
     selectedMatch.clock,
     selectedMatch.eventStarted,
+    selectedMatch.espnEventId,
     selectedMatch.homeScore,
+    selectedMatch.homeTeamId,
     selectedMatch.homeTeam,
+    selectedMatch.keyMoments,
+    selectedMatch.matchDate,
+    selectedMatch.matchEvents,
+    selectedMatch.competition,
+    fid,
   ]);
 
   // Cycle through 3 loading messages and stop
@@ -500,6 +589,9 @@ export function WarpcastShareButton({ selectedMatch, compositeImage, leagueId, m
       : matchThreadState === 'existing'
         ? 'Add to the banter'
         : null;
+
+  const visibleParticipants = matchThreadState === 'existing' ? matchThreadParticipants.slice(0, 3) : [];
+  const additionalParticipants = Math.max(matchThreadReplyCount - visibleParticipants.length, 0);
 
   const commentaryPlaceholder =
     matchThreadState === 'first'
@@ -841,9 +933,52 @@ export function WarpcastShareButton({ selectedMatch, compositeImage, leagueId, m
 
   return (
     <div className="w-full space-y-3">
-      {subtleShareHint ? (
-        <p className="text-xs uppercase tracking-[0.18em] text-lightPurple/70">{subtleShareHint}</p>
-      ) : null}
+      <div className="min-h-[54px] space-y-2">
+        {isResolvingThreadContext ? (
+          <>
+            <div className="flex items-center gap-2">
+              <div className="h-7 w-7 animate-pulse rounded-full bg-lightPurple/10" />
+              <div className="h-7 w-7 animate-pulse rounded-full bg-lightPurple/10" />
+              <div className="h-7 w-7 animate-pulse rounded-full bg-lightPurple/10" />
+            </div>
+            <div className="h-3 w-32 animate-pulse rounded bg-lightPurple/10" />
+          </>
+        ) : (
+          <>
+            {matchThreadState === 'existing' && visibleParticipants.length > 0 ? (
+              <div className="flex items-center gap-2">
+                <div className="flex items-center">
+                  {visibleParticipants.map((participant, index) => (
+                    <div
+                      key={participant.fid}
+                      className={`relative flex h-7 w-7 items-center justify-center overflow-hidden rounded-full border border-darkPurple bg-[#251b34] text-[10px] font-semibold text-notWhite ${index > 0 ? '-ml-2' : ''}`}
+                      title={participant.displayName}
+                    >
+                      {participant.pfpUrl ? (
+                        <img
+                          src={participant.pfpUrl}
+                          alt={participant.displayName}
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <span>{getInitials(participant.displayName)}</span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                {additionalParticipants > 0 ? (
+                  <span className="text-[11px] uppercase tracking-[0.14em] text-lightPurple/55">
+                    +{additionalParticipants} others
+                  </span>
+                ) : null}
+              </div>
+            ) : null}
+            {subtleShareHint ? (
+              <p className="text-xs uppercase tracking-[0.18em] text-lightPurple/70">{subtleShareHint}</p>
+            ) : null}
+          </>
+        )}
+      </div>
       <textarea
         value={personalCommentary}
         onChange={(event) => setPersonalCommentary(event.target.value)}
@@ -852,6 +987,38 @@ export function WarpcastShareButton({ selectedMatch, compositeImage, leagueId, m
         rows={3}
         className="w-full rounded-lg border border-limeGreenOpacity/30 bg-darkPurple px-3 py-2 text-[16px] text-notWhite placeholder:text-lightPurple/60 focus:border-deepPink focus:outline-none"
       />
+      {(matchThreadState === 'existing' || matchThreadState === 'first' || isLoadingBanterSuggestions || banterSuggestions.length > 0) ? (
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] uppercase tracking-[0.14em] text-lightPurple/55">Suggested banter</span>
+            {isLoadingBanterSuggestions ? (
+              <span className="text-[10px] uppercase tracking-[0.12em] text-lightPurple/40">Loading</span>
+            ) : null}
+          </div>
+          <div className="-mx-1 overflow-x-auto pb-1">
+            <div className="flex min-w-max gap-2 px-1">
+              {isLoadingBanterSuggestions
+                ? Array.from({ length: 3 }).map((_, index) => (
+                    <div
+                      key={index}
+                      className="h-[88px] w-[220px] animate-pulse rounded-xl border border-lightPurple/10 bg-lightPurple/5"
+                    />
+                  ))
+                : banterSuggestions.map((suggestion) => (
+                    <button
+                      key={suggestion.id}
+                      type="button"
+                      onClick={() => setPersonalCommentary(suggestion.text)}
+                      className="w-[240px] flex-none rounded-xl border border-lightPurple/20 bg-darkPurple px-3 py-2 text-left transition hover:border-deepPink"
+                    >
+                      <div className="text-[10px] uppercase tracking-[0.14em] text-lightPurple/55">{suggestion.label}</div>
+                      <div className="mt-1 text-[13px] leading-5 text-notWhite">{suggestion.text}</div>
+                    </button>
+                  ))}
+            </div>
+          </div>
+        </div>
+      ) : null}
       <button
         onClick={openWarpcastUrl}
         disabled={isGenerating || isCreatingRoom || isAdvancingOnboarding || shareStatus === 'sent'}
