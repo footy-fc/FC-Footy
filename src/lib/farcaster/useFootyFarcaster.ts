@@ -14,17 +14,24 @@ import { deriveHubProfilePatch, fetchUserByFid, fetchUserDataMessagesByFid, fetc
 import { bytesToHex, createWalletClient, custom, hexToBytes, isAddress } from 'viem';
 import { optimism } from 'viem/chains';
 
+type FootyParentCastInput = {
+  fid: number;
+  hash: `0x${string}`;
+};
+
 type FootyCastInput = {
   text: string;
   embeds?: string[];
   mentions?: number[];
   mentionsPositions?: number[];
+  parentCast?: FootyParentCastInput;
 };
 
 type FootySignedCastPayload = {
   fid: number;
   text: string;
   embeds?: string[];
+  parentCast?: FootyParentCastInput;
   message?: unknown;
 };
 
@@ -1085,6 +1092,7 @@ export function useFootyFarcaster(): FootyFarcasterState {
       const embeds = typeof input === 'string' ? [] : (input.embeds || []);
       const mentions = typeof input === 'string' ? [] : (input.mentions || []);
       const mentionsPositions = typeof input === 'string' ? [] : (input.mentionsPositions || []);
+      const parentCast = typeof input === 'string' ? undefined : input.parentCast;
 
       if (!text.trim()) {
         throw new Error('Cast text is required');
@@ -1098,7 +1106,13 @@ export function useFootyFarcaster(): FootyFarcasterState {
         const signer = new ExternalEd25519Signer(signFarcasterMessage, getFarcasterSignerPublicKey);
         const body = CastAddBody.create({
           text,
-          parentUrl: FOOTBALL_PARENT_URL,
+          parentUrl: parentCast ? undefined : FOOTBALL_PARENT_URL,
+          parentCastId: parentCast
+            ? {
+                fid: parentCast.fid,
+                hash: hexToBytes(parentCast.hash),
+              }
+            : undefined,
           embeds: embeds.map((url) => ({ url })),
           mentions,
           mentionsPositions,
@@ -1120,6 +1134,7 @@ export function useFootyFarcaster(): FootyFarcasterState {
           fid: linkedFid,
           text,
           embeds,
+          parentCast,
           message: messageResult.value,
         } satisfies FootySignedCastPayload;
       }
@@ -1129,6 +1144,7 @@ export function useFootyFarcaster(): FootyFarcasterState {
           fid: storedAccount.fid,
           text,
           embeds,
+          parentCast,
         } satisfies FootySignedCastPayload;
       }
 
@@ -1151,6 +1167,7 @@ export function useFootyFarcaster(): FootyFarcasterState {
           fid: payload.fid,
           text: payload.text,
           embeds: payload.embeds,
+          parentCast: payload.parentCast,
           message: payload.message,
         }),
       });

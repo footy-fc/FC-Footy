@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { sdk } from "@farcaster/miniapp-sdk";
 import { BASE_URL } from '~/lib/config';
 import { useFootyFarcaster } from '~/lib/farcaster/useFootyFarcaster';
+import { normalizeFootyShareUrl } from '~/lib/farcaster/shareUrl';
 import { useCommentator } from '~/hooks/useCommentator';
 import { findMostSignificantEvent } from '~/utils/matchDataUtils';
 import { RichMatchEvent } from '~/types/commentatorTypes';
@@ -336,6 +337,7 @@ export function WarpcastShareButton({ selectedMatch, compositeImage, leagueId, m
   const [shareStatus, setShareStatus] = useState<'idle' | 'sent'>('idle');
   const [shareMessage, setShareMessage] = useState<string | null>(null);
   const [isAdvancingOnboarding, setIsAdvancingOnboarding] = useState(false);
+  const [matchThreadState, setMatchThreadState] = useState<'unknown' | 'first' | 'existing'>('unknown');
 
   useEffect(() => {
     if (shareStatus !== 'sent') {
@@ -375,6 +377,78 @@ export function WarpcastShareButton({ selectedMatch, compositeImage, leagueId, m
     load();
     return () => { cancelled = true; };
     }, [moneyGamesParams]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const frameUrlRaw = BASE_URL || 'https://fc-footy.vercel.app';
+    const frameUrl = frameUrlRaw.startsWith('http') ? frameUrlRaw : `https://${frameUrlRaw}`;
+    const search = new URLSearchParams();
+
+    if (moneyGamesParams) {
+      search.set("tab", "moneyGames");
+      search.set("gameType", "scoreSquare");
+      search.set("gameState", "active");
+      search.set("eventId", moneyGamesParams.eventId);
+      if (moneyGamesParams.gameId) {
+        search.set("gameId", moneyGamesParams.gameId);
+      }
+      if (leagueId) {
+        search.set("league", leagueId);
+      }
+    } else {
+      search.set("tab", "matches");
+      if (leagueId) {
+        search.set("league", leagueId);
+      }
+    }
+
+    search.set("home", selectedMatch.homeTeam);
+    search.set("away", selectedMatch.awayTeam);
+    search.set("homeScore", String(selectedMatch.homeScore));
+    search.set("awayScore", String(selectedMatch.awayScore));
+    search.set("status", selectedMatch.clock);
+    search.set("isLive", String(Boolean(selectedMatch.eventStarted)));
+
+    const query = search.toString();
+    const canonicalShareUrl = normalizeFootyShareUrl(`${frameUrl}${query ? `?${query}` : ''}`);
+
+    setMatchThreadState('unknown');
+
+    const loadMatchThreadState = async () => {
+      try {
+        const response = await fetch(
+          `/api/farcaster/match-thread?shareUrl=${encodeURIComponent(canonicalShareUrl)}&limit=25`
+        );
+        const payload = (await response.json().catch(() => null)) as
+          | { found?: boolean; parentCast?: { fid?: number; hash?: string } | null }
+          | null;
+
+        if (!cancelled) {
+          setMatchThreadState(response.ok && payload?.found ? 'existing' : 'first');
+        }
+      } catch {
+        if (!cancelled) {
+          setMatchThreadState('unknown');
+        }
+      }
+    };
+
+    void loadMatchThreadState();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    leagueId,
+    moneyGamesParams,
+    selectedMatch.awayScore,
+    selectedMatch.awayTeam,
+    selectedMatch.clock,
+    selectedMatch.eventStarted,
+    selectedMatch.homeScore,
+    selectedMatch.homeTeam,
+  ]);
 
   // Cycle through 3 loading messages and stop
   useEffect(() => {
@@ -419,6 +493,18 @@ export function WarpcastShareButton({ selectedMatch, compositeImage, leagueId, m
     onboardingState === 'needs_email' ? 'Add email to share' :
     onboardingState === 'needs_wallet' ? 'Create wallet to share' :
     'Share Score';
+
+  const subtleShareHint =
+    matchThreadState === 'first'
+      ? 'Start the banter'
+      : matchThreadState === 'existing'
+        ? 'Add to the banter'
+        : null;
+
+  const commentaryPlaceholder =
+    matchThreadState === 'first'
+      ? 'Start the banter'
+      : 'Add your commentary';
 
   const onboardingMessage = (() => {
     if (!hasFootySession) {
@@ -636,10 +722,8 @@ export function WarpcastShareButton({ selectedMatch, compositeImage, leagueId, m
                 console.log('Composite image uploaded. Key:', uploadResult.objectKey);
               }
 
-              const urlObj = new URL(miniAppUrl);
-              urlObj.searchParams.set('imageKey', uploadResult.objectKey);
               return {
-                shareUrl: urlObj.toString(),
+                shareUrl: miniAppUrl,
                 imageUrl: uploadResult.publicUrl,
               };
             })().catch((error) => {
@@ -655,12 +739,33 @@ export function WarpcastShareButton({ selectedMatch, compositeImage, leagueId, m
             });
 
       const [commentary, shareTarget] = await Promise.all([commentaryPromise, shareTargetPromise]);
+      const canonicalShareUrl = normalizeFootyShareUrl(shareTarget.shareUrl);
+
+      let parentCast: { fid: number; hash: `0x${string}` } | undefined;
+      try {
+        const parentLookupRes = await fetch(
+          `/api/farcaster/match-thread?shareUrl=${encodeURIComponent(canonicalShareUrl)}&limit=25`
+        );
+        const parentLookup = (await parentLookupRes.json().catch(() => null)) as
+          | { found?: boolean; parentCast?: { fid?: number; hash?: string } | null; error?: string }
+          | null;
+
+        if (parentLookupRes.ok && parentLookup?.found && parentLookup.parentCast?.fid && parentLookup.parentCast.hash) {
+          parentCast = {
+            fid: parentLookup.parentCast.fid,
+            hash: parentLookup.parentCast.hash as `0x${string}`,
+          };
+        }
+      } catch (error) {
+        console.warn('Unable to lookup recent match thread before sharing.', error);
+      }
 
       // Build the cast text
       const isMoneyGame = Boolean(moneyGamesParams);
+      const isReply = Boolean(parentCast);
       let matchSummary = fitCastText([
         `${competitorsLong}${personalCommentaryText}${keyMomentsText}`,
-        '@gabedev.eth @kmacb.eth are you in on this one?',
+        ...(isReply ? [] : ['@gabedev.eth @kmacb.eth are you in on this one?']),
       ]);
       
       if (isMoneyGame) {
@@ -683,19 +788,22 @@ export function WarpcastShareButton({ selectedMatch, compositeImage, leagueId, m
         // Prepend commentary for regular matches with proper formatting
         const commentatorDisplay = currentCommentator?.displayName || 'Hattrick Homer';
         matchSummary = fitCastText([
-          `🎤 ${commentary} — ${commentatorDisplay} ai`,
           `${competitorsLong}${personalCommentaryText}${keyMomentsText}`,
-          '@gabedev.eth @kmacb.eth are you in on this one?',
+          `🎤 ${commentary} — ${commentatorDisplay} ai`,
+          ...(isReply ? [] : ['@gabedev.eth @kmacb.eth are you in on this one?']),
         ]);
       }
 
-      const embeds: [] | [string] | [string, string] = shareTarget.imageUrl
-        ? [shareTarget.imageUrl, shareTarget.shareUrl]
-        : [shareTarget.shareUrl];
+      const embeds: [] | [string] | [string, string] = isReply
+        ? []
+        : shareTarget.imageUrl
+          ? [shareTarget.imageUrl, shareTarget.shareUrl]
+          : [shareTarget.shareUrl];
 
       const signedMessage = await signCast({
         text: matchSummary,
         embeds,
+        parentCast,
       });
 
       await submitSignedMessage(signedMessage);
@@ -733,10 +841,13 @@ export function WarpcastShareButton({ selectedMatch, compositeImage, leagueId, m
 
   return (
     <div className="w-full space-y-3">
+      {subtleShareHint ? (
+        <p className="text-xs uppercase tracking-[0.18em] text-lightPurple/70">{subtleShareHint}</p>
+      ) : null}
       <textarea
         value={personalCommentary}
         onChange={(event) => setPersonalCommentary(event.target.value)}
-        placeholder="Add your commentary"
+        placeholder={commentaryPlaceholder}
         maxLength={220}
         rows={3}
         className="w-full rounded-lg border border-limeGreenOpacity/30 bg-darkPurple px-3 py-2 text-[16px] text-notWhite placeholder:text-lightPurple/60 focus:border-deepPink focus:outline-none"

@@ -78,6 +78,16 @@ export interface HypersnapConversationCast {
   author?: HypersnapUser;
 }
 
+export interface HypersnapFeedCast {
+  hash: string;
+  text?: string;
+  timestamp?: string | number;
+  author?: HypersnapUser;
+  embeds?: Array<{ url?: string }>;
+  parent_hash?: string | null;
+  parent_url?: string | null;
+}
+
 export interface HypersnapConversationNode {
   cast: HypersnapConversationCast;
   replies?: HypersnapConversationNode[];
@@ -282,4 +292,32 @@ export async function fetchCastConversation(
   });
 
   return fetchHypersnapJson<HypersnapConversationResponse>(`/v2/farcaster/cast/conversation?${params.toString()}`);
+}
+
+export async function fetchParentUrlFeed(parentUrls: string[], limit = 25, cursor?: string | null): Promise<{
+  casts: HypersnapFeedCast[];
+  next?: {
+    cursor?: string | null;
+  };
+}> {
+  const normalized = parentUrls.map((value) => value.trim()).filter(Boolean);
+  if (normalized.length === 0) {
+    return { casts: [] };
+  }
+
+  const params = new URLSearchParams({
+    parent_urls: normalized.join(','),
+    limit: String(limit),
+  });
+
+  if (cursor) {
+    params.set('cursor', cursor);
+  }
+
+  return fetchHypersnapJson<{ casts?: HypersnapFeedCast[]; next?: { cursor?: string | null } }>(
+    `/v2/farcaster/feed/parent_urls?${params.toString()}`
+  ).then((response) => ({
+    casts: Array.isArray(response.casts) ? response.casts : [],
+    next: response.next,
+  }));
 }

@@ -9,7 +9,7 @@ import {
   makeUserDataAdd,
   UserDataType,
 } from '@farcaster/core';
-import { bytesToHex, createPublicClient, createWalletClient, http } from 'viem';
+import { bytesToHex, createPublicClient, createWalletClient, hexToBytes, http } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { optimism } from 'viem/chains';
 import { CastAddBody, FarcasterNetwork, makeCastAdd, type CastAddMessage } from '@farcaster/hub-web';
@@ -223,7 +223,11 @@ export async function submitFootySignerAddFor(request: PendingFootySignerRequest
   return hash;
 }
 
-export async function signFootyCast(account: UserFarcasterAccount, encryptedPrivateKey: string, input: { text: string; embeds?: string[] }) {
+export async function signFootyCast(
+  account: UserFarcasterAccount,
+  encryptedPrivateKey: string,
+  input: { text: string; embeds?: string[]; parentCast?: { fid: number; hash: `0x${string}` } }
+) {
   if (!account.signerPublicKey) {
     throw new Error('Missing Footy signer public key');
   }
@@ -231,7 +235,13 @@ export async function signFootyCast(account: UserFarcasterAccount, encryptedPriv
   const signer = new NobleEd25519Signer(decryptPrivateKey(encryptedPrivateKey));
   const body = CastAddBody.create({
     text: input.text,
-    parentUrl: FOOTBALL_PARENT_URL,
+    parentUrl: input.parentCast ? undefined : FOOTBALL_PARENT_URL,
+    parentCastId: input.parentCast
+      ? {
+          fid: input.parentCast.fid,
+          hash: hexToBytes(input.parentCast.hash),
+        }
+      : undefined,
     embeds: (input.embeds || []).map((url) => ({ url })),
     mentions: [],
     mentionsPositions: [],

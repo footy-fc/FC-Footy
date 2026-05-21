@@ -8,6 +8,10 @@ type CastSubmitPayload = {
   fid?: number;
   text?: string;
   embeds?: string[];
+  parentCast?: {
+    fid?: number;
+    hash?: string;
+  };
   message?: unknown;
 };
 
@@ -37,6 +41,13 @@ export async function POST(request: NextRequest) {
       messageToSubmit = await signFootyCast(account, encryptedPrivateKey, {
         text: body.text || '',
         embeds: body.embeds || [],
+        parentCast:
+          body.parentCast && Number.isFinite(body.parentCast.fid) && typeof body.parentCast.hash === 'string'
+            ? {
+                fid: Number(body.parentCast.fid),
+                hash: body.parentCast.hash as `0x${string}`,
+              }
+            : undefined,
       });
     }
 
