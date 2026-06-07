@@ -21,6 +21,7 @@ interface AppIdentityBarProps {
   onOpenAdmins?: () => void;
   onOpenTeam?: (teamId: string) => void;
   onOpenTools?: () => void;
+  onOpenFantasy?: () => void;
   selectedTab: string;
   isAdminFid: boolean;
   viewerFid?: number;
@@ -42,6 +43,7 @@ const AppIdentityBar: React.FC<AppIdentityBarProps> = ({
   onOpenAdmins,
   onOpenTeam,
   onOpenTools,
+  onOpenFantasy,
   selectedTab,
   isAdminFid,
   viewerFid,
@@ -154,6 +156,22 @@ const AppIdentityBar: React.FC<AppIdentityBarProps> = ({
       </div>
 
       <div className="flex items-center gap-2">
+        {onOpenFantasy ? (
+          <button
+            type="button"
+            onClick={onOpenFantasy}
+            className={`flex h-10 w-10 items-center justify-center rounded-2xl border transition-colors ${
+              selectedTab === "fantasy"
+                ? "border-deepPink bg-deepPink/20 text-notWhite"
+                : "border-limeGreenOpacity/20 bg-darkPurple/70 text-lightPurple hover:bg-darkPurple"
+            }`}
+            aria-label="Open Fantasy"
+          >
+            <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M12 3l2.8 5.67L21 9.6l-4.5 4.38L17.6 21 12 18.02 6.4 21l1.1-7.02L3 9.6l6.2-.93L12 3z" />
+            </svg>
+          </button>
+        ) : null}
         {onOpenTools ? (
           <button
             type="button"

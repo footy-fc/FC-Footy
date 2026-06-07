@@ -3,6 +3,7 @@ import React, { useState, useEffect } from "react";
 
 import GameWeekSummaryStepByStep from "./admin/GameWeekSummaryStepByStep";
 import RevnetInspector from "./admin/RevnetInspector";
+import AdminWorldCupToggle from "./admin/AdminWorldCupToggle";
 
 const AdminDashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState("gameWeekCasts");
@@ -16,6 +17,7 @@ const AdminDashboard: React.FC = () => {
     { id: "teams", label: "Teams", icon: "⚽" },
     { id: "leagues", label: "Leagues", icon: "🏅" },
     { id: "matchRooms", label: "Match Rooms", icon: "💬" },
+    { id: "worldCup", label: "World Cup", icon: "🏆" },
     { id: "revnet", label: "Revnet", icon: "🛠️" },
   ];
 
@@ -208,6 +210,10 @@ const AdminDashboard: React.FC = () => {
               Open Full Admin Panel
             </button>
           </div>
+        )}
+
+        {activeTab === "worldCup" && (
+          <AdminWorldCupToggle />
         )}
 
         {activeTab === "revnet" && (

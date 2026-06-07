@@ -3,6 +3,7 @@
 import React from "react";
 import BadgedProfileAvatar from "~/components/BadgedProfileAvatar";
 import type { SocialFeedCast } from "~/components/social/types";
+import { useFarcasterActions } from "~/lib/farcaster/actions";
 
 function formatTimestamp(value?: string) {
   if (!value) {
@@ -37,6 +38,8 @@ type SocialCastCardProps = {
   badgeAlt?: string | null;
   actionHref?: string;
   actionLabel?: string;
+  /** If false, like/recast buttons are hidden (e.g. read-only contexts) */
+  allowReactions?: boolean;
 };
 
 export default function SocialCastCard({
@@ -45,7 +48,15 @@ export default function SocialCastCard({
   badgeAlt,
   actionHref,
   actionLabel = "Open",
+  allowReactions = true,
 }: SocialCastCardProps) {
+  const { toggleLike, toggleRecast, likedHashes, recastedHashes, isPending, error: reactionError } =
+    useFarcasterActions();
+
+  const normalizedHash = cast.hash?.startsWith("0x") ? cast.hash : `0x${cast.hash}`;
+  const isLiked = likedHashes.has(normalizedHash);
+  const isRecasted = recastedHashes.has(normalizedHash);
+  const castAuthorFid = cast.author?.fid ?? 0;
   const authorName = cast.author?.display_name || cast.author?.username || "Footy supporter";
   const authorUsername = cast.author?.username;
   const embedUrls = (cast.embeds || [])
@@ -139,10 +150,88 @@ export default function SocialCastCard({
           ) : null}
         </div>
 
-        <div className="mt-4 flex items-center gap-4 border-t border-lightPurple/10 pt-3 text-xs text-lightPurple/70">
-          <span>{statNumber(cast.replies?.count)} replies</span>
-          <span>{statNumber(cast.reactions?.likes_count)} likes</span>
-          <span>{statNumber(cast.reactions?.recasts_count)} recasts</span>
+        {/* Reaction error toast */}
+        {reactionError ? (
+          <p className="mt-2 text-[11px] text-fontRed">{reactionError}</p>
+        ) : null}
+
+        <div className="mt-4 flex items-center gap-1 border-t border-lightPurple/10 pt-3">
+          {/* Replies — read-only */}
+          <div className="flex items-center gap-1 px-2 py-1 text-xs text-lightPurple/60">
+            <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+            </svg>
+            <span>{statNumber(cast.replies?.count)}</span>
+          </div>
+
+          {/* Like button */}
+          {allowReactions ? (
+            <button
+              onClick={() => castAuthorFid > 0 && toggleLike(cast.hash, castAuthorFid)}
+              disabled={isPending || castAuthorFid === 0}
+              aria-label={isLiked ? "Unlike cast" : "Like cast"}
+              className={[
+                "flex items-center gap-1 px-2 py-1 rounded-full text-xs transition-all duration-150",
+                isLiked
+                  ? "text-deepPink font-semibold"
+                  : "text-lightPurple/60 hover:text-deepPink",
+                isPending ? "opacity-50 cursor-not-allowed" : "",
+              ].join(" ")}
+            >
+              <svg
+                className="w-3.5 h-3.5"
+                viewBox="0 0 24 24"
+                fill={isLiked ? "currentColor" : "none"}
+                stroke="currentColor"
+                strokeWidth="2"
+              >
+                <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+              </svg>
+              <span>{statNumber(cast.reactions?.likes_count) + (isLiked ? 1 : 0)}</span>
+            </button>
+          ) : (
+            <div className="flex items-center gap-1 px-2 py-1 text-xs text-lightPurple/60">
+              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+              </svg>
+              <span>{statNumber(cast.reactions?.likes_count)}</span>
+            </div>
+          )}
+
+          {/* Recast button */}
+          {allowReactions ? (
+            <button
+              onClick={() => castAuthorFid > 0 && toggleRecast(cast.hash, castAuthorFid)}
+              disabled={isPending || castAuthorFid === 0}
+              aria-label={isRecasted ? "Remove recast" : "Recast"}
+              className={[
+                "flex items-center gap-1 px-2 py-1 rounded-full text-xs transition-all duration-150",
+                isRecasted
+                  ? "text-limeGreen font-semibold"
+                  : "text-lightPurple/60 hover:text-limeGreen",
+                isPending ? "opacity-50 cursor-not-allowed" : "",
+              ].join(" ")}
+            >
+              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M17 1l4 4-4 4" />
+                <path d="M3 11V9a4 4 0 0 1 4-4h14" />
+                <path d="M7 23l-4-4 4-4" />
+                <path d="M21 13v2a4 4 0 0 1-4 4H3" />
+              </svg>
+              <span>{statNumber(cast.reactions?.recasts_count) + (isRecasted ? 1 : 0)}</span>
+            </button>
+          ) : (
+            <div className="flex items-center gap-1 px-2 py-1 text-xs text-lightPurple/60">
+              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M17 1l4 4-4 4" /><path d="M3 11V9a4 4 0 0 1 4-4h14" />
+                <path d="M7 23l-4-4 4-4" /><path d="M21 13v2a4 4 0 0 1-4 4H3" />
+              </svg>
+              <span>{statNumber(cast.reactions?.recasts_count)}</span>
+            </div>
+          )}
+
+          {/* View on Warpcast — only shown when no actionHref already in the header */}
+          <div className="ml-auto" />
         </div>
       </div>
     </article>

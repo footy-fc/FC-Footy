@@ -8,6 +8,13 @@ export const IS_TESTING = false
 // Fan Clubs subview regardless of install status or preferences.
 export const MOCK_FIRST_TIME_USER = false
 
+// ─── World Cup mode ──────────────────────────────────────────────────────────
+// Master switch for the festive World Cup experience (banner + World Cup Home
+// section + accent treatment). Flip to `false` once the tournament is over to
+// instantly return the app to its default look. See src/lib/worldCup.ts for the
+// theme/config details.
+export const WORLD_CUP_MODE = true
+
 // Contract addresses for different networks
 export const CONTRACTS = {
   // Base network contract address

@@ -15,6 +15,7 @@ import HomeTab from "./HomeTab";
 import ScoresTab from "./ScoresTab";
 import FanClubsTab from "./FanClubsTab";
 import FantasyTab from "./FantasyTab";
+import ChannelsTab from "./ChannelsTab";
 import ToolsTab from "./ToolsTab";
 import ProfileTab from "./ProfileTab";
 import HighlightsTab from "./HighlightsTab";
@@ -220,6 +221,7 @@ export default function Main() {
       case "fanClubs":
       case "home":
       case "scores":
+      case "channels":
       case "fantasy":
       case "tools":
       case "profile":
@@ -495,6 +497,7 @@ export default function Main() {
                 selectedTab={selectedTab}
                 onOpenProfile={() => handleTabChange("profile")}
                 onOpenAdmins={() => handleTabChange("admins")}
+                onOpenFantasy={() => handleTabChange("fantasy")}
                 onOpenTools={() => handleTabChange("tools")}
                 onOpenTeam={handleOpenTeam}
                 isAdminFid={isAdminFid}
@@ -510,11 +513,12 @@ export default function Main() {
                 {selectedTab === "scores" && <ScoresTab onNavigate={(tab) => handleTabChange(tab)} />}
                 {selectedTab === "highlights" && <HighlightsTab />}
                 {selectedTab === "fanClubs" && <FanClubsTab viewerFid={currentViewerFid} />}
+                {selectedTab === "channels" && <ChannelsTab />}
                 {selectedTab === "fantasy" && <FantasyTab />}
                 {selectedTab === "tools" && <ToolsTab />}
                 {selectedTab === "profile" && <ProfileTab viewerFid={currentViewerFid} />}
                 {selectedTab === "admins" && isAdminFid && <AdminDashboard />}
-                {!["home", "scores", "highlights", "fanClubs", "fantasy", "tools", "profile", "admins"].includes(selectedTab) && (
+                {!["home", "scores", "highlights", "fanClubs", "channels", "fantasy", "tools", "profile", "admins"].includes(selectedTab) && (
                   <div className="text-center text-lg text-fontRed">Coming soon...</div>
                 )}
               </div>
