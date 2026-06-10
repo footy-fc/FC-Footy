@@ -427,7 +427,7 @@ const MatchEventCard: React.FC<EventCardProps> = ({ event, sportId, isOpen: isOp
               />
             </div>
           )}
-          
+
           {/* Combined Fan Avatars Section */}
 
           {/* Following section temporarily disabled

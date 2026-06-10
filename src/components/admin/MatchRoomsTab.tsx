@@ -2,6 +2,7 @@
 // @ts-nocheck
 import React, { useEffect, useState } from "react";
 import { sdk } from "@farcaster/miniapp-sdk";
+import { WORLD_CUP_2026_TEAMS } from "~/lib/worldCupData";
 
 interface MatchRoomRecord {
   eventId: string;
@@ -22,6 +23,11 @@ interface Team {
   abbreviation: string;
   country: string;
 }
+
+const FALLBACK_LEAGUES: League[] = [
+  { id: "eng.1", name: "EPL" },
+  { id: "fifa.world", name: "FIFA World Cup" },
+];
 
 const MatchRoomsTab: React.FC = () => {
   // Admin-driven eventId inputs
@@ -59,6 +65,46 @@ const MatchRoomsTab: React.FC = () => {
   const [leagues, setLeagues] = useState<League[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
   const [memberships, setMemberships] = useState<Record<string, string[]>>({});
+
+  const availableLeagues = React.useMemo(() => {
+    const byId = new Map<string, League>();
+    [...FALLBACK_LEAGUES, ...leagues].forEach((league) => {
+      if (league?.id) {
+        byId.set(league.id, league);
+      }
+    });
+    return Array.from(byId.values());
+  }, [leagues]);
+
+  const worldCupFallbackTeams = React.useMemo(
+    () =>
+      WORLD_CUP_2026_TEAMS.map((team) => ({
+        id: team.id,
+        name: team.name,
+        shortName: team.name,
+        abbreviation: team.fifaCode,
+        country: team.continent,
+      })),
+    []
+  );
+
+  const availableTeamsForLeague = React.useMemo(() => {
+    const leagueTeamIds = memberships[leagueId] || [];
+    const leagueTeams =
+      leagueTeamIds.length > 0
+        ? teams.filter((team) => leagueTeamIds.includes(team.id))
+        : [];
+
+    if (leagueTeams.length > 0) {
+      return leagueTeams.sort((a, b) => a.name.localeCompare(b.name));
+    }
+
+    if (leagueId === "fifa.world") {
+      return worldCupFallbackTeams.sort((a, b) => a.name.localeCompare(b.name));
+    }
+
+    return teams.sort((a, b) => a.name.localeCompare(b.name));
+  }, [leagueId, memberships, teams, worldCupFallbackTeams]);
 
   useEffect(() => {
     const load = async () => {
@@ -258,13 +304,9 @@ const MatchRoomsTab: React.FC = () => {
               }}
               className="w-full p-2 border border-limeGreenOpacity rounded bg-darkPurple text-lightPurple"
             >
-              {leagues.length === 0 ? (
-                <option value="eng.1">EPL</option>
-              ) : (
-                leagues.map((l) => (
-                  <option value={l.id} key={l.id}>{l.name} ({l.id})</option>
-                ))
-              )}
+              {availableLeagues.map((l) => (
+                <option value={l.id} key={l.id}>{l.name} ({l.id})</option>
+              ))}
             </select>
           </div>
         </div>
@@ -277,17 +319,9 @@ const MatchRoomsTab: React.FC = () => {
               className="w-full p-2 border border-limeGreenOpacity rounded bg-darkPurple text-lightPurple"
             >
               <option value="">Select team</option>
-              {(() => {
-                const leagueTeamIds = memberships[leagueId] || [];
-                const leagueTeams = leagueTeamIds.length > 0
-                  ? teams.filter((t) => leagueTeamIds.includes(t.id))
-                  : teams;
-                return leagueTeams
-                  .sort((a, b) => a.name.localeCompare(b.name))
-                  .map((t) => (
-                    <option key={t.id} value={t.abbreviation}>{t.name} ({t.abbreviation})</option>
-                  ));
-              })()}
+              {availableTeamsForLeague.map((t) => (
+                <option key={t.id} value={t.abbreviation}>{t.name} ({t.abbreviation})</option>
+              ))}
             </select>
           </div>
           <div>
@@ -298,17 +332,9 @@ const MatchRoomsTab: React.FC = () => {
               className="w-full p-2 border border-limeGreenOpacity rounded bg-darkPurple text-lightPurple"
             >
               <option value="">Select team</option>
-              {(() => {
-                const leagueTeamIds = memberships[leagueId] || [];
-                const leagueTeams = leagueTeamIds.length > 0
-                  ? teams.filter((t) => leagueTeamIds.includes(t.id))
-                  : teams;
-                return leagueTeams
-                  .sort((a, b) => a.name.localeCompare(b.name))
-                  .map((t) => (
-                    <option key={t.id} value={t.abbreviation}>{t.name} ({t.abbreviation})</option>
-                  ));
-              })()}
+              {availableTeamsForLeague.map((t) => (
+                <option key={t.id} value={t.abbreviation}>{t.name} ({t.abbreviation})</option>
+              ))}
             </select>
           </div>
         </div>

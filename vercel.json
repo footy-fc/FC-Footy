@@ -10,11 +10,7 @@
     { "path": "/api/goal-notification/uel", "schedule": "*/1 * * * *" },
     { "path": "/api/goal-notification/cwc", "schedule": "*/1 * * * *" },
     { "path": "/api/goal-notification/afcon", "schedule": "*/1 * * * *" },
-    { "path": "/api/goal-notification/worldcup/europe", "schedule": "*/1 * * * *" },
-    { "path": "/api/goal-notification/worldcup/asia", "schedule": "*/1 * * * *" },
-    { "path": "/api/goal-notification/worldcup/africa", "schedule": "*/1 * * * *" },
-    { "path": "/api/goal-notification/worldcup/america/n-america", "schedule": "*/1 * * * *" },
-    { "path": "/api/goal-notification/worldcup/america/s-america", "schedule": "*/1 * * * *" },
+    { "path": "/api/goal-notification/worldcup", "schedule": "*/1 * * * *" },
     { "path": "/api/goal-notification/health", "schedule": "*/2 * * * *" },
     { "path": "/api/cron", "schedule": "0 10 * * *" }
   ]

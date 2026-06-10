@@ -485,7 +485,15 @@ const copyShareLink = async () => {
           {(chatParentUrl || chatCastHash) && (
             <div className="mt-3">
               <h3 className="text-notWhite font-semibold mb-2">Match Chat</h3>
-              <ContentLiveChat parentCastHash={chatCastHash ?? undefined} parentUrl={chatParentUrl ?? undefined} />
+              <ContentLiveChat
+                parentCastHash={chatCastHash ?? undefined}
+                parentUrl={chatParentUrl ?? undefined}
+                behaviorMode="score-square"
+                layoutMode="embedded"
+                showBackButton={false}
+                showMatchContextCard={false}
+                inputPlaceholder="Reply to the match thread..."
+              />
             </div>
           )}
 

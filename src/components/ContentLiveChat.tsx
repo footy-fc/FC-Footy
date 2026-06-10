@@ -132,6 +132,7 @@ const ChatInput = ({
   addEmoji,
   isPosting,
   emojiPacks,
+  placeholder,
 }: {
   message: string;
   setMessage: (msg: string) => void;
@@ -147,6 +148,7 @@ const ChatInput = ({
   addEmoji: (emojiCode: string) => void;
   isPosting: boolean;
   emojiPacks: EmojiPack[];
+  placeholder: string;
 }) => {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const teamPacks = React.useMemo(() => emojiPacks.filter(p => p.name !== 'footy'), [emojiPacks]);
@@ -283,7 +285,7 @@ const ChatInput = ({
           }
         }}
         maxLength={390}
-        placeholder="Chat Disabled. Soon ish. Maybe. Type your message anyway..."
+        placeholder={placeholder}
         className="w-full px-4 py-2 rounded-md border border-limeGreenOpacity bg-gray-800 text-white outline-none resize-none overflow-hidden pb-12"
       />
       <button
@@ -311,9 +313,25 @@ interface ContentLiveChatProps {
   parentUrl?: string; // alternatively, use parent URL
   hubUrl?: string;
   eventId?: string; // to extract home/away teams for emoji packs
+  behaviorMode?: "match-thread" | "score-square";
+  layoutMode?: "page" | "embedded";
+  showBackButton?: boolean;
+  showMatchContextCard?: boolean;
+  inputPlaceholder?: string;
 }
 
-const ContentLiveChat = ({ teamId, parentCastHash, parentUrl, hubUrl, eventId }: ContentLiveChatProps) => {
+const ContentLiveChat = ({
+  teamId,
+  parentCastHash,
+  parentUrl,
+  hubUrl,
+  eventId,
+  behaviorMode = "match-thread",
+  layoutMode = "page",
+  showBackButton = true,
+  showMatchContextCard = true,
+  inputPlaceholder = "Reply to the match thread...",
+}: ContentLiveChatProps) => {
   console.log('teamId:', teamId);
   //const leagueKey = teamId ? teamId.split("-")[0] : "";
   //const abbr = teamId ? teamId.split("-")[1] : "";
@@ -340,6 +358,8 @@ const ContentLiveChat = ({ teamId, parentCastHash, parentUrl, hubUrl, eventId }:
     displayName: string;
     style: string;
   } | null>(null);
+  const isEmbedded = layoutMode === "embedded";
+  const showAiCommentary = behaviorMode === "score-square";
   
   // Token gating for AI commentary
   const { hasScores, isLoading: tokenLoading, isConnected, balance } = useScoresTokenGate();
@@ -957,6 +977,9 @@ const ContentLiveChat = ({ teamId, parentCastHash, parentUrl, hubUrl, eventId }:
   };
 
   // console.log("background logo:", backgroundLogo   );
+  const hasTopBar = showBackButton || showAiCommentary;
+  const shouldRenderHeader = hasTopBar || showMatchContextCard || Boolean(aiCommentary);
+
   return (
     <div className="h-full relative pt-0 pb-0 px-0 rounded-lg flex flex-col bg-darkPurple/80 overflow-visible">      {backgroundLogo && (
         <div
@@ -969,149 +992,157 @@ const ContentLiveChat = ({ teamId, parentCastHash, parentUrl, hubUrl, eventId }:
       )}
       
       {/* Pinned header: navigation and match context */}
-      <div ref={headerRef} className="sticky top-0 z-20 bg-darkPurple/90 backdrop-blur border-b border-limeGreenOpacity/50">
-        <div className="px-4 pt-3 pb-2">
-          <div className="flex items-center justify-between gap-3 mb-2 text-md">
-            <button
-              onClick={async () => {
-                console.log('[ContentLiveChat] Back button clicked');
-                console.log('[ContentLiveChat] Current window history length:', window.history.length);
-                
-                try {
-                  // Try window.history.back() first
-                  window.history.back();
-                  
-                  // If that doesn't work, try using the Farcaster SDK
-                  setTimeout(async () => {
-                    console.log('[ContentLiveChat] Trying Farcaster SDK navigation');
-                    try {
-                      await sdk.actions.ready();
-                      // Try to navigate back using SDK if available
-                      console.log('[ContentLiveChat] SDK ready, attempting navigation');
-                    } catch (error) {
-                      console.log('[ContentLiveChat] SDK navigation failed:', error);
-                    }
-                  }, 100);
-                  
-                } catch (error) {
-                  console.error('[ContentLiveChat] Back navigation error:', error);
-                }
-              }}
-              className="text-white transition-colors"
-            >
-              &larr; Back
-            </button>
-            
-            {/* AI Commentary Controls - Token Gated */}
-            {tokenLoading ? (
-              <div className="text-xs text-gray-400">Checking tokens...</div>
-            ) : hasScores ? (
-              <div className="flex items-center gap-2">
-                {/* Commentator Selector */}
-                <select
-                  value={selectedCommentator}
-                  onChange={(e) => setSelectedCommentator(e.target.value)}
-                  className="px-2 py-1 rounded text-xs bg-darkPurple border border-limeGreenOpacity/30 text-white"
-                  title="Choose commentator style"
-                >
-                  <option value="peter-drury">🎭 Peter Drury</option>
-                  <option value="ray-hudson">🔥 Ray Hudson</option>
-                </select>
-                
-                <button
-                  onClick={generateAICommentary}
-                  disabled={isGeneratingAICommentary || enrichedChat.length === 0}
-                  className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
-                    isGeneratingAICommentary || enrichedChat.length === 0
-                      ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
-                      : 'bg-deepPink hover:bg-fontRed text-white'
-                  }`}
-                  title="Generate AI commentary based on chat history"
-                >
-                  {isGeneratingAICommentary ? '🎤 Generating...' : '🎤 AI Commentary'}
-                </button>
-                
-                {aiCommentary && (
+      {shouldRenderHeader ? (
+        <div ref={headerRef} className="sticky top-0 z-20 bg-darkPurple/90 backdrop-blur border-b border-limeGreenOpacity/50">
+          <div className="px-4 pt-3 pb-2">
+            {hasTopBar ? (
+              <div className="flex items-center justify-between gap-3 mb-2 text-md">
+                {showBackButton ? (
                   <button
-                    onClick={composeAICommentaryCast}
-                    disabled={isPosting}
-                    className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
-                      isPosting
-                        ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
-                        : 'bg-green-600 hover:bg-green-500 text-white'
-                    }`}
-                    title="Compose cast with AI commentary"
+                    onClick={async () => {
+                      console.log('[ContentLiveChat] Back button clicked');
+                      console.log('[ContentLiveChat] Current window history length:', window.history.length);
+                      
+                      try {
+                        window.history.back();
+                        
+                        setTimeout(async () => {
+                          console.log('[ContentLiveChat] Trying Farcaster SDK navigation');
+                          try {
+                            await sdk.actions.ready();
+                            console.log('[ContentLiveChat] SDK ready, attempting navigation');
+                          } catch (error) {
+                            console.log('[ContentLiveChat] SDK navigation failed:', error);
+                          }
+                        }, 100);
+                        
+                      } catch (error) {
+                        console.error('[ContentLiveChat] Back navigation error:', error);
+                      }
+                    }}
+                    className="text-white transition-colors"
                   >
-                    {isPosting ? '📤 Posting...' : '📤 Cast'}
+                    &larr; Back
                   </button>
-                )}
-          </div>
-            ) : (
-              <div className="bg-darkPurple/60 rounded-lg p-2 border border-limeGreenOpacity/50">
-                {tokenLoading ? (
-                  <div className="h-12 flex items-center justify-center text-xs text-gray-500">Loading…</div>
-                ) : !isConnected ? (
-                  <div className="text-center">
-                    <p className="text-xs text-lightPurple mb-2">
-                      Connect wallet for AI commentary
-                    </p>
-                  </div>
                 ) : (
-                  <div className="text-center">
-                    <button
-                      onClick={() => setShowBuyScoresModal(true)}
-                      className="text-xs text-lightPurple hover:text-fontRed transition-colors flex items-center justify-center gap-1 w-full"
-                    >
-                      <span>🔒</span>
-                      <span className="text-notWhite">Unlock AI Commentary</span>
-                      <span className="text-fontRed">→</span>
-                    </button>
-                    <p className="text-xs text-gray-400 mt-1">
-                      Holding: {balance.toLocaleString()}/{MIN_REQUIRED_SCORES.toLocaleString()} $SCORES
-                    </p>
-                  </div>
+                  <div />
+                )}
+                
+                {showAiCommentary ? (
+                  tokenLoading ? (
+                    <div className="text-xs text-gray-400">Checking tokens...</div>
+                  ) : hasScores ? (
+                    <div className="flex items-center gap-2">
+                      <select
+                        value={selectedCommentator}
+                        onChange={(e) => setSelectedCommentator(e.target.value)}
+                        className="px-2 py-1 rounded text-xs bg-darkPurple border border-limeGreenOpacity/30 text-white"
+                        title="Choose commentator style"
+                      >
+                        <option value="peter-drury">🎭 Peter Drury</option>
+                        <option value="ray-hudson">🔥 Ray Hudson</option>
+                      </select>
+                      
+                      <button
+                        onClick={generateAICommentary}
+                        disabled={isGeneratingAICommentary || enrichedChat.length === 0}
+                        className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
+                          isGeneratingAICommentary || enrichedChat.length === 0
+                            ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
+                            : 'bg-deepPink hover:bg-fontRed text-white'
+                        }`}
+                        title="Generate AI commentary based on chat history"
+                      >
+                        {isGeneratingAICommentary ? '🎤 Generating...' : '🎤 AI Commentary'}
+                      </button>
+                      
+                      {aiCommentary && (
+                        <button
+                          onClick={composeAICommentaryCast}
+                          disabled={isPosting}
+                          className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
+                            isPosting
+                              ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
+                              : 'bg-green-600 hover:bg-green-500 text-white'
+                          }`}
+                          title="Compose cast with AI commentary"
+                        >
+                          {isPosting ? '📤 Posting...' : '📤 Cast'}
+                        </button>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="bg-darkPurple/60 rounded-lg p-2 border border-limeGreenOpacity/50">
+                      {tokenLoading ? (
+                        <div className="h-12 flex items-center justify-center text-xs text-gray-500">Loading…</div>
+                      ) : !isConnected ? (
+                        <div className="text-center">
+                          <p className="text-xs text-lightPurple mb-2">
+                            Connect wallet for AI commentary
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="text-center">
+                          <button
+                            onClick={() => setShowBuyScoresModal(true)}
+                            className="text-xs text-lightPurple hover:text-fontRed transition-colors flex items-center justify-center gap-1 w-full"
+                          >
+                            <span>🔒</span>
+                            <span className="text-notWhite">Unlock AI Commentary</span>
+                            <span className="text-fontRed">→</span>
+                          </button>
+                          <p className="text-xs text-gray-400 mt-1">
+                            Holding: {balance.toLocaleString()}/{MIN_REQUIRED_SCORES.toLocaleString()} $SCORES
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )
+                ) : (
+                  <div />
                 )}
               </div>
-            )}
-          </div>
-          
-          <div className="border border-limeGreenOpacity/50 rounded-lg bg-darkPurple/60">
-            <ForYouWhosPlaying eventId={eventId} suppressFtue suppressAffordances />
-          </div>
-          
-          {/* AI Commentary Display */}
-          {aiCommentary && (
-            <div className="mt-2 p-3 bg-gradient-to-r from-purple-900/80 to-pink-900/80 rounded-lg border border-limeGreenOpacity/30">
-              <div className="flex items-start justify-between gap-2">
-                <div className="flex-1">
-                  <div className="text-xs text-limeGreen mb-1">
-                    🎤 {currentCommentator?.displayName || selectedCommentator} Commentary
-                  </div>
-                  <div className="text-sm text-white italic leading-relaxed">
-                    &ldquo;{aiCommentary}&rdquo;
-                  </div>
-                </div>
-                <button
-                  onClick={() => {
-                    setAiCommentary("");
-                    setCurrentCommentator(null);
-                  }}
-                  className="text-gray-400 hover:text-white text-xs"
-                  title="Clear commentary"
-                >
-                  ✕
-                </button>
+            ) : null}
+            
+            {showMatchContextCard ? (
+              <div className="border border-limeGreenOpacity/50 rounded-lg bg-darkPurple/60">
+                <ForYouWhosPlaying eventId={eventId} suppressFtue suppressAffordances />
               </div>
-            </div>
-          )}
+            ) : null}
+            
+            {showAiCommentary && aiCommentary ? (
+              <div className="mt-2 p-3 bg-gradient-to-r from-purple-900/80 to-pink-900/80 rounded-lg border border-limeGreenOpacity/30">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex-1">
+                    <div className="text-xs text-limeGreen mb-1">
+                      🎤 {currentCommentator?.displayName || selectedCommentator} Commentary
+                    </div>
+                    <div className="text-sm text-white italic leading-relaxed">
+                      &ldquo;{aiCommentary}&rdquo;
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setAiCommentary("");
+                      setCurrentCommentator(null);
+                    }}
+                    className="text-gray-400 hover:text-white text-xs"
+                    title="Clear commentary"
+                  >
+                    ✕
+                  </button>
+                </div>
+              </div>
+            ) : null}
+          </div>
         </div>
-      </div>
+      ) : null}
 
       {/* Room casts */}
       <div
         ref={chatContainerRef}
         className="w-full px-4"
-        style={{ height: viewportHeight || undefined, paddingTop: 8 }}
+        style={{ height: isEmbedded ? 320 : viewportHeight || undefined, paddingTop: 8 }}
       >
         {/* Bottom-anchored cast column with overflow hidden to create IRC-like vibe */}
         <div className="h-full flex flex-col justify-end overflow-hidden space-y-3">
@@ -1159,8 +1190,15 @@ const ContentLiveChat = ({ teamId, parentCastHash, parentUrl, hubUrl, eventId }:
       {/* Desktop footer removed for miniapp-only UI */}
 
       {/* Footer Mobile version - fixed to bottom of screen */}
-      <div ref={footerRef} className="md:hidden fixed bottom-0 left-0 right-0 bg-darkPurple border-t border-limeGreenOpacity z-20">
-        <div className="px-10 py-2 ml-3">       {/* hack need to fix when containers get wider */}
+      <div
+        ref={footerRef}
+        className={
+          isEmbedded
+            ? "bg-darkPurple border-t border-limeGreenOpacity z-20"
+            : "md:hidden fixed bottom-0 left-0 right-0 bg-darkPurple border-t border-limeGreenOpacity z-20"
+        }
+      >
+        <div className={isEmbedded ? "px-4 py-2" : "px-10 py-2 ml-3"}>       {/* hack need to fix when containers get wider */}
           {
             /* Read-only: still render input UI but submission is a no-op for now */
           }
@@ -1179,6 +1217,7 @@ const ContentLiveChat = ({ teamId, parentCastHash, parentUrl, hubUrl, eventId }:
               addEmoji={addEmoji}
               isPosting={isPosting}
                 emojiPacks={availableEmojiPacks}
+                placeholder={inputPlaceholder}
             />
         </div>
       </div>

@@ -10,11 +10,6 @@ import ChannelCastFeed from "./ChannelCastFeed";
 const ChannelsTab: React.FC = () => {
   return (
     <div className="mb-4">
-      <div className="mb-3">
-        <div className="app-eyebrow mb-1">Channels</div>
-        <h2 className="app-title">Football Channel</h2>
-      </div>
-
       <ChannelCastFeed channel="football" initialLimit={20} />
     </div>
   );

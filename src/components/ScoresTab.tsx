@@ -6,7 +6,7 @@ interface ScoresTabProps {
 }
 
 const ScoresTab: React.FC<ScoresTabProps> = ({ onNavigate }) => {
-  const [league, setLeague] = useState("eng.1");
+  const [league, setLeague] = useState("fifa.world");
 
   return (
     <div className="mb-4">

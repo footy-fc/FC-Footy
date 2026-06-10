@@ -55,6 +55,17 @@ function applyFilter(casts: SocialFeedCast[], filter: FilterKey): SocialFeedCast
   }
 }
 
+function formatChannelLabel(channel: string) {
+  if (channel === "football") {
+    return "Football Channel";
+  }
+
+  return channel
+    .split(/[-_]/g)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
 // ─── Filter pill button ────────────────────────────────────────────────────────
 
 interface FilterPillProps {
@@ -140,6 +151,8 @@ export default function ChannelCastFeed({
   // ── Derived list ─────────────────────────────────────────────────────────────
 
   const displayedCasts = React.useMemo(() => applyFilter(casts, filter), [casts, filter]);
+  const mediaCount = React.useMemo(() => casts.filter(hasImageEmbed).length, [casts]);
+  const headerTitle = formatChannelLabel(channel);
 
   // ── Render ───────────────────────────────────────────────────────────────────
 
@@ -151,45 +164,56 @@ export default function ChannelCastFeed({
 
   return (
     <div className="flex flex-col gap-3">
-      {/* Header row */}
-      <div className="flex items-center justify-between gap-2 px-1">
-        <div className="flex items-center gap-2">
-          <span className="text-base">⚽</span>
-          <span className="text-sm font-semibold text-notWhite">/football channel</span>
-        </div>
-        {/* Refresh */}
-        <button
-          onClick={() => void fetchPage(null, false)}
-          disabled={loading}
-          className="p-1.5 rounded-full border border-limeGreenOpacity/20 text-lightPurple/60 hover:text-lightPurple hover:border-limeGreenOpacity/50 transition-colors disabled:opacity-40"
-          aria-label="Refresh feed"
-        >
-          <svg
-            className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`}
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-          >
-            <path d="M1 4v6h6M23 20v-6h-6" />
-            <path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15" />
-          </svg>
-        </button>
-      </div>
+      <div className="overflow-hidden rounded-[32px] border border-limeGreenOpacity/20 bg-[radial-gradient(circle_at_top_left,rgba(255,0,102,0.16),transparent_28%),radial-gradient(circle_at_top_right,rgba(173,255,47,0.09),transparent_30%),linear-gradient(180deg,rgba(24,18,40,0.98),rgba(7,10,20,0.98))] p-5 text-lightPurple shadow-[0_24px_70px_rgba(0,0,0,0.3)]">
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <div className="app-eyebrow mb-2">Channels</div>
+            <h3 className="text-[2rem] font-semibold leading-[0.95] text-notWhite">{headerTitle}</h3>
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <div className="rounded-full border border-white/10 bg-white/5 px-3 py-2 text-sm font-semibold text-[#ffb194]">
+                ⚽ /{channel}
+              </div>
+              <div className="rounded-full border border-white/10 bg-darkPurple px-3 py-2 text-xs uppercase tracking-[0.16em] text-lightPurple/70">
+                {casts.length} loaded
+              </div>
+              <div className="rounded-full border border-white/10 bg-darkPurple px-3 py-2 text-xs uppercase tracking-[0.16em] text-lightPurple/70">
+                {mediaCount} with media
+              </div>
+            </div>
+          </div>
 
-      {/* Filter pills */}
-      <div className="flex items-center gap-2 px-1 flex-wrap">
-        {filters.map(({ key, label }) => (
-          <FilterPill
-            key={key}
-            label={label}
-            active={filter === key}
-            onClick={() => setFilter(key)}
-          />
-        ))}
-        {filter === "media" && displayedCasts.length === 0 && !loading && (
-          <span className="text-xs text-lightPurple/50 ml-1">No image posts loaded yet</span>
-        )}
+          <button
+            onClick={() => void fetchPage(null, false)}
+            disabled={loading}
+            className="shrink-0 rounded-full border border-limeGreenOpacity/20 bg-darkPurple/85 p-3 text-lightPurple/60 transition-colors hover:border-limeGreenOpacity/50 hover:text-lightPurple disabled:opacity-40"
+            aria-label="Refresh feed"
+          >
+            <svg
+              className={`h-4 w-4 ${loading ? "animate-spin" : ""}`}
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <path d="M1 4v6h6M23 20v-6h-6" />
+              <path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15" />
+            </svg>
+          </button>
+        </div>
+
+        <div className="mt-5 flex items-center gap-2 overflow-x-auto pb-1">
+          {filters.map(({ key, label }) => (
+            <FilterPill
+              key={key}
+              label={label}
+              active={filter === key}
+              onClick={() => setFilter(key)}
+            />
+          ))}
+          {filter === "media" && displayedCasts.length === 0 && !loading ? (
+            <span className="ml-1 text-xs text-lightPurple/50">No image posts loaded yet</span>
+          ) : null}
+        </div>
       </div>
 
       {/* States */}
@@ -227,8 +251,7 @@ export default function ChannelCastFeed({
             <SocialCastCard
               key={cast.hash}
               cast={cast}
-              actionHref={`https://warpcast.com/~/conversations/${cast.hash.replace(/^0x/, '')}`}
-              actionLabel="View"
+              variant="channel"
             />
           ))}
         </div>

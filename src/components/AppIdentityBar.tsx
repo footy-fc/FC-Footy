@@ -7,6 +7,7 @@ import { usePrivy } from "@privy-io/react-auth";
 import { fetchTeamLogos } from "./utils/fetchTeamLogos";
 import { getTeamPreferences } from "../lib/kvPerferences";
 import { useFootyFarcaster } from "~/lib/farcaster/useFootyFarcaster";
+import { useWorldCupMode } from "~/lib/useWorldCupMode";
 import BadgedProfileAvatar from "./BadgedProfileAvatar";
 
 interface Team {
@@ -49,6 +50,7 @@ const AppIdentityBar: React.FC<AppIdentityBarProps> = ({
   viewerFid,
 }) => {
   const { canWrite, pfpUrl, username, beginLogin, runtime } = useFootyFarcaster();
+  const isWorldCupMode = useWorldCupMode();
   const { ready, authenticated } = usePrivy();
   const [teams, setTeams] = React.useState<Team[]>([]);
   const [favTeams, setFavTeams] = React.useState<string[]>([]);
@@ -156,7 +158,7 @@ const AppIdentityBar: React.FC<AppIdentityBarProps> = ({
       </div>
 
       <div className="flex items-center gap-2">
-        {onOpenFantasy ? (
+        {!isWorldCupMode && onOpenFantasy ? (
           <button
             type="button"
             onClick={onOpenFantasy}
@@ -172,7 +174,7 @@ const AppIdentityBar: React.FC<AppIdentityBarProps> = ({
             </svg>
           </button>
         ) : null}
-        {onOpenTools ? (
+        {!isWorldCupMode && onOpenTools ? (
           <button
             type="button"
             onClick={onOpenTools}

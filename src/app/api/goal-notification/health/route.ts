@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { Redis } from "@upstash/redis";
-import { fetchJSONWithRetry, okJson, errorAsOk } from "../../lib/http";
+import { fetchJSONWithRetry, okJson } from "../../lib/http";
 
 const redis = new Redis({
   url: process.env.NEXT_PUBLIC_KV_REST_API_URL,
@@ -24,10 +24,7 @@ const leagues: LeagueHealth[] = [
   { id: "uel", label: "UEL", scoreboardUrl: "https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.europa/scoreboard" },
   { id: "cwc", label: "Club World Cup", scoreboardUrl: "https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.cwc/scoreboard" },
   { id: "afcon", label: "AFCON", scoreboardUrl: "https://site.api.espn.com/apis/site/v2/sports/soccer/caf.nations/scoreboard" },
-  { id: "worldcup-uefa", label: "WCQ UEFA", scoreboardUrl: "https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.worldq.uefa/scoreboard" },
-  { id: "worldcup-afc", label: "WCQ AFC", scoreboardUrl: "https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.worldq.afc/scoreboard" },
-  { id: "worldcup-concacaf", label: "WCQ CONCACAF", scoreboardUrl: "https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.worldq.concacaf/scoreboard" },
-  { id: "worldcup-conmebol", label: "WCQ CONMEBOL", scoreboardUrl: "https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.worldq.conmebol/scoreboard" },
+  { id: "worldcup", label: "FIFA World Cup", scoreboardUrl: "https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard" },
 ];
 
 export async function GET(request: Request) {
@@ -40,7 +37,7 @@ export async function GET(request: Request) {
   try {
     await redis.get("fc-footy:health:noop");
     redisOk = true;
-  } catch (err) {
+  } catch {
     redisOk = false;
   }
 

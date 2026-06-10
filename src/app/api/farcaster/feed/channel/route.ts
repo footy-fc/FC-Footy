@@ -5,14 +5,13 @@
  * author profiles.
  *
  * Enrichment strategy — tiered, each failure is non-fatal:
- *   1. Snapchain /v1/userDataByFid  — same node as casts, always available
- *      when casts work. Parallel per-FID requests via Promise.allSettled.
- *   2. Hypersnap bulk               — single request, fast, used as supplement
- *      to fill any FIDs snapchain couldn't resolve.
+ *   1. Hypersnap feed/read path     — preferred for channel surfaces because it
+ *      includes reply/reaction counts and richer embed metadata.
+ *   2. Snapchain /v1/userDataByFid  — fallback path when Hypersnap is unavailable.
  *
- * Feed strategy — snapchain first, hypersnap fallback:
- *   1. Snapchain /v1/castsByParent
- *   2. Hypersnap /v2/farcaster/feed/parent_urls
+ * Feed strategy — hypersnap first, snapchain fallback:
+ *   1. Hypersnap /v2/farcaster/feed/parent_urls
+ *   2. Snapchain /v1/castsByParent
  *
  * Query params:
  *   channel   – slug (default: "football")
@@ -261,7 +260,21 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   const limit = Number.isFinite(limitParam) ? Math.min(Math.max(limitParam, 1), 50) : 25;
   const parentUrl = parentUrlOverride ?? CHANNEL_PARENT_URL_MAP[channelSlug] ?? FOOTBALL_PARENT_URL;
 
-  // 1. Snapchain — casts + author enrichment from same node
+  // 1. Hypersnap — preferred for richer feed metadata
+  try {
+    const result = await fetchFromHypersnapPath(parentUrl, limit, cursor);
+    return NextResponse.json({
+      ok: true,
+      source: 'hypersnap',
+      channel: channelSlug,
+      casts: result.casts,
+      nextCursor: result.nextCursor,
+    });
+  } catch (hypersnapErr) {
+    console.warn('[channel] hypersnap path failed:', hypersnapErr instanceof Error ? hypersnapErr.message : hypersnapErr);
+  }
+
+  // 2. Snapchain fallback — casts + author enrichment from same node
   const snapchainResult = await fetchFromSnapchainPath(parentUrl, limit, cursor);
   if (snapchainResult && snapchainResult.casts.length > 0) {
     return NextResponse.json({
@@ -273,21 +286,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     });
   }
 
-  // 2. Hypersnap fallback — already returns enriched casts
-  try {
-    const result = await fetchFromHypersnapPath(parentUrl, limit, cursor);
-    return NextResponse.json({
-      ok: true,
-      source: 'hypersnap',
-      channel: channelSlug,
-      casts: result.casts,
-      nextCursor: result.nextCursor,
-    });
-  } catch (err) {
-    const message = err instanceof Error ? err.message : 'Failed to fetch channel feed';
-    console.error('[channel] all sources failed:', message);
-    return NextResponse.json({ ok: false, error: message }, { status: 500 });
-  }
+  return NextResponse.json({ ok: false, error: 'Failed to fetch channel feed' }, { status: 500 });
 }
 
 export const runtime = 'nodejs';
