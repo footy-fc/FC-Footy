@@ -4,6 +4,8 @@ import { config } from 'dotenv';
 import { NeynarAPIClient } from '@neynar/nodejs-sdk';
 import fantasyManagersLookup from '../src/data/fantasy-managers-lookup.json' with { type: 'json' };
 import axios from 'axios';
+import fs from 'node:fs';
+import path from 'node:path';
 
 // Load environment variables
 config();
@@ -22,6 +24,54 @@ if (!SIGNER_UUID) {
 }
 
 const neynarClient = new NeynarAPIClient(NEYNAR_API_KEY);
+
+function getCliArg(flagName) {
+  const flag = `--${flagName}`;
+  const index = process.argv.indexOf(flag);
+  if (index === -1) {
+    return null;
+  }
+
+  return process.argv[index + 1] || null;
+}
+
+function getManualInfographicPath() {
+  return getCliArg('image') || process.env.GAMEWEEK_SUMMARY_IMAGE_PATH || null;
+}
+
+function inferImageContentType(filePath) {
+  const ext = path.extname(filePath).toLowerCase();
+  switch (ext) {
+    case '.png':
+      return 'image/png';
+    case '.jpg':
+    case '.jpeg':
+      return 'image/jpeg';
+    case '.webp':
+      return 'image/webp';
+    default:
+      return 'application/octet-stream';
+  }
+}
+
+async function uploadInfographicBuffer(baseUrl, buffer, fileName) {
+  const uploadResponse = await fetch(`${baseUrl}/api/upload`, {
+    method: 'POST',
+    body: buffer,
+    headers: {
+      'Content-Type': inferImageContentType(fileName),
+      'x-file-name': path.basename(fileName),
+      'x-object-key': `gameweek-summaries/${path.basename(fileName)}`,
+    }
+  });
+
+  if (!uploadResponse.ok) {
+    const errorText = await uploadResponse.text().catch(() => '');
+    throw new Error(`Upload failed: ${uploadResponse.status}${errorText ? ` - ${errorText}` : ''}`);
+  }
+
+  return uploadResponse.json();
+}
 
 /**
  * Fetch FPL league standings from cached API endpoint
@@ -147,6 +197,33 @@ async function generateAndUploadInfographic(fplData, gameWeek) {
       'http://localhost:3000',
     ];
 
+    const manualInfographicPath = getManualInfographicPath();
+    if (manualInfographicPath) {
+      const resolvedPath = path.resolve(process.cwd(), manualInfographicPath);
+      if (!fs.existsSync(resolvedPath)) {
+        throw new Error(`Manual infographic file not found: ${resolvedPath}`);
+      }
+
+      const manualBuffer = fs.readFileSync(resolvedPath);
+      console.log(`📦 [manual] Using local infographic: ${resolvedPath}`);
+
+      for (const base of baseCandidates) {
+        const baseUrl = String(base).replace(/\/$/, '');
+        try {
+          console.log(`📤 [manual] Uploading via ${baseUrl}/api/upload`);
+          const uploadResult = await uploadInfographicBuffer(baseUrl, manualBuffer, resolvedPath);
+          if (uploadResult?.publicUrl) {
+            console.log(`✅ [manual] Uploaded to QStorage: ${uploadResult.publicUrl}`);
+            return uploadResult.publicUrl;
+          }
+        } catch (error) {
+          console.log(`📤 [manual] Upload error: ${error instanceof Error ? error.message : String(error)}`);
+        }
+      }
+
+      throw new Error('Manual infographic upload failed for all configured base URLs');
+    }
+
     let infographicUrl = null;
     for (const base of baseCandidates) {
       const baseUrl = String(base).replace(/\/$/, '');
@@ -178,8 +255,6 @@ async function generateAndUploadInfographic(fplData, gameWeek) {
         
         // Convert HTML to PNG using a headless browser approach
         // For now, we'll use a simple approach: save HTML and use a browser automation tool
-        const fs = await import('fs');
-        const path = await import('path');
         const htmlPath = path.join(process.cwd(), `temp-gameweek-${gameWeek}-summary.html`);
         fs.writeFileSync(htmlPath, htmlContent);
         
@@ -228,20 +303,11 @@ async function generateAndUploadInfographic(fplData, gameWeek) {
           
           // Upload PNG to IPFS
           console.log('📤 [infographic] Uploading PNG to IPFS...');
-          const uploadResponse = await fetch(`${baseUrl}/api/upload`, {
-            method: 'POST',
-            body: pngBuffer,
-            headers: {
-              'Content-Type': 'image/png'
-            }
-          });
-          
-          if (!uploadResponse.ok) {
-            console.log(`📤 [infographic] Upload failed: ${uploadResponse.status}`);
-            continue;
-          }
-          
-          const uploadResult = await uploadResponse.json();
+          const uploadResult = await uploadInfographicBuffer(
+            baseUrl,
+            pngBuffer,
+            `gameweek-${gameWeek}-summary.png`
+          );
           const publicUrl = uploadResult.publicUrl;
           
           if (publicUrl) {

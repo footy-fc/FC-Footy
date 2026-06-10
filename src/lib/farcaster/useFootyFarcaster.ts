@@ -1005,6 +1005,97 @@ export function useFootyFarcaster(): FootyFarcasterState {
     await refreshManagedProfile();
   }, [authenticated, getAuthorizationHeaders, refreshManagedProfile, user?.wallet?.address, wallets]);
 
+  const authorizeStandaloneFootySigner = useCallback(async () => {
+    if (!authenticated || !user?.wallet?.address) {
+      throw new Error('Sign in with an embedded wallet to authorize your Footy signer');
+    }
+
+    const walletAddress = user.wallet.address;
+    if (!isAddress(walletAddress)) {
+      throw new Error('A valid embedded wallet is required');
+    }
+
+    const embeddedWallet = wallets.find((wallet) => normalizeAddress(wallet.address) === normalizeAddress(walletAddress));
+    if (!embeddedWallet) {
+      throw new Error('Footy could not access the embedded wallet for signer authorization');
+    }
+
+    const fid = privyFarcaster?.fid || storedAccount?.fid;
+    if (!fid) {
+      throw new Error('Link your Farcaster account before authorizing the Footy signer');
+    }
+
+    await embeddedWallet.switchChain(optimism.id);
+    const provider = await embeddedWallet.getEthereumProvider();
+    const walletClient = createWalletClient({
+      account: walletAddress as `0x${string}`,
+      chain: optimism,
+      transport: custom(provider),
+    });
+    const signer = new ViemWalletEip712Signer(walletClient);
+    const headers = await getAuthorizationHeaders();
+
+    const prepareSignerResponse = await fetch('/api/farcaster/signer/prepare', {
+      method: 'POST',
+      headers: {
+        ...headers,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        fid,
+        walletAddress,
+      }),
+    });
+    const prepareSignerPayload = (await prepareSignerResponse.json().catch(() => ({}))) as {
+      requestId?: string;
+      addRequest?: { owner: `0x${string}`; keyType: number; key: `0x${string}`; metadataType: number; metadata: `0x${string}`; nonce: string; deadline: string };
+      error?: string;
+    };
+
+    if (!prepareSignerResponse.ok || !prepareSignerPayload.requestId || !prepareSignerPayload.addRequest) {
+      throw new Error(prepareSignerPayload.error || 'Failed to prepare the Footy signer');
+    }
+
+    const addSignatureResult = await signer.signAdd({
+      owner: prepareSignerPayload.addRequest.owner,
+      keyType: prepareSignerPayload.addRequest.keyType,
+      key: hexToBytes(prepareSignerPayload.addRequest.key),
+      metadataType: prepareSignerPayload.addRequest.metadataType,
+      metadata: prepareSignerPayload.addRequest.metadata,
+      nonce: BigInt(prepareSignerPayload.addRequest.nonce),
+      deadline: BigInt(prepareSignerPayload.addRequest.deadline),
+    });
+    if (addSignatureResult.isErr()) {
+      throw addSignatureResult.error;
+    }
+
+    const finalizeSignerResponse = await fetch('/api/farcaster/signer/finalize', {
+      method: 'POST',
+      headers: {
+        ...headers,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        requestId: prepareSignerPayload.requestId,
+        addSignature: bytesToHex(addSignatureResult.value),
+      }),
+    });
+    const finalizeSignerPayload = (await finalizeSignerResponse.json().catch(() => ({}))) as {
+      account?: StoredFootyAccount;
+      error?: string;
+    };
+
+    if (!finalizeSignerResponse.ok) {
+      throw new Error(finalizeSignerPayload.error || 'Failed to finalize the Footy signer');
+    }
+
+    setStoredAccount(finalizeSignerPayload.account || null);
+    dispatchProfileUpdate({
+      account: finalizeSignerPayload.account || null,
+    });
+    await refreshManagedProfile();
+  }, [authenticated, getAuthorizationHeaders, privyFarcaster?.fid, refreshManagedProfile, storedAccount?.fid, user?.wallet?.address, wallets]);
+
   const beginSignerAuthorization = useCallback(async () => {
     if (!authenticated) {
       if (runtime === 'miniapp') {
@@ -1025,28 +1116,29 @@ export function useFootyFarcaster(): FootyFarcasterState {
       return;
     }
 
-    if (!privyFarcaster?.fid) {
-      if (hasStoredFarcaster) {
-        return;
-      }
-
+    if (!privyFarcaster?.fid && !storedAccount?.fid) {
       await beginLinkFarcaster();
       return;
     }
 
     setIsRequestingSigner(true);
     try {
+      if (runtime === 'standalone') {
+        await authorizeStandaloneFootySigner();
+        return;
+      }
+
       await requestFarcasterSignerFromWarpcast();
     } finally {
       setIsRequestingSigner(false);
     }
   }, [
+    authorizeStandaloneFootySigner,
     authenticated,
     beginCreateWallet,
     beginLinkEmail,
     beginLinkFarcaster,
     beginLogin,
-    hasStoredFarcaster,
     beginPrivyLogin,
     privyFarcaster?.fid,
     requestFarcasterSignerFromWarpcast,

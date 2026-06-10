@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { fetchUsersByFids } from "~/lib/hypersnap";
 import { getPrimaryFansForTeam, getFansForTeams, getTeamPreferences } from "~/lib/kvPerferences";
 import { getFanclubTeamById, getFanclubTeamByLeagueAndAbbr } from "~/lib/fanclubs/catalog";
+import { getWorldCupTeamByPreferenceId } from "~/lib/worldCupData";
 
 function parseBoolean(value: string | null, defaultValue: boolean): boolean {
   if (value == null) {
@@ -49,7 +50,20 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    const worldCupTeam = getWorldCupTeamByPreferenceId(normalizedTeamId);
     const resolvedTeam =
+      (worldCupTeam
+        ? {
+            teamId: normalizedTeamId,
+            name: worldCupTeam.name,
+            abbreviation: worldCupTeam.fifaCode.toLowerCase(),
+            leagueId: "fifa.world",
+            leagueName: "FIFA World Cup",
+            logoUrl: "",
+            roomHash: null,
+            type: "country" as const,
+          }
+        : null) ??
       getFanclubTeamById(normalizedTeamId) ??
       (() => {
         const [leagueId, abbr] = normalizedTeamId.split("-");

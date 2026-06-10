@@ -42,6 +42,27 @@ Or directly:
 node scripts/gameweek-summary-test.mjs
 ```
 
+### Upload a manually exported infographic
+If you have already exported the latest PNG locally and just want the script to upload it to QStorage instead of doing that by hand:
+
+```bash
+node scripts/gameweek-summary-test.mjs --image /absolute/path/to/gameweek-summary.png
+```
+
+Or for the live posting script:
+
+```bash
+node scripts/gameweek-summary.mjs --image /absolute/path/to/gameweek-summary.png
+```
+
+You can also use:
+
+```bash
+GAMEWEEK_SUMMARY_IMAGE_PATH=/absolute/path/to/gameweek-summary.png node scripts/gameweek-summary-test.mjs
+```
+
+This uses the app's existing `/api/upload` route, so the target app environment still needs working QStorage variables.
+
 ### What it does:
 
 1. **Fetches FPL Data**: Gets current standings from the Farcaster Fantasy League (ID: 18526)
@@ -111,6 +132,19 @@ The script provides detailed console output showing:
    Solution: Set up your `.env` file with the required variables
    
    💡 **Tip**: Use `yarn gameweek:summary:test` to test the script without needing the SIGNER_UUID
+
+2. **Upload route works manually but not from the script**
+   - Make sure the app is running on `http://localhost:3000`, or that `NEXT_PUBLIC_URL` points at a deployed environment with working `/api/upload`.
+   - The upload route requires QStorage env vars on the server side:
+     - `QSTORAGE_ENDPOINT`
+     - `QSTORAGE_BUCKET`
+     - `QSTORAGE_ACCESS_KEY_ID`
+     - `QSTORAGE_SECRET_ACCESS_KEY`
+     - optional: `QSTORAGE_REGION`, `QSTORAGE_PREFIX`
+
+3. **Automatic image generation falls back**
+   - The current script tries to use `canvas` for PNG generation, but this repo does not currently ship with `canvas`.
+   - Use the `--image` workflow above if you are exporting the image yourself.
 
 2. **Insufficient Managers with FIDs**
    ```

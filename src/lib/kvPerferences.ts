@@ -18,6 +18,7 @@ function getPrimaryTeamFansKey(teamId: string): string {
 }
 
 const COUNTRY_LEAGUE_PREFIXES = [
+  "fifa.world",
   "fifa.worldq.",
   "caf.nations",
   "uefa.nations",
@@ -231,6 +232,7 @@ const SUPPORTED_LEAGUES = [
   "eng.league_cup",
   "uefa.europa",
   "eng.fa",
+  "fifa.world",
   "fifa.worldq.concacaf",
   "fifa.worldq.conmebol",
   "fifa.worldq.uefa",
