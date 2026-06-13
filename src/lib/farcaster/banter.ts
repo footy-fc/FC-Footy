@@ -409,6 +409,78 @@ function extractPlayerNames(keyMoments: string[] | undefined, matchEvents: RichM
   return Array.from(names);
 }
 
+function summarizeMatchEventType(eventType: string | undefined) {
+  const normalized = (eventType || '').trim().toLowerCase();
+  if (!normalized) {
+    return null;
+  }
+
+  if (normalized.includes('own goal')) return 'own goal';
+  if (normalized.includes('penalty') && normalized.includes('scored')) return 'penalty';
+  if (normalized.includes('goal')) return 'goal';
+  if (normalized.includes('red card')) return 'red card';
+  if (normalized.includes('yellow card')) return 'yellow card';
+  if (normalized.includes('penalty')) return 'penalty incident';
+
+  return null;
+}
+
+function buildMatchEventLine(event: RichMatchEvent) {
+  const eventSummary = summarizeMatchEventType(event.type?.text);
+  if (!eventSummary) {
+    return null;
+  }
+
+  const playerName = event.athletesInvolved?.[0]?.displayName || 'someone';
+  const minute = event.clock?.displayValue || '';
+
+  if (eventSummary === 'goal') return `${playerName} scored${minute ? ` at ${minute}` : ''}`;
+  if (eventSummary === 'own goal') return `${playerName} put through their own net${minute ? ` at ${minute}` : ''}`;
+  if (eventSummary === 'penalty') return `${playerName} scored the penalty${minute ? ` at ${minute}` : ''}`;
+  if (eventSummary === 'red card') return `${playerName} saw red${minute ? ` at ${minute}` : ''}`;
+  if (eventSummary === 'yellow card') return `${playerName} went in the book${minute ? ` at ${minute}` : ''}`;
+
+  return `${playerName} had a ${eventSummary}${minute ? ` at ${minute}` : ''}`;
+}
+
+export function buildMatchEventHooks(matchEvents: RichMatchEvent[] | undefined, keyMoments: string[] | undefined) {
+  const hooks: string[] = [];
+  const seen = new Set<string>();
+
+  for (const keyMoment of keyMoments || []) {
+    const normalized = keyMoment.trim();
+    if (!normalized) {
+      continue;
+    }
+    const dedupeKey = normalized.toLowerCase();
+    if (!seen.has(dedupeKey)) {
+      hooks.push(normalized);
+      seen.add(dedupeKey);
+    }
+    if (hooks.length >= 4) {
+      return hooks;
+    }
+  }
+
+  for (const event of (matchEvents || []).slice().reverse()) {
+    const line = buildMatchEventLine(event);
+    if (!line) {
+      continue;
+    }
+    const dedupeKey = line.toLowerCase();
+    if (seen.has(dedupeKey)) {
+      continue;
+    }
+    hooks.push(line);
+    seen.add(dedupeKey);
+    if (hooks.length >= 4) {
+      break;
+    }
+  }
+
+  return hooks;
+}
+
 function teamMatchesLabel(team: { abbreviation?: string; shortDisplayName?: string; displayName?: string } | undefined, label: string | undefined) {
   if (!team || !label) {
     return false;
@@ -633,6 +705,7 @@ export function extractThreadHooks(input: {
   rootText?: string | null;
 }) {
   const playerNames = extractPlayerNames(input.keyMoments, input.matchEvents).map((name) => name.toLowerCase());
+  const eventHooks = buildMatchEventHooks(input.matchEvents, input.keyMoments);
   const teamTerms = [input.homeTeam.toLowerCase(), input.awayTeam.toLowerCase()];
   const seen = new Set<string>();
   const hooks: string[] = [];
@@ -667,6 +740,18 @@ export function extractThreadHooks(input: {
       seen.add(lower);
     }
 
+    if (hooks.length >= 7) {
+      break;
+    }
+  }
+
+  for (const eventHook of eventHooks) {
+    const normalized = eventHook.toLowerCase();
+    if (seen.has(normalized)) {
+      continue;
+    }
+    hooks.push(eventHook);
+    seen.add(normalized);
     if (hooks.length >= 7) {
       break;
     }
@@ -839,12 +924,14 @@ function fallbackSuggestions(input: {
   awayTeam: string;
   hooks: string[];
   keyMoments?: string[];
+  matchEvents?: RichMatchEvent[];
   espn: EspnMatchContext;
 }) {
   const rivalryTarget = input.viewerAffinity === 'home' ? input.awayTeam : input.homeTeam;
   const sameSideTeam = input.viewerAffinity === 'home' ? input.homeTeam : input.awayTeam;
   const keyMoment = input.keyMoments?.[0];
   const hook = input.hooks[0];
+  const eventHook = buildMatchEventHooks(input.matchEvents, input.keyMoments)[0];
   const voiceNotes = buildClubVoiceNotes({
     homeTeam: input.homeTeam,
     awayTeam: input.awayTeam,
@@ -880,6 +967,8 @@ function fallbackSuggestions(input: {
       mode: 'player-specific' as const,
       text: keyMoment
         ? `${keyMoment}. if that man turns up, the chant volume is going through the roof.`
+        : eventHook
+          ? `${eventHook}. that is plenty to start talking slick already.`
         : playerHook
           ? `${playerHook}. that is your first bit of ammunition right there.`
         : hook
@@ -898,6 +987,7 @@ export async function generateBanterSuggestions(input: {
   rootText?: string | null;
   hooks: string[];
   keyMoments?: string[];
+  matchEvents?: RichMatchEvent[];
   espn: EspnMatchContext;
 }): Promise<BanterSuggestion[]> {
   const apiKey = process.env.OPENAI_API_KEY || process.env.NEXT_PUBLIC_OPENAIKEY;
@@ -938,6 +1028,7 @@ Context:
 - Root cast: ${input.rootText || 'n/a'}
 - Thread hooks: ${input.hooks.join(' | ') || 'n/a'}
 - Key moments: ${(input.keyMoments || []).join(' | ') || 'n/a'}
+- Live match events: ${buildMatchEventHooks(input.matchEvents, input.keyMoments).join(' | ') || 'n/a'}
 - ESPN preview facts: ${input.espn.previewFacts.join(' | ') || 'n/a'}
 - ESPN narrative angles: ${input.espn.narrativeAngles.join(' | ') || 'n/a'}
 - ESPN form edge: ${input.espn.banterSignals.formEdge.join(' | ') || 'n/a'}

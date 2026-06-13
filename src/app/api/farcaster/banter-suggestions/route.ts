@@ -77,6 +77,7 @@ export async function POST(request: NextRequest) {
       rootText: thread.rootText,
       hooks,
       keyMoments: selectedMatch.keyMoments,
+      matchEvents: selectedMatch.matchEvents,
       espn,
     });
 

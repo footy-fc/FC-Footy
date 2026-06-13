@@ -280,13 +280,20 @@ export function getWorldCupGroups() {
     .sort((left, right) => left.group.localeCompare(right.group));
 }
 
+export function formatLocalDateKey(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 export function getRecommendedWorldCupDate(now = new Date()) {
   const days = getWorldCupMatchDays();
   if (days.length === 0) {
     return null;
   }
 
-  const todayKey = now.toISOString().slice(0, 10);
+  const todayKey = formatLocalDateKey(now);
   if (todayKey < days[0]) {
     return days[0];
   }

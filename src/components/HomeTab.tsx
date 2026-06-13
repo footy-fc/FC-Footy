@@ -5,6 +5,7 @@ import { useFootyFarcaster } from "~/lib/farcaster/useFootyFarcaster";
 import { getTeamPreferences } from "../lib/kvPerferences";
 import {
   getCountdownToWorldCup,
+  formatLocalDateKey,
   getRecommendedWorldCupDate,
   getWorldCupGroupStageDates,
   getWorldCupGroups,
@@ -50,6 +51,14 @@ type EspnEvent = {
   }>;
 };
 
+type ScoresApiPayload = {
+  success?: boolean;
+  data?: {
+    events?: EspnEvent[];
+  };
+  events?: EspnEvent[];
+};
+
 type GroupStandingRow = {
   team: WorldCupTeam;
   played: number;
@@ -80,6 +89,24 @@ function formatDayNumber(date: string) {
   }).format(new Date(`${date}T12:00:00Z`));
 }
 
+function getTournamentScoreboardCutoff(now = new Date()) {
+  const matchDays = getWorldCupMatchDays();
+  if (matchDays.length === 0) {
+    return null;
+  }
+
+  const todayKey = formatLocalDateKey(now);
+  if (todayKey < matchDays[0]) {
+    return null;
+  }
+
+  if (todayKey > matchDays[matchDays.length - 1]) {
+    return matchDays[matchDays.length - 1];
+  }
+
+  return todayKey;
+}
+
 function formatMatchTime(match: WorldCupMatch) {
   if (!match.startsAt) {
     return match.time;
@@ -103,23 +130,56 @@ function getPreferredWorldCupCountry(teamIds: string[] | null | undefined) {
   return null;
 }
 
+function buildTeamMatchNames(values: Array<string | null | undefined>) {
+  const names = new Set<string>();
+  for (const value of values) {
+    if (!value) {
+      continue;
+    }
+
+    const normalized = normalizeWorldCupName(value);
+    if (!normalized) {
+      continue;
+    }
+
+    names.add(normalized);
+    names.add(normalized.replace(/\band\b/g, " ").replace(/\s+/g, " ").trim());
+  }
+
+  return names;
+}
+
+function getCompetitorTeamNames(competitor: EspnCompetitor | undefined) {
+  return buildTeamMatchNames([
+    competitor?.team?.displayName,
+    competitor?.team?.shortDisplayName,
+    competitor?.team?.abbreviation,
+  ]);
+}
+
+function hasSharedTeamName(left: Set<string>, right: Set<string>) {
+  for (const value of left) {
+    if (right.has(value)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 function findEspnEventForMatch(match: WorldCupMatch, events: EspnEvent[]) {
-  const targetHome = normalizeWorldCupName(match.homeTeam.name);
-  const targetAway = normalizeWorldCupName(match.awayTeam.name);
+  const targetHomeNames = buildTeamMatchNames([match.homeTeam.name, match.homeTeam.normalizedName, match.homeTeam.fifaCode]);
+  const targetAwayNames = buildTeamMatchNames([match.awayTeam.name, match.awayTeam.normalizedName, match.awayTeam.fifaCode]);
 
   return (
     events.find((event) => {
       const competitors = event.competitions?.[0]?.competitors || [];
       const home = competitors.find((competitor) => competitor.homeAway === "home");
       const away = competitors.find((competitor) => competitor.homeAway === "away");
-      const homeName = normalizeWorldCupName(
-        home?.team?.displayName || home?.team?.shortDisplayName || home?.team?.abbreviation || ""
-      );
-      const awayName = normalizeWorldCupName(
-        away?.team?.displayName || away?.team?.shortDisplayName || away?.team?.abbreviation || ""
-      );
+      const homeNames = getCompetitorTeamNames(home);
+      const awayNames = getCompetitorTeamNames(away);
 
-      return homeName === targetHome && awayName === targetAway;
+      return hasSharedTeamName(targetHomeNames, homeNames) && hasSharedTeamName(targetAwayNames, awayNames);
     }) || null
   );
 }
@@ -191,6 +251,30 @@ function hasMatchStarted(event: EspnEvent | null) {
   return state === "in" || state === "post";
 }
 
+async function fetchWorldCupScoreboardEvents(date: string) {
+  const dateKey = date.replaceAll("-", "");
+  const espnUrl = `https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard?dates=${dateKey}`;
+
+  try {
+    const espnResponse = await fetch(espnUrl, { cache: "no-store" });
+    if (!espnResponse.ok) {
+      throw new Error(`World Cup scoreboard request failed with ${espnResponse.status}`);
+    }
+
+    const payload = (await espnResponse.json()) as ScoresApiPayload;
+    return Array.isArray(payload.events) ? payload.events : [];
+  } catch (espnError) {
+    const apiResponse = await fetch(`/api/scores?league=fifa.world&dates=${dateKey}`, { cache: "no-store" });
+    if (!apiResponse.ok) {
+      throw espnError;
+    }
+
+    const payload = (await apiResponse.json()) as ScoresApiPayload;
+    const events = payload.data?.events || payload.events;
+    return Array.isArray(events) ? events : [];
+  }
+}
+
 
 function buildEmptyStandings() {
   return getWorldCupGroups().map(({ group, teams }) => ({
@@ -222,7 +306,7 @@ const HomeTab: React.FC<HomeTabProps> = ({ onNavigate, viewerFid }) => {
   const [favoriteTeamIds, setFavoriteTeamIds] = React.useState<string[]>([]);
   const [selectedDate, setSelectedDate] = React.useState<string>(() => getRecommendedWorldCupDate(new Date()) || "");
   const [selectedMatchId, setSelectedMatchId] = React.useState<string | null>(null);
-  const [espnEvents, setEspnEvents] = React.useState<EspnEvent[]>([]);
+  const [scoreboardEventsByDate, setScoreboardEventsByDate] = React.useState<Record<string, EspnEvent[]>>({});
   const [isLoadingEspn, setIsLoadingEspn] = React.useState(false);
   const [groupStandings, setGroupStandings] = React.useState<{ group: string; rows: GroupStandingRow[] }[]>(() => buildEmptyStandings());
   const [isLoadingStandings, setIsLoadingStandings] = React.useState(false);
@@ -264,35 +348,39 @@ const HomeTab: React.FC<HomeTabProps> = ({ onNavigate, viewerFid }) => {
     };
   }, [viewerFid]);
 
+  const matchDays = getWorldCupMatchDays();
+  const liveScoreboardCutoff = getTournamentScoreboardCutoff(new Date());
+
   React.useEffect(() => {
-    if (!selectedDate) {
-      setEspnEvents([]);
+    const datesToLoad = Array.from(
+      new Set([selectedDate, liveScoreboardCutoff].filter((date): date is string => Boolean(date)))
+    );
+    if (datesToLoad.length === 0) {
       return;
     }
 
     let cancelled = false;
-    const dateKey = selectedDate.replaceAll("-", "");
 
-    const loadEspnDay = async () => {
+    const loadVisibleScoreboards = async () => {
       setIsLoadingEspn(true);
       try {
-        const response = await fetch(
-          `https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard?dates=${dateKey}`,
-          { cache: "no-store" }
+        const results = await Promise.all(
+          datesToLoad.map(async (date) => ({
+            date,
+            events: await fetchWorldCupScoreboardEvents(date),
+          }))
         );
-        if (!response.ok) {
-          throw new Error(`World Cup scoreboard request failed with ${response.status}`);
-        }
-
-        const payload = (await response.json()) as { events?: EspnEvent[] };
         if (!cancelled) {
-          setEspnEvents(Array.isArray(payload.events) ? payload.events : []);
+          setScoreboardEventsByDate((current) => {
+            const next = { ...current };
+            for (const { date, events } of results) {
+              next[date] = events;
+            }
+            return next;
+          });
         }
       } catch (error) {
         console.warn("World Cup scoreboard enrichment unavailable:", error);
-        if (!cancelled) {
-          setEspnEvents([]);
-        }
       } finally {
         if (!cancelled) {
           setIsLoadingEspn(false);
@@ -300,17 +388,18 @@ const HomeTab: React.FC<HomeTabProps> = ({ onNavigate, viewerFid }) => {
       }
     };
 
-    void loadEspnDay();
+    void loadVisibleScoreboards();
 
     return () => {
       cancelled = true;
     };
-  }, [selectedDate]);
+  }, [liveScoreboardCutoff, selectedDate]);
 
   React.useEffect(() => {
     let cancelled = false;
-    const selectedDateKey = selectedDate || new Date().toISOString().slice(0, 10);
-    const datesToLoad = getWorldCupGroupStageDates().filter((date) => date <= selectedDateKey);
+    const datesToLoad = liveScoreboardCutoff
+      ? getWorldCupGroupStageDates().filter((date) => date <= liveScoreboardCutoff)
+      : [];
 
     if (datesToLoad.length === 0) {
       setGroupStandings(buildEmptyStandings());
@@ -321,19 +410,21 @@ const HomeTab: React.FC<HomeTabProps> = ({ onNavigate, viewerFid }) => {
       setIsLoadingStandings(true);
       try {
         const payloads = await Promise.all(
-          datesToLoad.map(async (date) => {
-            const response = await fetch(
-              `https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard?dates=${date.replaceAll("-", "")}`,
-              { cache: "no-store" }
-            );
-            if (!response.ok) {
-              return { date, events: [] as EspnEvent[] };
-            }
-
-            const payload = (await response.json()) as { events?: EspnEvent[] };
-            return { date, events: Array.isArray(payload.events) ? payload.events : [] };
-          })
+          datesToLoad.map(async (date) => ({
+            date,
+            events: await fetchWorldCupScoreboardEvents(date),
+          }))
         );
+
+        if (!cancelled) {
+          setScoreboardEventsByDate((current) => {
+            const next = { ...current };
+            for (const { date, events } of payloads) {
+              next[date] = events;
+            }
+            return next;
+          });
+        }
 
         const standingsMap = new Map<string, GroupStandingRow[]>();
         for (const { group, teams } of getWorldCupGroups()) {
@@ -421,9 +512,8 @@ const HomeTab: React.FC<HomeTabProps> = ({ onNavigate, viewerFid }) => {
     return () => {
       cancelled = true;
     };
-  }, [selectedDate]);
+  }, [liveScoreboardCutoff]);
 
-  const matchDays = getWorldCupMatchDays();
   const matchesForSelectedDate = React.useMemo(
     () => (selectedDate ? getWorldCupMatchesForDate(selectedDate) : []),
     [selectedDate]
@@ -446,8 +536,9 @@ const HomeTab: React.FC<HomeTabProps> = ({ onNavigate, viewerFid }) => {
 
   const selectedMatch = getWorldCupMatchById(selectedMatchId) || matchesForSelectedDate[0] || null;
   const countdownDays = getCountdownToWorldCup(new Date());
-  const todayKey = new Date().toISOString().slice(0, 10);
+  const todayKey = formatLocalDateKey(new Date());
   const tournamentStarted = countdownDays === 0 || todayKey >= (matchDays[0] || "");
+  const espnEvents = selectedDate ? scoreboardEventsByDate[selectedDate] || [] : [];
   const selectedGroupStandings = selectedMatch?.group
     ? groupStandings.find((group) => group.group === selectedMatch.group) || null
     : null;

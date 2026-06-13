@@ -20,6 +20,8 @@ import { Info } from 'lucide-react';
 import { WarpcastShareButton } from './ui/WarpcastShareButton';
 import { parseEventId } from '../utils/eventIdParser';
 import { getTeamLogo, getLeagueCode } from './utils/fetchTeamLogos';
+import type { RichMatchEvent } from '../types/commentatorTypes';
+import { buildMatchEventHooks } from '../lib/farcaster/banter';
 
 interface BlockchainScoreSquareDisplayProps {
   eventId: string;
@@ -259,6 +261,8 @@ useEffect(() => {
   const home = details?.homeTeam || '';
   const away = details?.awayTeam || '';
   const leagueId = details?.leagueId || '';
+  const scoreShareMatchEvents = (matchEvents || []) as RichMatchEvent[];
+  const keyMoments = buildMatchEventHooks(scoreShareMatchEvents, undefined);
   const selectedMatch = {
     homeTeam: home,
     awayTeam: away,
@@ -273,9 +277,8 @@ useEffect(() => {
     eventStarted: !!isMatchLive,
     matchDate: undefined,
     espnEventId: undefined,
-    keyMoments: [],
-    // Add rich match data for commentator integration (empty for ScoreSquare games)
-    matchEvents: [],
+    keyMoments,
+    matchEvents: scoreShareMatchEvents,
     competition: leagueId,
     eventId: gameDataState?.eventId || '',
   };
