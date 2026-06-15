@@ -663,13 +663,31 @@ export default function HighlightsFeed() {
         const payload = (typeof event.data === "string"
           ? JSON.parse(event.data)
           : event.data) as {
-          info?: {
-            currentTime?: number;
-            duration?: number;
-          };
+          event?: string;
+          info?:
+            | number
+            | {
+                currentTime?: number;
+                duration?: number;
+              };
         };
 
-        const info = payload.info;
+        // Authoritative "this video can't play here" signal from the YouTube
+        // player. 101 & 150 = embedding disabled by the owner, 100 = removed/
+        // private, 2/5 = malformed request / HTML5 playback error.
+        if (payload.event === "onError") {
+          const code = typeof payload.info === "number" ? payload.info : undefined;
+          if (code === 101 || code === 150 || code === 100 || code === 5 || code === 2) {
+            if (currentVideoId) {
+              setBlockedVideoIds((current) =>
+                current[currentVideoId] ? current : { ...current, [currentVideoId]: true },
+              );
+            }
+          }
+          return;
+        }
+
+        const info = typeof payload.info === "object" && payload.info ? payload.info : null;
         if (!info) {
           return;
         }
@@ -707,11 +725,14 @@ export default function HighlightsFeed() {
       return;
     }
 
+    // Secondary safety net only. The authoritative block signal now comes from
+    // the player's onError event; this longer window prevents false positives
+    // when telemetry is just slow to arrive on a cold start / slow network.
     const timer = window.setTimeout(() => {
       setBlockedVideoIds((current) => (
         current[activeVideoId] ? current : { ...current, [activeVideoId]: true }
       ));
-    }, 4500);
+    }, 9000);
 
     return () => window.clearTimeout(timer);
   }, [activeVideoBlocked, activeVideoId, currentTime, duration, isPlaying, playerLoaded]);
@@ -792,6 +813,12 @@ export default function HighlightsFeed() {
                 className="absolute inset-0 h-[120%] w-full -top-[10%] border-0"
                 onLoad={() => {
                   setPlayerLoaded(true);
+                  // Open the YouTube iframe API event channel so the player
+                  // pushes onReady / onError / infoDelivery messages back to us.
+                  playerIframeRef.current?.contentWindow?.postMessage(
+                    JSON.stringify({ event: "listening", id: 1, channel: "widget" }),
+                    "*",
+                  );
                 }}
               />
             </div>

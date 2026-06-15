@@ -81,9 +81,20 @@ const CHANNELS: FeedChannel[] = [
 const CACHE_TTL_SECONDS = 60 * 10;
 const STALE_TTL_SECONDS = 60 * 60 * 24;
 const HIGHLIGHTS_LIMIT = 18;
-// Bumped to v3 to invalidate cached feeds built before World Cup sources existed.
-const FRESH_CACHE_KEY = "fc-footy:highlights:fresh:v3";
-const STALE_CACHE_KEY = "fc-footy:highlights:stale:v3";
+// Bumped to v4 after adding server-side embeddability filtering.
+const FRESH_CACHE_KEY = "fc-footy:highlights:fresh:v4";
+const STALE_CACHE_KEY = "fc-footy:highlights:stale:v4";
+
+// Embeddability checks. We verify each candidate can actually play inline before
+// serving it, so the feed only ever contains videos that won't hit the
+// "can't play inline" fallback. Results are cached per video id.
+const EMBED_CACHE_PREFIX = "fc-footy:highlights:embed:v1:";
+const EMBED_OK_TTL_SECONDS = 60 * 60 * 24 * 7; // embeddable: trust for a week
+const EMBED_BAD_TTL_SECONDS = 60 * 60 * 12; // non-embeddable: re-check sooner
+const EMBED_CHECK_CONCURRENCY = 6;
+const EMBED_CHECK_TIMEOUT_MS = 4500;
+// Cap how many candidates we probe on a cold build so the request stays bounded.
+const EMBED_CHECK_MAX_CANDIDATES = 60;
 
 const redis =
   process.env.NEXT_PUBLIC_KV_REST_API_URL && process.env.NEXT_PUBLIC_KV_REST_API_TOKEN
@@ -365,6 +376,87 @@ async function fetchChannelFeed(channel: FeedChannel): Promise<InternalVideoHigh
   }
 }
 
+/**
+ * Determine whether a YouTube video can be embedded/played inline.
+ *
+ * YouTube's oEmbed endpoint is a reliable, key-free signal:
+ *   - 200  -> embeddable
+ *   - 401  -> the owner has disabled embedding
+ *   - 404  -> private / deleted
+ * We only ever EXCLUDE a video on an explicit "no" (401/404). Network errors or
+ * timeouts return `true` so a transient hiccup never empties the feed.
+ */
+async function isVideoEmbeddable(videoId: string): Promise<boolean> {
+  const cacheKey = `${EMBED_CACHE_PREFIX}${videoId}`;
+
+  if (redis) {
+    try {
+      const cached = await redis.get<string>(cacheKey);
+      if (cached === "1") return true;
+      if (cached === "0") return false;
+    } catch (error) {
+      console.error("[highlights] embed cache read failed", error);
+    }
+  }
+
+  let embeddable = true;
+  try {
+    const res = await fetch(
+      `https://www.youtube.com/oembed?url=${encodeURIComponent(
+        `https://www.youtube.com/watch?v=${videoId}`,
+      )}&format=json`,
+      { signal: AbortSignal.timeout(EMBED_CHECK_TIMEOUT_MS) },
+    );
+
+    if (res.status === 401 || res.status === 403 || res.status === 404) {
+      embeddable = false;
+    } else {
+      embeddable = res.ok;
+    }
+  } catch (error) {
+    // Treat transient failures as "keep" — don't over-filter on a network blip.
+    console.error(`[highlights] embed check failed for ${videoId}`, error);
+    return true;
+  }
+
+  if (redis) {
+    try {
+      await redis.set(cacheKey, embeddable ? "1" : "0", {
+        ex: embeddable ? EMBED_OK_TTL_SECONDS : EMBED_BAD_TTL_SECONDS,
+      });
+    } catch (error) {
+      console.error("[highlights] embed cache write failed", error);
+    }
+  }
+
+  return embeddable;
+}
+
+/**
+ * Walk the priority-sorted candidates and keep only embeddable ones, preserving
+ * order, until we reach `limit`. Checks run in small concurrent batches.
+ */
+async function filterToEmbeddable(
+  sorted: InternalVideoHighlight[],
+  limit: number,
+): Promise<InternalVideoHighlight[]> {
+  const candidates = sorted.slice(0, EMBED_CHECK_MAX_CANDIDATES);
+  const kept: InternalVideoHighlight[] = [];
+
+  for (let i = 0; i < candidates.length && kept.length < limit; i += EMBED_CHECK_CONCURRENCY) {
+    const batch = candidates.slice(i, i + EMBED_CHECK_CONCURRENCY);
+    const results = await Promise.all(batch.map((item) => isVideoEmbeddable(item.videoId)));
+
+    batch.forEach((item, idx) => {
+      if (results[idx] && kept.length < limit) {
+        kept.push(item);
+      }
+    });
+  }
+
+  return kept;
+}
+
 async function fetchFreshHighlights(): Promise<VideoHighlight[]> {
   const feeds = await Promise.all(CHANNELS.map((channel) => fetchChannelFeed(channel)));
   const allHighlights = feeds.flat();
@@ -389,11 +481,17 @@ async function fetchFreshHighlights(): Promise<VideoHighlight[]> {
     return b.publishedAtMs - a.publishedAtMs;
   });
 
-  const finalHighlights = uniqueHighlights
-    .slice(0, HIGHLIGHTS_LIMIT)
-    .map(toExternalHighlight);
+  // Keep only videos that will actually play inline.
+  const embeddable = await filterToEmbeddable(uniqueHighlights, HIGHLIGHTS_LIMIT);
 
-  return finalHighlights;
+  // Safety net: if the embeddability checks somehow removed everything (e.g. the
+  // oEmbed endpoint was unreachable for all of them), fall back to the top
+  // candidates so the feed is never empty.
+  const finalInternal = embeddable.length > 0
+    ? embeddable
+    : uniqueHighlights.slice(0, HIGHLIGHTS_LIMIT);
+
+  return finalInternal.map(toExternalHighlight);
 }
 
 async function refreshHighlightsCache(): Promise<VideoHighlight[]> {
