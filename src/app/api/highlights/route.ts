@@ -25,6 +25,12 @@ type FeedChannel = {
   id: string;
   name: string;
   league: string;
+  // Base score added to every video from this channel. Higher = surfaces sooner.
+  // Used to favour reliable, embeddable sources (e.g. FIFA) over channels that
+  // frequently disable embedding.
+  basePriority?: number;
+  // Flags channels whose content is World Cup focused so it can be boosted.
+  isWorldCup?: boolean;
 };
 
 type CachedHighlightsEnvelope = {
@@ -51,20 +57,33 @@ type InternalVideoHighlight = VideoHighlight & {
 };
 
 const CHANNELS: FeedChannel[] = [
-  { id: "UCSZbXT5TLLW_i-5W8FZpFsg", name: "MLS", league: "Major League Soccer" },
-  { id: "UCWV3obpZVGgJ3j9FVhEjF2Q", name: "Real Madrid", league: "LaLiga" },
-  { id: "UC14UlmYlSNiQCBe9Eookf_A", name: "FC Barcelona", league: "LaLiga" },
-  { id: "UCkzCjdRMrW2vXLx8mvPVLdQ", name: "Man City", league: "Premier League" },
-  { id: "UCpryVRk_VDudG8SHXgWcG0w", name: "Arsenal", league: "Premier League" },
-  { id: "UC9LQwHZoucFT94I2h6JOcjw", name: "Liverpool", league: "Premier League" },
-  { id: "UCt9a_qP9CqHCNwilf-iULag", name: "PSG", league: "Ligue 1" },
+  // World Cup first. FIFA's official channel posts highlights for every match
+  // and, thanks to the FIFA x YouTube partnership, those clips are built to be
+  // watched on YouTube (i.e. embeddable), making them our most reliable source.
+  {
+    id: "UCpcTrCXblq78GZrTUTLWeBw",
+    name: "FIFA",
+    league: "FIFA World Cup",
+    basePriority: 14,
+    isWorldCup: true,
+  },
+  // Club channels as the supporting feed. MLS/EPL clubs generally allow embeds;
+  // Spanish clubs disable embedding more often, so they get a lower base score.
+  { id: "UCSZbXT5TLLW_i-5W8FZpFsg", name: "MLS", league: "Major League Soccer", basePriority: 3 },
+  { id: "UCkzCjdRMrW2vXLx8mvPVLdQ", name: "Man City", league: "Premier League", basePriority: 3 },
+  { id: "UCpryVRk_VDudG8SHXgWcG0w", name: "Arsenal", league: "Premier League", basePriority: 3 },
+  { id: "UC9LQwHZoucFT94I2h6JOcjw", name: "Liverpool", league: "Premier League", basePriority: 3 },
+  { id: "UCt9a_qP9CqHCNwilf-iULag", name: "PSG", league: "Ligue 1", basePriority: 2 },
+  { id: "UCWV3obpZVGgJ3j9FVhEjF2Q", name: "Real Madrid", league: "LaLiga", basePriority: 1 },
+  { id: "UC14UlmYlSNiQCBe9Eookf_A", name: "FC Barcelona", league: "LaLiga", basePriority: 1 },
 ];
 
 const CACHE_TTL_SECONDS = 60 * 10;
 const STALE_TTL_SECONDS = 60 * 60 * 24;
-const HIGHLIGHTS_LIMIT = 15;
-const FRESH_CACHE_KEY = "fc-footy:highlights:fresh:v2";
-const STALE_CACHE_KEY = "fc-footy:highlights:stale:v2";
+const HIGHLIGHTS_LIMIT = 18;
+// Bumped to v3 to invalidate cached feeds built before World Cup sources existed.
+const FRESH_CACHE_KEY = "fc-footy:highlights:fresh:v3";
+const STALE_CACHE_KEY = "fc-footy:highlights:stale:v3";
 
 const redis =
   process.env.NEXT_PUBLIC_KV_REST_API_URL && process.env.NEXT_PUBLIC_KV_REST_API_TOKEN
@@ -148,10 +167,21 @@ function isLikelyHighlight(title: string): boolean {
     titleLower.includes("recap") ||
     titleLower.includes("goals") ||
     titleLower.includes("goal") ||
+    titleLower.includes("world cup") ||
     titleLower.includes(" vs ") ||
     titleLower.includes(" vs.") ||
     titleLower.includes(" v ") ||
     /\d+\s*[-:]\s*\d+/.test(titleLower)
+  );
+}
+
+function isWorldCupTitle(title: string): boolean {
+  const titleLower = title.toLowerCase();
+  return (
+    titleLower.includes("world cup") ||
+    titleLower.includes("fifa world cup") ||
+    titleLower.includes("wc 2026") ||
+    titleLower.includes("wc2026")
   );
 }
 
@@ -203,6 +233,9 @@ function highlightPriority(title: string): number {
   if (titleLower.includes(" vs ") || titleLower.includes(" vs.") || titleLower.includes(" v ")) {
     score += 1;
   }
+
+  // Float World Cup highlights to the top of the feed.
+  if (isWorldCupTitle(title)) score += 12;
 
   return score;
 }
@@ -318,7 +351,10 @@ async function fetchChannelFeed(channel: FeedChannel): Promise<InternalVideoHigh
         awayTeam: metadata.awayTeam,
         scoreline: metadata.scoreline,
         publishedAtMs: published.getTime(),
-        priority: highlightPriority(title),
+        priority:
+          highlightPriority(title) +
+          (channel.basePriority ?? 0) +
+          (channel.isWorldCup ? 8 : 0),
       });
     }
 
