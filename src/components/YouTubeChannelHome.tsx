@@ -59,6 +59,7 @@ export default function YouTubeChannelHome() {
   const [playerReady, setPlayerReady] = React.useState(false);
   const [isPlaying, setIsPlaying] = React.useState(false);
   const [isMuted, setIsMuted] = React.useState(false);
+  const [showControls, setShowControls] = React.useState(false);
   const playerIframeRef = React.useRef<HTMLIFrameElement | null>(null);
 
   const postPlayerCommand = React.useCallback((func: string, args: unknown[] = []) => {
@@ -76,7 +77,7 @@ export default function YouTubeChannelHome() {
       try {
         setLoading(true);
         setError(null);
-        const response = await fetch(`/api/youtube-channel?channelId=${CHANNEL_ID}`);
+        const response = await fetch(`/api/youtube-channel?channelId=${CHANNEL_ID}`, { cache: "no-store" });
         if (!response.ok) {
           throw new Error("Unable to load channel");
         }
@@ -114,7 +115,20 @@ export default function YouTubeChannelHome() {
   React.useEffect(() => {
     setPlayerReady(false);
     setIsPlaying(false);
+    setShowControls(false);
   }, [selectedVideo?.id]);
+
+  React.useEffect(() => {
+    if (!showControls || !isPlaying) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      setShowControls(false);
+    }, 2200);
+
+    return () => window.clearTimeout(timer);
+  }, [isPlaying, showControls]);
 
   React.useEffect(() => {
     if (!playerReady) {
@@ -131,10 +145,12 @@ export default function YouTubeChannelHome() {
   const handleTogglePlay = () => {
     const nextPlaying = !isPlaying;
     setIsPlaying(nextPlaying);
+    setShowControls(true);
     postPlayerCommand(nextPlaying ? "playVideo" : "pauseVideo");
   };
 
   const handleToggleMuted = () => {
+    setShowControls(true);
     setIsMuted((current) => !current);
   };
 
@@ -163,13 +179,16 @@ export default function YouTubeChannelHome() {
         <div className="app-micro">Latest uploads from YouTube.</div>
       </div>
 
-      <div className="relative overflow-hidden rounded-[18px] border border-white/10 bg-black">
+      <div
+        className="group relative overflow-hidden rounded-[18px] border border-white/10 bg-black"
+        onClick={() => setShowControls(true)}
+      >
         <iframe
           ref={playerIframeRef}
           key={selectedVideo.id}
           src={embedUrl}
           title={selectedVideo.title}
-          className="aspect-video w-full border-0"
+          className="pointer-events-none aspect-video w-full border-0"
           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
           allowFullScreen
           onLoad={() => {
@@ -180,11 +199,22 @@ export default function YouTubeChannelHome() {
             );
           }}
         />
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/80 to-transparent" />
-        <div className="absolute inset-x-0 bottom-0 flex items-center gap-2 p-3">
+        <div
+          className={`pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/80 to-transparent transition-opacity duration-200 ${
+            showControls ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+          }`}
+        />
+        <div
+          className={`absolute inset-x-0 bottom-0 flex items-center gap-2 p-3 transition-opacity duration-200 ${
+            showControls ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+          }`}
+        >
           <button
             type="button"
-            onClick={handleTogglePlay}
+            onClick={(event) => {
+              event.stopPropagation();
+              handleTogglePlay();
+            }}
             className="flex h-10 w-10 items-center justify-center rounded-full bg-notWhite text-darkPurple shadow-[0_8px_24px_rgba(0,0,0,0.35)]"
             aria-label={isPlaying ? "Pause video" : "Play video"}
           >
@@ -201,14 +231,14 @@ export default function YouTubeChannelHome() {
           </button>
           <button
             type="button"
-            onClick={handleToggleMuted}
+            onClick={(event) => {
+              event.stopPropagation();
+              handleToggleMuted();
+            }}
             className="rounded-full border border-white/15 bg-black/60 px-3 py-2 text-[11px] font-semibold text-white backdrop-blur-sm"
           >
             {isMuted ? "Muted" : "Audio"}
           </button>
-          <div className="min-w-0 flex-1 text-xs font-semibold text-white">
-            <div className="truncate">{selectedVideo.title}</div>
-          </div>
         </div>
       </div>
 

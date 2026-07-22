@@ -9,6 +9,7 @@ export type YouTubeChannelVideo = {
   title: string;
   description: string;
   publishedAt: string;
+  publishedAtMs: number;
   publishedLabel: string;
   thumbnailUrl: string;
   youtubeUrl: string;
@@ -72,7 +73,7 @@ export async function GET(request: NextRequest) {
 
   try {
     const response = await fetch(`https://www.youtube.com/feeds/videos.xml?channel_id=${channelId}`, {
-      next: { revalidate: 600 },
+      cache: "no-store",
       signal: AbortSignal.timeout(6000),
     });
 
@@ -99,12 +100,13 @@ export async function GET(request: NextRequest) {
           title: entry.title || "Untitled video",
           description: entry["media:group"]?.["media:description"] || "",
           publishedAt: published.toISOString(),
+          publishedAtMs: published.getTime(),
           publishedLabel: formatPublishedLabel(published),
           thumbnailUrl: getThumbnail(entry, videoId),
           youtubeUrl: `https://www.youtube.com/watch?v=${videoId}`,
         },
       ];
-    }).slice(0, MAX_VIDEOS);
+    }).sort((left, right) => right.publishedAtMs - left.publishedAtMs).slice(0, MAX_VIDEOS);
 
     const payload: YouTubeChannelPayload = {
       channelId,
@@ -114,7 +116,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(payload, {
       headers: {
-        "Cache-Control": "public, s-maxage=600, stale-while-revalidate=1800",
+        "Cache-Control": "no-store",
       },
     });
   } catch (error) {
