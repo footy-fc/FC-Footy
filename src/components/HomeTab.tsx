@@ -1,6 +1,7 @@
 import React from "react";
 import { usePrivy } from "@privy-io/react-auth";
 import { useFootyFarcaster } from "~/lib/farcaster/useFootyFarcaster";
+import YouTubeChannelHome from "./YouTubeChannelHome";
 
 interface HomeTabProps {
   onNavigate: (tab: string) => void;
@@ -57,6 +58,10 @@ const HomeTab: React.FC<HomeTabProps> = ({ onNavigate }) => {
           </button>
         </div>
       ) : null}
+
+      <div className="mb-3">
+        <YouTubeChannelHome />
+      </div>
 
       <div className="space-y-3">
         {homeActions.map((item) => (

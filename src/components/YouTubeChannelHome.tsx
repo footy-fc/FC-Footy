@@ -1,0 +1,170 @@
+"use client";
+
+import React from "react";
+import Image from "next/image";
+import type { YouTubeChannelPayload, YouTubeChannelVideo } from "~/app/api/youtube-channel/route";
+
+const CHANNEL_ID = "UCQn56wvJDa4ukd5n8XF5z_A";
+
+function truncateDescription(description: string) {
+  return description
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 280);
+}
+
+function VideoRow({
+  video,
+  selected,
+  onSelect,
+}: {
+  video: YouTubeChannelVideo;
+  selected: boolean;
+  onSelect: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      className={`grid w-full grid-cols-[82px,1fr] gap-3 rounded-[18px] border p-2 text-left transition-colors ${
+        selected
+          ? "border-deepPink/55 bg-deepPink/15"
+          : "border-white/10 bg-white/5 hover:bg-white/10"
+      }`}
+    >
+      <div className="relative aspect-video overflow-hidden rounded-[12px] bg-darkPurple">
+        <Image
+          src={video.thumbnailUrl}
+          alt=""
+          fill
+          className="object-cover"
+          sizes="82px"
+          unoptimized
+        />
+      </div>
+      <div className="min-w-0">
+        <div className="line-clamp-2 text-xs font-semibold leading-4 text-notWhite">{video.title}</div>
+        <div className="mt-1 text-[11px] font-medium text-lightPurple/70">{video.publishedLabel}</div>
+      </div>
+    </button>
+  );
+}
+
+export default function YouTubeChannelHome() {
+  const [payload, setPayload] = React.useState<YouTubeChannelPayload | null>(null);
+  const [selectedVideoId, setSelectedVideoId] = React.useState<string | null>(null);
+  const [loading, setLoading] = React.useState(true);
+  const [error, setError] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    let cancelled = false;
+
+    const load = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const response = await fetch(`/api/youtube-channel?channelId=${CHANNEL_ID}`);
+        if (!response.ok) {
+          throw new Error("Unable to load channel");
+        }
+
+        const data = (await response.json()) as YouTubeChannelPayload;
+        if (!cancelled) {
+          setPayload(data);
+          setSelectedVideoId(data.videos[0]?.id || null);
+        }
+      } catch (loadError) {
+        console.error("[YouTubeChannelHome] load failed", loadError);
+        if (!cancelled) {
+          setError("Could not load this YouTube channel.");
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    };
+
+    void load();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const selectedVideo = payload?.videos.find((video) => video.id === selectedVideoId) || payload?.videos[0] || null;
+  const embedOrigin = typeof window !== "undefined" ? window.location.origin : "https://fc-footy.vercel.app";
+  const embedUrl = selectedVideo
+    ? `https://www.youtube.com/embed/${selectedVideo.id}?autoplay=0&controls=1&rel=0&modestbranding=1&playsinline=1&origin=${encodeURIComponent(embedOrigin)}`
+    : null;
+
+  if (loading) {
+    return (
+      <section className="rounded-[22px] border border-limeGreenOpacity bg-purplePanel p-4 text-lightPurple">
+        <div className="mb-3 h-4 w-32 animate-pulse rounded-full bg-white/10" />
+        <div className="aspect-video animate-pulse rounded-[18px] bg-darkPurple" />
+      </section>
+    );
+  }
+
+  if (error || !payload || !selectedVideo || !embedUrl) {
+    return (
+      <section className="rounded-[22px] border border-limeGreenOpacity bg-purplePanel p-4 text-lightPurple">
+        <div className="app-section-title mb-2">Channel</div>
+        <p className="text-sm">{error || "No videos are available for this channel."}</p>
+      </section>
+    );
+  }
+
+  return (
+    <section className="rounded-[22px] border border-limeGreenOpacity bg-purplePanel p-4 text-lightPurple">
+      <div className="mb-3">
+        <div className="app-section-title">{payload.channelTitle}</div>
+        <div className="app-micro">Latest uploads from YouTube.</div>
+      </div>
+
+      <div className="overflow-hidden rounded-[18px] border border-white/10 bg-black">
+        <iframe
+          key={selectedVideo.id}
+          src={embedUrl}
+          title={selectedVideo.title}
+          className="aspect-video w-full"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+          allowFullScreen
+        />
+      </div>
+
+      <div className="mt-4">
+        <div className="mb-1 text-[11px] font-bold uppercase tracking-[0.16em] text-deepPink">
+          {selectedVideo.publishedLabel}
+        </div>
+        <h3 className="text-lg font-semibold leading-6 text-notWhite">{selectedVideo.title}</h3>
+        {selectedVideo.description ? (
+          <p className="mt-2 text-sm leading-5 text-lightPurple">
+            {truncateDescription(selectedVideo.description)}
+            {selectedVideo.description.length > 280 ? "..." : ""}
+          </p>
+        ) : null}
+        <a
+          href={selectedVideo.youtubeUrl}
+          target="_blank"
+          rel="noreferrer"
+          className="mt-3 inline-flex rounded-xl bg-darkPurple px-4 py-2 text-sm font-semibold text-notWhite transition-colors hover:bg-deepPink/80"
+        >
+          Open on YouTube
+        </a>
+      </div>
+
+      <div className="mt-4 space-y-2">
+        {payload.videos.map((video) => (
+          <VideoRow
+            key={video.id}
+            video={video}
+            selected={video.id === selectedVideo.id}
+            onSelect={() => setSelectedVideoId(video.id)}
+          />
+        ))}
+      </div>
+    </section>
+  );
+}
