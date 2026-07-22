@@ -5,6 +5,7 @@ import Image from "next/image";
 import type { YouTubeChannelPayload, YouTubeChannelVideo } from "~/app/api/youtube-channel/route";
 
 const CHANNEL_ID = "UCQn56wvJDa4ukd5n8XF5z_A";
+const CHANNEL_DISPLAY_TITLE = "Final Whistle with Split & Peel";
 
 function truncateDescription(description: string) {
   return description
@@ -55,6 +56,18 @@ export default function YouTubeChannelHome() {
   const [selectedVideoId, setSelectedVideoId] = React.useState<string | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
+  const [playerReady, setPlayerReady] = React.useState(false);
+  const [isPlaying, setIsPlaying] = React.useState(false);
+  const [isMuted, setIsMuted] = React.useState(false);
+  const playerIframeRef = React.useRef<HTMLIFrameElement | null>(null);
+
+  const postPlayerCommand = React.useCallback((func: string, args: unknown[] = []) => {
+    playerIframeRef.current?.contentWindow?.postMessage(JSON.stringify({
+      event: "command",
+      func,
+      args,
+    }), "*");
+  }, []);
 
   React.useEffect(() => {
     let cancelled = false;
@@ -95,13 +108,40 @@ export default function YouTubeChannelHome() {
   const selectedVideo = payload?.videos.find((video) => video.id === selectedVideoId) || payload?.videos[0] || null;
   const embedOrigin = typeof window !== "undefined" ? window.location.origin : "https://fc-footy.vercel.app";
   const embedUrl = selectedVideo
-    ? `https://www.youtube.com/embed/${selectedVideo.id}?autoplay=0&controls=1&rel=0&modestbranding=1&playsinline=1&origin=${encodeURIComponent(embedOrigin)}`
+    ? `https://www.youtube.com/embed/${selectedVideo.id}?autoplay=0&controls=0&rel=0&modestbranding=1&playsinline=1&enablejsapi=1&origin=${encodeURIComponent(embedOrigin)}`
     : null;
+
+  React.useEffect(() => {
+    setPlayerReady(false);
+    setIsPlaying(false);
+  }, [selectedVideo?.id]);
+
+  React.useEffect(() => {
+    if (!playerReady) {
+      return;
+    }
+
+    if (isMuted) {
+      postPlayerCommand("mute");
+    } else {
+      postPlayerCommand("unMute");
+    }
+  }, [isMuted, playerReady, postPlayerCommand]);
+
+  const handleTogglePlay = () => {
+    const nextPlaying = !isPlaying;
+    setIsPlaying(nextPlaying);
+    postPlayerCommand(nextPlaying ? "playVideo" : "pauseVideo");
+  };
+
+  const handleToggleMuted = () => {
+    setIsMuted((current) => !current);
+  };
 
   if (loading) {
     return (
       <section className="rounded-[22px] border border-limeGreenOpacity bg-purplePanel p-4 text-lightPurple">
-        <div className="mb-3 h-4 w-32 animate-pulse rounded-full bg-white/10" />
+        <div className="mb-3 h-4 w-56 animate-pulse rounded-full bg-white/10" />
         <div className="aspect-video animate-pulse rounded-[18px] bg-darkPurple" />
       </section>
     );
@@ -110,7 +150,7 @@ export default function YouTubeChannelHome() {
   if (error || !payload || !selectedVideo || !embedUrl) {
     return (
       <section className="rounded-[22px] border border-limeGreenOpacity bg-purplePanel p-4 text-lightPurple">
-        <div className="app-section-title mb-2">Channel</div>
+        <div className="app-section-title mb-2">{CHANNEL_DISPLAY_TITLE}</div>
         <p className="text-sm">{error || "No videos are available for this channel."}</p>
       </section>
     );
@@ -119,19 +159,57 @@ export default function YouTubeChannelHome() {
   return (
     <section className="rounded-[22px] border border-limeGreenOpacity bg-purplePanel p-4 text-lightPurple">
       <div className="mb-3">
-        <div className="app-section-title">{payload.channelTitle}</div>
+        <div className="app-section-title">{CHANNEL_DISPLAY_TITLE}</div>
         <div className="app-micro">Latest uploads from YouTube.</div>
       </div>
 
-      <div className="overflow-hidden rounded-[18px] border border-white/10 bg-black">
+      <div className="relative overflow-hidden rounded-[18px] border border-white/10 bg-black">
         <iframe
+          ref={playerIframeRef}
           key={selectedVideo.id}
           src={embedUrl}
           title={selectedVideo.title}
-          className="aspect-video w-full"
+          className="aspect-video w-full border-0"
           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
           allowFullScreen
+          onLoad={() => {
+            setPlayerReady(true);
+            playerIframeRef.current?.contentWindow?.postMessage(
+              JSON.stringify({ event: "listening", id: 1, channel: "widget" }),
+              "*",
+            );
+          }}
         />
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/80 to-transparent" />
+        <div className="absolute inset-x-0 bottom-0 flex items-center gap-2 p-3">
+          <button
+            type="button"
+            onClick={handleTogglePlay}
+            className="flex h-10 w-10 items-center justify-center rounded-full bg-notWhite text-darkPurple shadow-[0_8px_24px_rgba(0,0,0,0.35)]"
+            aria-label={isPlaying ? "Pause video" : "Play video"}
+          >
+            {isPlaying ? (
+              <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor">
+                <rect x="6" y="4" width="4" height="16" />
+                <rect x="14" y="4" width="4" height="16" />
+              </svg>
+            ) : (
+              <svg viewBox="0 0 24 24" className="h-4 w-4 translate-x-[1px]" fill="currentColor">
+                <polygon points="5 3 19 12 5 21 5 3" />
+              </svg>
+            )}
+          </button>
+          <button
+            type="button"
+            onClick={handleToggleMuted}
+            className="rounded-full border border-white/15 bg-black/60 px-3 py-2 text-[11px] font-semibold text-white backdrop-blur-sm"
+          >
+            {isMuted ? "Muted" : "Audio"}
+          </button>
+          <div className="min-w-0 flex-1 text-xs font-semibold text-white">
+            <div className="truncate">{selectedVideo.title}</div>
+          </div>
+        </div>
       </div>
 
       <div className="mt-4">
@@ -145,14 +223,6 @@ export default function YouTubeChannelHome() {
             {selectedVideo.description.length > 280 ? "..." : ""}
           </p>
         ) : null}
-        <a
-          href={selectedVideo.youtubeUrl}
-          target="_blank"
-          rel="noreferrer"
-          className="mt-3 inline-flex rounded-xl bg-darkPurple px-4 py-2 text-sm font-semibold text-notWhite transition-colors hover:bg-deepPink/80"
-        >
-          Open on YouTube
-        </a>
       </div>
 
       <div className="mt-4 space-y-2">
