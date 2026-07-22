@@ -60,6 +60,7 @@ export default function YouTubeChannelHome() {
   const [isPlaying, setIsPlaying] = React.useState(false);
   const [isMuted, setIsMuted] = React.useState(false);
   const [showControls, setShowControls] = React.useState(false);
+  const [hasStartedPlayback, setHasStartedPlayback] = React.useState(false);
   const playerIframeRef = React.useRef<HTMLIFrameElement | null>(null);
 
   const postPlayerCommand = React.useCallback((func: string, args: unknown[] = []) => {
@@ -109,13 +110,14 @@ export default function YouTubeChannelHome() {
   const selectedVideo = payload?.videos.find((video) => video.id === selectedVideoId) || payload?.videos[0] || null;
   const embedOrigin = typeof window !== "undefined" ? window.location.origin : "https://fc-footy.vercel.app";
   const embedUrl = selectedVideo
-    ? `https://www.youtube.com/embed/${selectedVideo.id}?autoplay=0&controls=0&rel=0&modestbranding=1&playsinline=1&enablejsapi=1&origin=${encodeURIComponent(embedOrigin)}`
+    ? `https://www.youtube.com/embed/${selectedVideo.id}?autoplay=1&controls=0&rel=0&modestbranding=1&playsinline=1&enablejsapi=1&origin=${encodeURIComponent(embedOrigin)}`
     : null;
 
   React.useEffect(() => {
     setPlayerReady(false);
     setIsPlaying(false);
     setShowControls(false);
+    setHasStartedPlayback(false);
   }, [selectedVideo?.id]);
 
   React.useEffect(() => {
@@ -143,6 +145,13 @@ export default function YouTubeChannelHome() {
   }, [isMuted, playerReady, postPlayerCommand]);
 
   const handleTogglePlay = () => {
+    if (!hasStartedPlayback) {
+      setHasStartedPlayback(true);
+      setIsPlaying(true);
+      setShowControls(true);
+      return;
+    }
+
     const nextPlaying = !isPlaying;
     setIsPlaying(nextPlaying);
     setShowControls(true);
@@ -183,22 +192,45 @@ export default function YouTubeChannelHome() {
         className="group relative overflow-hidden rounded-[18px] border border-white/10 bg-black"
         onClick={() => setShowControls(true)}
       >
-        <iframe
-          ref={playerIframeRef}
-          key={selectedVideo.id}
-          src={embedUrl}
-          title={selectedVideo.title}
-          className="pointer-events-none aspect-video w-full border-0"
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-          allowFullScreen
-          onLoad={() => {
-            setPlayerReady(true);
-            playerIframeRef.current?.contentWindow?.postMessage(
-              JSON.stringify({ event: "listening", id: 1, channel: "widget" }),
-              "*",
-            );
-          }}
-        />
+        {hasStartedPlayback ? (
+          <iframe
+            ref={playerIframeRef}
+            key={selectedVideo.id}
+            src={embedUrl}
+            title={selectedVideo.title}
+            className="pointer-events-none aspect-video w-full border-0"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+            allowFullScreen
+            onLoad={() => {
+              setPlayerReady(true);
+              playerIframeRef.current?.contentWindow?.postMessage(
+                JSON.stringify({ event: "listening", id: 1, channel: "widget" }),
+                "*",
+              );
+            }}
+          />
+        ) : (
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              handleTogglePlay();
+            }}
+            className="relative block aspect-video w-full overflow-hidden text-left"
+            aria-label={`Play ${selectedVideo.title}`}
+          >
+            <Image
+              src={selectedVideo.thumbnailUrl}
+              alt=""
+              fill
+              className="object-cover"
+              sizes="360px"
+              priority
+              unoptimized
+            />
+            <div className="absolute inset-0 bg-black/10" />
+          </button>
+        )}
         <div
           className={`pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/80 to-transparent transition-opacity duration-200 ${
             showControls ? "opacity-100" : "opacity-0 group-hover:opacity-100"
