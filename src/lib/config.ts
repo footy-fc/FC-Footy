@@ -13,7 +13,7 @@ export const MOCK_FIRST_TIME_USER = false
 // section + accent treatment). Flip to `false` once the tournament is over to
 // instantly return the app to its default look. See src/lib/worldCup.ts for the
 // theme/config details.
-export const WORLD_CUP_MODE = true
+export const WORLD_CUP_MODE = false
 
 // Contract addresses for different networks
 export const CONTRACTS = {

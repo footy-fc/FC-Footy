@@ -14,7 +14,7 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
   const tabs = [
     "home",
     "scores",
-    "highlights",
+    "fantasy",
     "fanClubs",
     "channels",
   ];
