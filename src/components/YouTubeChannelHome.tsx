@@ -58,9 +58,10 @@ export default function YouTubeChannelHome() {
   const [error, setError] = React.useState<string | null>(null);
   const [playerReady, setPlayerReady] = React.useState(false);
   const [isPlaying, setIsPlaying] = React.useState(false);
-  const [isMuted, setIsMuted] = React.useState(false);
+  const [isMuted, setIsMuted] = React.useState(true);
   const [showControls, setShowControls] = React.useState(false);
   const [hasStartedPlayback, setHasStartedPlayback] = React.useState(false);
+  const [showPoster, setShowPoster] = React.useState(true);
   const playerIframeRef = React.useRef<HTMLIFrameElement | null>(null);
 
   const postPlayerCommand = React.useCallback((func: string, args: unknown[] = []) => {
@@ -110,14 +111,16 @@ export default function YouTubeChannelHome() {
   const selectedVideo = payload?.videos.find((video) => video.id === selectedVideoId) || payload?.videos[0] || null;
   const embedOrigin = typeof window !== "undefined" ? window.location.origin : "https://fc-footy.vercel.app";
   const embedUrl = selectedVideo
-    ? `https://www.youtube.com/embed/${selectedVideo.id}?autoplay=1&controls=0&rel=0&modestbranding=1&playsinline=1&enablejsapi=1&origin=${encodeURIComponent(embedOrigin)}`
+    ? `https://www.youtube.com/embed/${selectedVideo.id}?autoplay=1&mute=1&controls=0&rel=0&modestbranding=1&playsinline=1&enablejsapi=1&origin=${encodeURIComponent(embedOrigin)}`
     : null;
 
   React.useEffect(() => {
     setPlayerReady(false);
-    setIsPlaying(false);
+    setIsPlaying(true);
     setShowControls(false);
-    setHasStartedPlayback(false);
+    setHasStartedPlayback(Boolean(selectedVideo?.id));
+    setIsMuted(true);
+    setShowPoster(true);
   }, [selectedVideo?.id]);
 
   React.useEffect(() => {
@@ -137,12 +140,24 @@ export default function YouTubeChannelHome() {
       return;
     }
 
+    if (isPlaying) {
+      postPlayerCommand("playVideo");
+    } else {
+      postPlayerCommand("pauseVideo");
+    }
+
     if (isMuted) {
       postPlayerCommand("mute");
     } else {
       postPlayerCommand("unMute");
     }
-  }, [isMuted, playerReady, postPlayerCommand]);
+
+    const posterTimer = window.setTimeout(() => {
+      setShowPoster(false);
+    }, 850);
+
+    return () => window.clearTimeout(posterTimer);
+  }, [isMuted, isPlaying, playerReady, postPlayerCommand]);
 
   const handleTogglePlay = () => {
     if (!hasStartedPlayback) {
@@ -209,14 +224,15 @@ export default function YouTubeChannelHome() {
               );
             }}
           />
-        ) : (
+        ) : null}
+        {showPoster ? (
           <button
             type="button"
             onClick={(event) => {
               event.stopPropagation();
               handleTogglePlay();
             }}
-            className="relative block aspect-video w-full overflow-hidden text-left"
+            className="absolute inset-0 z-10 block w-full overflow-hidden text-left"
             aria-label={`Play ${selectedVideo.title}`}
           >
             <Image
@@ -230,14 +246,14 @@ export default function YouTubeChannelHome() {
             />
             <div className="absolute inset-0 bg-black/10" />
           </button>
-        )}
+        ) : null}
         <div
-          className={`pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/80 to-transparent transition-opacity duration-200 ${
+          className={`pointer-events-none absolute inset-x-0 bottom-0 z-20 h-24 bg-gradient-to-t from-black/80 to-transparent transition-opacity duration-200 ${
             showControls ? "opacity-100" : "opacity-0 group-hover:opacity-100"
           }`}
         />
         <div
-          className={`absolute inset-x-0 bottom-0 flex items-center gap-2 p-3 transition-opacity duration-200 ${
+          className={`absolute inset-x-0 bottom-0 z-30 flex items-center gap-2 p-3 transition-opacity duration-200 ${
             showControls ? "opacity-100" : "opacity-0 group-hover:opacity-100"
           }`}
         >
