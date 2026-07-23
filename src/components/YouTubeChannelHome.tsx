@@ -16,22 +16,16 @@ function truncateDescription(description: string) {
 
 function VideoRow({
   video,
-  selected,
   onSelect,
 }: {
   video: YouTubeChannelVideo;
-  selected: boolean;
   onSelect: () => void;
 }) {
   return (
     <button
       type="button"
       onClick={onSelect}
-      className={`grid w-full grid-cols-[82px,1fr] gap-3 rounded-[18px] border p-2 text-left transition-colors ${
-        selected
-          ? "border-deepPink/55 bg-deepPink/15"
-          : "border-white/10 bg-white/5 hover:bg-white/10"
-      }`}
+      className="grid w-full grid-cols-[82px,1fr] gap-3 rounded-[18px] border border-white/10 bg-white/5 p-2 text-left transition-colors hover:bg-white/10"
     >
       <div className="relative aspect-video overflow-hidden rounded-[12px] bg-darkPurple">
         <Image
@@ -195,6 +189,8 @@ export default function YouTubeChannelHome() {
     );
   }
 
+  const playlistVideos = payload.videos.filter((video) => video.id !== selectedVideo.id);
+
   return (
     <section className="rounded-[22px] border border-limeGreenOpacity bg-purplePanel p-4 text-lightPurple">
       <div className="mb-3">
@@ -302,16 +298,17 @@ export default function YouTubeChannelHome() {
         ) : null}
       </div>
 
-      <div className="mt-4 space-y-2">
-        {payload.videos.map((video) => (
+      {playlistVideos.length > 0 ? (
+        <div className="mt-4 space-y-2">
+          {playlistVideos.map((video) => (
           <VideoRow
             key={video.id}
             video={video}
-            selected={video.id === selectedVideo.id}
             onSelect={() => setSelectedVideoId(video.id)}
           />
-        ))}
-      </div>
+          ))}
+        </div>
+      ) : null}
     </section>
   );
 }
