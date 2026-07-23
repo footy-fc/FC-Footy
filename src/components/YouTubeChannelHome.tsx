@@ -6,6 +6,7 @@ import type { YouTubeChannelPayload, YouTubeChannelVideo } from "~/app/api/youtu
 
 const CHANNEL_ID = "UCQn56wvJDa4ukd5n8XF5z_A";
 const CHANNEL_DISPLAY_TITLE = "Final Whistle with Split & Peel";
+const EMBED_FALLBACK_ORIGIN = "https://fc-footy.vercel.app";
 
 function truncateDescription(description: string) {
   return description
@@ -14,49 +15,154 @@ function truncateDescription(description: string) {
     .slice(0, 280);
 }
 
-function VideoRow({
+function PlayIcon({ isPlaying }: { isPlaying: boolean }) {
+  return isPlaying ? (
+    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor" aria-hidden="true">
+      <rect x="6" y="4" width="4" height="16" />
+      <rect x="14" y="4" width="4" height="16" />
+    </svg>
+  ) : (
+    <svg viewBox="0 0 24 24" className="h-4 w-4 translate-x-[1px]" fill="currentColor" aria-hidden="true">
+      <polygon points="5 3 19 12 5 21 5 3" />
+    </svg>
+  );
+}
+
+function YouTubeReel({
   video,
-  onSelect,
+  active,
+  embedOrigin,
+  isPlaying,
+  isMuted,
+  showControls,
+  setReelRef,
+  setIframeRef,
+  onFocus,
+  onIframeLoad,
+  onTogglePlay,
+  onToggleMuted,
+  onShowControls,
 }: {
   video: YouTubeChannelVideo;
-  onSelect: () => void;
+  active: boolean;
+  embedOrigin: string;
+  isPlaying: boolean;
+  isMuted: boolean;
+  showControls: boolean;
+  setReelRef: (node: HTMLElement | null) => void;
+  setIframeRef: (node: HTMLIFrameElement | null) => void;
+  onFocus: () => void;
+  onIframeLoad: () => void;
+  onTogglePlay: () => void;
+  onToggleMuted: () => void;
+  onShowControls: () => void;
 }) {
+  const embedUrl = `https://www.youtube.com/embed/${video.id}?autoplay=1&mute=0&controls=0&rel=0&modestbranding=1&playsinline=1&enablejsapi=1&origin=${encodeURIComponent(embedOrigin)}&cc_load_policy=0&iv_load_policy=3&disablekb=1&fs=0`;
+
   return (
-    <button
-      type="button"
-      onClick={onSelect}
-      className="grid w-full grid-cols-[82px,1fr] gap-3 rounded-[18px] border border-white/10 bg-white/5 p-2 text-left transition-colors hover:bg-white/10"
+    <article
+      ref={setReelRef}
+      data-video-id={video.id}
+      className="flex min-h-full snap-start flex-col justify-start py-3"
     >
-      <div className="relative aspect-video overflow-hidden rounded-[12px] bg-darkPurple">
-        <Image
-          src={video.thumbnailUrl}
-          alt=""
-          fill
-          className="object-cover"
-          sizes="82px"
-          unoptimized
+      <div
+        className={`group relative overflow-hidden rounded-[18px] border bg-black transition-colors ${
+          active ? "border-deepPink/60" : "border-white/10"
+        }`}
+        onPointerDown={() => {
+          onFocus();
+          onShowControls();
+        }}
+        onMouseEnter={onShowControls}
+      >
+        {active ? (
+          <iframe
+            ref={setIframeRef}
+            key={video.id}
+            src={embedUrl}
+            title={video.title}
+            className="pointer-events-none aspect-video w-full border-0"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+            allowFullScreen
+            onLoad={onIframeLoad}
+          />
+        ) : (
+          <div className="relative aspect-video w-full">
+            <Image
+              src={video.thumbnailUrl}
+              alt=""
+              fill
+              className="object-cover"
+              sizes="360px"
+              unoptimized
+            />
+            <div className="absolute inset-0 bg-black/25" />
+          </div>
+        )}
+        <div
+          className={`pointer-events-none absolute inset-x-0 bottom-0 z-20 h-24 bg-gradient-to-t from-black/80 to-transparent transition-opacity duration-200 ${
+            active && showControls ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+          }`}
         />
+        <div
+          className={`absolute inset-x-0 bottom-0 z-30 flex items-center gap-2 p-3 transition-opacity duration-200 ${
+            active && showControls ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+          }`}
+        >
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              onFocus();
+              onTogglePlay();
+            }}
+            className="flex h-10 w-10 items-center justify-center rounded-full bg-notWhite text-darkPurple shadow-[0_8px_24px_rgba(0,0,0,0.35)]"
+            aria-label={isPlaying ? "Pause video" : "Play video"}
+          >
+            <PlayIcon isPlaying={active && isPlaying} />
+          </button>
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              onFocus();
+              onToggleMuted();
+            }}
+            className="rounded-full border border-white/15 bg-black/60 px-3 py-2 text-[11px] font-semibold text-white backdrop-blur-sm"
+            aria-label={isMuted ? "Turn audio on" : "Mute video"}
+          >
+            {isMuted ? "Muted" : "Audio"}
+          </button>
+        </div>
       </div>
-      <div className="min-w-0">
-        <div className="line-clamp-2 text-xs font-semibold leading-4 text-notWhite">{video.title}</div>
-        <div className="mt-1 text-[11px] font-medium text-lightPurple/70">{video.publishedLabel}</div>
+
+      <div className="mt-4">
+        <div className="mb-1 text-[11px] font-bold uppercase tracking-[0.16em] text-deepPink">
+          {video.publishedLabel}
+        </div>
+        <h3 className="text-lg font-semibold leading-6 text-notWhite">{video.title}</h3>
+        {video.description ? (
+          <p className="mt-2 text-sm leading-5 text-lightPurple">
+            {truncateDescription(video.description)}
+            {video.description.length > 280 ? "..." : ""}
+          </p>
+        ) : null}
       </div>
-    </button>
+    </article>
   );
 }
 
 export default function YouTubeChannelHome() {
   const [payload, setPayload] = React.useState<YouTubeChannelPayload | null>(null);
-  const [selectedVideoId, setSelectedVideoId] = React.useState<string | null>(null);
+  const [activeVideoId, setActiveVideoId] = React.useState<string | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
   const [playerReady, setPlayerReady] = React.useState(false);
   const [isPlaying, setIsPlaying] = React.useState(false);
   const [isMuted, setIsMuted] = React.useState(false);
   const [showControls, setShowControls] = React.useState(false);
-  const [hasStartedPlayback, setHasStartedPlayback] = React.useState(false);
-  const [showPoster, setShowPoster] = React.useState(true);
   const playerIframeRef = React.useRef<HTMLIFrameElement | null>(null);
+  const reelRefs = React.useRef(new Map<string, HTMLElement>());
 
   const postPlayerCommand = React.useCallback((func: string, args: unknown[] = []) => {
     playerIframeRef.current?.contentWindow?.postMessage(JSON.stringify({
@@ -81,7 +187,7 @@ export default function YouTubeChannelHome() {
         const data = (await response.json()) as YouTubeChannelPayload;
         if (!cancelled) {
           setPayload(data);
-          setSelectedVideoId(data.videos[0]?.id || null);
+          setActiveVideoId(data.videos[0]?.id || null);
         }
       } catch (loadError) {
         console.error("[YouTubeChannelHome] load failed", loadError);
@@ -102,19 +208,42 @@ export default function YouTubeChannelHome() {
     };
   }, []);
 
-  const selectedVideo = payload?.videos.find((video) => video.id === selectedVideoId) || payload?.videos[0] || null;
-  const embedOrigin = typeof window !== "undefined" ? window.location.origin : "https://fc-footy.vercel.app";
-  const embedUrl = selectedVideo
-    ? `https://www.youtube.com/embed/${selectedVideo.id}?autoplay=1&mute=0&controls=0&rel=0&modestbranding=1&playsinline=1&enablejsapi=1&origin=${encodeURIComponent(embedOrigin)}`
-    : null;
+  const activeVideo = payload?.videos.find((video) => video.id === activeVideoId) || payload?.videos[0] || null;
+  const embedOrigin = typeof window !== "undefined" ? window.location.origin : EMBED_FALLBACK_ORIGIN;
+
+  React.useEffect(() => {
+    if (!payload?.videos.length) {
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const focusedEntry = entries
+          .filter((entry) => entry.isIntersecting)
+          .sort((left, right) => right.intersectionRatio - left.intersectionRatio)[0];
+        const nextVideoId = focusedEntry?.target.getAttribute("data-video-id");
+
+        if (nextVideoId) {
+          setActiveVideoId((current) => (current === nextVideoId ? current : nextVideoId));
+        }
+      },
+      {
+        threshold: [0.55, 0.7, 0.85],
+      },
+    );
+
+    reelRefs.current.forEach((node) => observer.observe(node));
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [payload?.videos]);
 
   React.useEffect(() => {
     setPlayerReady(false);
     setIsPlaying(true);
     setShowControls(false);
-    setHasStartedPlayback(Boolean(selectedVideo?.id));
-    setShowPoster(true);
-  }, [selectedVideo?.id]);
+  }, [activeVideo?.id]);
 
   React.useEffect(() => {
     if (!showControls || !isPlaying) {
@@ -145,21 +274,11 @@ export default function YouTubeChannelHome() {
       postPlayerCommand("unMute");
     }
 
-    const posterTimer = window.setTimeout(() => {
-      setShowPoster(false);
-    }, 850);
-
-    return () => window.clearTimeout(posterTimer);
+    postPlayerCommand("unloadModule", ["captions"]);
+    postPlayerCommand("setOption", ["captions", "track", {}]);
   }, [isMuted, isPlaying, playerReady, postPlayerCommand]);
 
   const handleTogglePlay = () => {
-    if (!hasStartedPlayback) {
-      setHasStartedPlayback(true);
-      setIsPlaying(true);
-      setShowControls(true);
-      return;
-    }
-
     const nextPlaying = !isPlaying;
     setIsPlaying(nextPlaying);
     setShowControls(true);
@@ -180,7 +299,7 @@ export default function YouTubeChannelHome() {
     );
   }
 
-  if (error || !payload || !selectedVideo || !embedUrl) {
+  if (error || !payload || !activeVideo || !payload.videos.length) {
     return (
       <section className="rounded-[22px] border border-limeGreenOpacity bg-purplePanel p-4 text-lightPurple">
         <div className="app-section-title mb-2">{CHANNEL_DISPLAY_TITLE}</div>
@@ -189,126 +308,50 @@ export default function YouTubeChannelHome() {
     );
   }
 
-  const playlistVideos = payload.videos.filter((video) => video.id !== selectedVideo.id);
-
   return (
-    <section className="rounded-[22px] border border-limeGreenOpacity bg-purplePanel p-4 text-lightPurple">
-      <div className="mb-3">
+    <section className="overflow-hidden rounded-[22px] border border-limeGreenOpacity bg-purplePanel text-lightPurple">
+      <div className="border-b border-white/10 px-4 py-4">
         <div className="app-section-title">{CHANNEL_DISPLAY_TITLE}</div>
         <div className="app-micro">Latest uploads from YouTube.</div>
       </div>
 
-      <div
-        className="group relative overflow-hidden rounded-[18px] border border-white/10 bg-black"
-        onClick={() => setShowControls(true)}
-      >
-        {hasStartedPlayback ? (
-          <iframe
-            ref={playerIframeRef}
-            key={selectedVideo.id}
-            src={embedUrl}
-            title={selectedVideo.title}
-            className="pointer-events-none aspect-video w-full border-0"
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-            allowFullScreen
-            onLoad={() => {
+      <div className="h-[calc(100svh-260px)] overflow-y-auto overscroll-contain scroll-smooth snap-y snap-mandatory px-4 pb-4">
+        {payload.videos.map((video) => (
+          <YouTubeReel
+            key={video.id}
+            video={video}
+            active={video.id === activeVideo?.id}
+            embedOrigin={embedOrigin}
+            isPlaying={isPlaying}
+            isMuted={isMuted}
+            showControls={showControls}
+            setReelRef={(node) => {
+              if (node) {
+                reelRefs.current.set(video.id, node);
+              } else {
+                reelRefs.current.delete(video.id);
+              }
+            }}
+            setIframeRef={(node) => {
+              if (video.id === activeVideo?.id) {
+                playerIframeRef.current = node;
+              }
+            }}
+            onFocus={() => setActiveVideoId(video.id)}
+            onIframeLoad={() => {
               setPlayerReady(true);
               playerIframeRef.current?.contentWindow?.postMessage(
                 JSON.stringify({ event: "listening", id: 1, channel: "widget" }),
                 "*",
               );
+              postPlayerCommand("unloadModule", ["captions"]);
             }}
+            onTogglePlay={handleTogglePlay}
+            onToggleMuted={handleToggleMuted}
+            onShowControls={() => setShowControls(true)}
           />
-        ) : null}
-        {showPoster ? (
-          <button
-            type="button"
-            onClick={(event) => {
-              event.stopPropagation();
-              handleTogglePlay();
-            }}
-            className="absolute inset-0 z-10 block w-full overflow-hidden text-left"
-            aria-label={`Play ${selectedVideo.title}`}
-          >
-            <Image
-              src={selectedVideo.thumbnailUrl}
-              alt=""
-              fill
-              className="object-cover"
-              sizes="360px"
-              priority
-              unoptimized
-            />
-            <div className="absolute inset-0 bg-black/10" />
-          </button>
-        ) : null}
-        <div
-          className={`pointer-events-none absolute inset-x-0 bottom-0 z-20 h-24 bg-gradient-to-t from-black/80 to-transparent transition-opacity duration-200 ${
-            showControls ? "opacity-100" : "opacity-0 group-hover:opacity-100"
-          }`}
-        />
-        <div
-          className={`absolute inset-x-0 bottom-0 z-30 flex items-center gap-2 p-3 transition-opacity duration-200 ${
-            showControls ? "opacity-100" : "opacity-0 group-hover:opacity-100"
-          }`}
-        >
-          <button
-            type="button"
-            onClick={(event) => {
-              event.stopPropagation();
-              handleTogglePlay();
-            }}
-            className="flex h-10 w-10 items-center justify-center rounded-full bg-notWhite text-darkPurple shadow-[0_8px_24px_rgba(0,0,0,0.35)]"
-            aria-label={isPlaying ? "Pause video" : "Play video"}
-          >
-            {isPlaying ? (
-              <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor">
-                <rect x="6" y="4" width="4" height="16" />
-                <rect x="14" y="4" width="4" height="16" />
-              </svg>
-            ) : (
-              <svg viewBox="0 0 24 24" className="h-4 w-4 translate-x-[1px]" fill="currentColor">
-                <polygon points="5 3 19 12 5 21 5 3" />
-              </svg>
-            )}
-          </button>
-          <button
-            type="button"
-            onClick={(event) => {
-              event.stopPropagation();
-              handleToggleMuted();
-            }}
-            className="rounded-full border border-white/15 bg-black/60 px-3 py-2 text-[11px] font-semibold text-white backdrop-blur-sm"
-          >
-            {isMuted ? "Muted" : "Audio"}
-          </button>
-        </div>
+        ))}
       </div>
-
-      <div className="mt-4">
-        <div className="mb-1 text-[11px] font-bold uppercase tracking-[0.16em] text-deepPink">
-          {selectedVideo.publishedLabel}
-        </div>
-        <h3 className="text-lg font-semibold leading-6 text-notWhite">{selectedVideo.title}</h3>
-        {selectedVideo.description ? (
-          <p className="mt-2 text-sm leading-5 text-lightPurple">
-            {truncateDescription(selectedVideo.description)}
-            {selectedVideo.description.length > 280 ? "..." : ""}
-          </p>
-        ) : null}
-      </div>
-
-      {playlistVideos.length > 0 ? (
-        <div className="mt-4 space-y-2">
-          {playlistVideos.map((video) => (
-          <VideoRow
-            key={video.id}
-            video={video}
-            onSelect={() => setSelectedVideoId(video.id)}
-          />
-          ))}
-        </div>
-      ) : null}
     </section>
   );
 }
