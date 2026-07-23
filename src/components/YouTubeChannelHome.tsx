@@ -58,7 +58,7 @@ export default function YouTubeChannelHome() {
   const [error, setError] = React.useState<string | null>(null);
   const [playerReady, setPlayerReady] = React.useState(false);
   const [isPlaying, setIsPlaying] = React.useState(false);
-  const [isMuted, setIsMuted] = React.useState(true);
+  const [isMuted, setIsMuted] = React.useState(false);
   const [showControls, setShowControls] = React.useState(false);
   const [hasStartedPlayback, setHasStartedPlayback] = React.useState(false);
   const [showPoster, setShowPoster] = React.useState(true);
@@ -111,7 +111,7 @@ export default function YouTubeChannelHome() {
   const selectedVideo = payload?.videos.find((video) => video.id === selectedVideoId) || payload?.videos[0] || null;
   const embedOrigin = typeof window !== "undefined" ? window.location.origin : "https://fc-footy.vercel.app";
   const embedUrl = selectedVideo
-    ? `https://www.youtube.com/embed/${selectedVideo.id}?autoplay=1&mute=1&controls=0&rel=0&modestbranding=1&playsinline=1&enablejsapi=1&origin=${encodeURIComponent(embedOrigin)}`
+    ? `https://www.youtube.com/embed/${selectedVideo.id}?autoplay=1&mute=0&controls=0&rel=0&modestbranding=1&playsinline=1&enablejsapi=1&origin=${encodeURIComponent(embedOrigin)}`
     : null;
 
   React.useEffect(() => {
@@ -119,7 +119,6 @@ export default function YouTubeChannelHome() {
     setIsPlaying(true);
     setShowControls(false);
     setHasStartedPlayback(Boolean(selectedVideo?.id));
-    setIsMuted(true);
     setShowPoster(true);
   }, [selectedVideo?.id]);
 
