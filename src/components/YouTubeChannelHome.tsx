@@ -57,7 +57,7 @@ function YouTubeReel({
   onToggleMuted: () => void;
   onShowControls: () => void;
 }) {
-  const embedUrl = `https://www.youtube.com/embed/${video.id}?autoplay=1&mute=0&controls=0&rel=0&modestbranding=1&playsinline=1&enablejsapi=1&origin=${encodeURIComponent(embedOrigin)}&cc_load_policy=0&iv_load_policy=3&disablekb=1&fs=0`;
+  const embedUrl = `https://www.youtube.com/embed/${video.id}?autoplay=1&mute=1&controls=0&rel=0&modestbranding=1&playsinline=1&enablejsapi=1&origin=${encodeURIComponent(embedOrigin)}&cc_load_policy=0&iv_load_policy=3&disablekb=1&fs=0`;
 
   return (
     <article
@@ -159,7 +159,7 @@ export default function YouTubeChannelHome() {
   const [error, setError] = React.useState<string | null>(null);
   const [playerReady, setPlayerReady] = React.useState(false);
   const [isPlaying, setIsPlaying] = React.useState(false);
-  const [isMuted, setIsMuted] = React.useState(false);
+  const [isMuted, setIsMuted] = React.useState(true);
   const [showControls, setShowControls] = React.useState(false);
   const playerIframeRef = React.useRef<HTMLIFrameElement | null>(null);
   const reelRefs = React.useRef(new Map<string, HTMLElement>());
@@ -344,6 +344,8 @@ export default function YouTubeChannelHome() {
                 JSON.stringify({ event: "listening", id: 1, channel: "widget" }),
                 "*",
               );
+              postPlayerCommand("mute");
+              postPlayerCommand("playVideo");
               postPlayerCommand("unloadModule", ["captions"]);
             }}
             onTogglePlay={handleTogglePlay}
