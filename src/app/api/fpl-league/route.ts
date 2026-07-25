@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
     const leagueId = searchParams.get('leagueId') || FPL_LEAGUE_ID;
     
     const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
-    const cacheKey = `fc-footy:daily-rankings:${leagueId}:${today}`;
+    const cacheKey = `fc-footy:daily-rankings-v2:${leagueId}:${today}`;
     
     // Check if we have cached data for today
     const cachedData = await redis.get(cacheKey);
@@ -27,6 +27,8 @@ export async function GET(request: NextRequest) {
     
     // Fetch fresh data from FPL API
     const allStandings = [];
+    const allNewEntries = [];
+    let league = null;
     let page = 1;
     let hasMorePages = true;
 
@@ -45,9 +47,15 @@ export async function GET(request: NextRequest) {
       }
 
       const data = await response.json();
+      league = data.league ?? league;
+
+      if (page === 1 && data.new_entries?.results && data.new_entries.results.length > 0) {
+        allNewEntries.push(...data.new_entries.results);
+      }
       
       if (data.standings?.results && data.standings.results.length > 0) {
         allStandings.push(...data.standings.results);
+        hasMorePages = Boolean(data.standings.has_next);
         page++;
       } else {
         hasMorePages = false;
@@ -59,6 +67,11 @@ export async function GET(request: NextRequest) {
         results: allStandings,
         total: allStandings.length
       },
+      new_entries: {
+        results: allNewEntries,
+        total: allNewEntries.length
+      },
+      league,
       fetched_at: new Date().toISOString()
     };
 

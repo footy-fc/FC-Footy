@@ -3,6 +3,9 @@ import React, { useEffect, useState } from 'react';
 import { sdk } from "@farcaster/miniapp-sdk";
 import FantasyRow from './ContestFantasyRow';
 import { fetchFantasyData, FantasyEntry } from './utils/fetchFantasyData';
+import fantasyManagersLookup from '../data/fantasy-managers-lookup.json';
+
+const registeredManagerCount = fantasyManagersLookup.length;
 
 const ContestFCFantasy = () => {
   const [fantasyData, setFantasyData] = useState<FantasyEntry[]>([]);
@@ -107,8 +110,15 @@ const ContestFCFantasy = () => {
     }
   };
 
+  const mappedManagerCount = fantasyData.filter((entry) => Number.isInteger(entry.fid)).length;
+
   return (
       <div>
+        <div className="mb-2 rounded bg-darkPurple px-2 py-1 text-xs text-lightPurple">
+          {fantasyData.length > 0
+            ? `${mappedManagerCount} of ${fantasyData.length} loaded managers mapped to Farcaster profiles. ${registeredManagerCount} registered mappings on file.`
+            : `${registeredManagerCount} registered Farcaster manager mappings on file.`}
+        </div>
         {loadingFantasy ? (
           <div className="text-center">Loading...</div>
         ) : errorFantasy ? (
@@ -143,7 +153,7 @@ const ContestFCFantasy = () => {
             </tbody>
           </table>
         ) : (
-          <div>No fantasy data available.</div>
+          <div>No fantasy data available. {registeredManagerCount} Farcaster manager mappings are registered locally.</div>
         )}
       </div>
   );

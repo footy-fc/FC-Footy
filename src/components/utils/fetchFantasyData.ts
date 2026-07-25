@@ -18,7 +18,7 @@ interface FPLStandingResult {
 }
 
 interface FPLNewEntryResult {
-  id: number;
+  entry: number;
   entry_name: string;
   player_first_name: string;
   player_last_name: string;
@@ -31,7 +31,7 @@ interface FPLStandingsResponse {
     page: number;
     results: FPLNewEntryResult[];
   };
-  last_updated_data: string;
+  last_updated_data: string | null;
   league: {
     id: number;
     name: string;
@@ -52,6 +52,110 @@ interface FPLStandingsResponse {
     page: number;
     results: FPLStandingResult[];
   };
+}
+
+interface FantasyManagerLookupEntry {
+  entry_id: number;
+  fid: number;
+  team_name: string;
+}
+
+const fantasyManagerMappings = fantasyManagersLookup as FantasyManagerLookupEntry[];
+
+function extractFidFromName(...values: Array<string | null | undefined>): number | null {
+  for (const value of values) {
+    const match = value?.match(/^\s*(\d{2,})\s*$/);
+    if (match) {
+      return Number(match[1]);
+    }
+  }
+
+  return null;
+}
+
+async function resolveUsernameFromFid(fid: number, fallback: string): Promise<string> {
+  try {
+    const users = await fetchUsersByFids([fid]);
+    return users[0]?.username || fallback;
+  } catch (e) {
+    console.error("Error fetching user data for fid:", fid, e);
+    return fallback;
+  }
+}
+
+async function transformStandingEntry(entry: FPLStandingResult): Promise<FantasyEntry> {
+  const lookupEntry = fantasyManagerMappings.find(
+    (lookup) => lookup.entry_id === entry.entry
+  );
+
+  let username = entry.player_name || 'Unknown';
+  let fid: number | null = null;
+  let teamName = entry.entry_name;
+
+  if (lookupEntry) {
+    fid = lookupEntry.fid;
+    username = lookupEntry.team_name;
+    teamName = lookupEntry.team_name;
+  } else {
+    const fidMatch = entry.entry_name.match(/(\d{3,})/) || entry.player_name.match(/(\d{3,})/);
+    if (fidMatch) {
+      fid = parseInt(fidMatch[1], 10);
+
+      if (Number.isInteger(fid)) {
+        username = await resolveUsernameFromFid(fid, username);
+      }
+    }
+  }
+
+  return {
+    id: entry.id,
+    entry_id: entry.entry,
+    rank: entry.rank,
+    manager: username,
+    teamName: teamName,
+    totalPoints: entry.total,
+    eventTotal: entry.event_total,
+    entry: entry.entry,
+    entryName: entry.entry_name,
+    fid: fid || undefined
+  };
+}
+
+async function transformNewEntry(entry: FPLNewEntryResult, index: number): Promise<FantasyEntry> {
+  const lookupByEntry = fantasyManagerMappings.find(
+    (lookup) => lookup.entry_id === entry.entry
+  );
+  const extractedFid = extractFidFromName(entry.player_last_name, entry.player_first_name);
+  const lookupByFid = extractedFid
+    ? fantasyManagerMappings.find((lookup) => lookup.fid === extractedFid)
+    : null;
+  const lookupEntry = lookupByEntry ?? lookupByFid;
+  const fid = lookupEntry?.fid ?? extractedFid ?? null;
+  const fallbackName = [entry.player_first_name, entry.player_last_name].filter(Boolean).join(' ').trim() || entry.entry_name;
+  const username = lookupEntry?.team_name ?? (fid ? await resolveUsernameFromFid(fid, fallbackName) : fallbackName);
+
+  return {
+    id: entry.entry,
+    entry_id: entry.entry,
+    rank: index + 1,
+    manager: username,
+    teamName: entry.entry_name,
+    totalPoints: 0,
+    eventTotal: 0,
+    entry: entry.entry,
+    entryName: entry.entry_name,
+    fid: fid || undefined
+  };
+}
+
+async function transformFPLLeagueResponse(data: FPLStandingsResponse): Promise<FantasyEntry[]> {
+  const standings = data.standings?.results || [];
+  if (standings.length > 0) {
+    return Promise.all(standings.map(transformStandingEntry));
+  }
+
+  const newEntries = data.new_entries?.results || [];
+  return Promise.all(newEntries.map(transformNewEntry));
 }
 
 // Define FantasyEntry type to match our app's expected data structure
@@ -93,68 +197,12 @@ export const fetchFPLLeagueData = async (leagueId: number = FPL_LEAGUE_ID): Prom
     
     const data: FPLStandingsResponse = await response.json();
     
-    if (!data.standings?.results) {
+    if (!data.standings?.results && !data.new_entries?.results) {
       console.error('No standings data in response:', data);
       throw new Error('No standings data received');
     }
-    
-    const allStandings = data.standings.results;
-    //console.log(`Total entries fetched: ${allStandings.length}`);
 
-    // Transform FPL data to match our FantasyEntry interface
-    const transformedData = await Promise.all(
-      allStandings.map(async (entry: FPLStandingResult) => {
-        // Look up FID and team name from our lookup file
-        const lookupEntry = fantasyManagersLookup.find(
-          (lookup) => lookup.entry_id === entry.entry
-        );
-        
-        let username = entry.player_name || 'Unknown';
-        let fid: number | null = null;
-        let teamName = entry.entry_name;
-
-        if (lookupEntry) {
-          // Use data from lookup file
-          fid = lookupEntry.fid;
-          username = lookupEntry.team_name;
-          teamName = lookupEntry.team_name;
-        } else {
-          // Fallback to old regex-based extraction for entries not in lookup
-          const entryName = entry.entry_name || '';
-          const playerName = entry.player_name || '';
-          
-          // Look for FID patterns in names
-          const fidMatch = entryName.match(/(\d{3,})/) || playerName.match(/(\d{3,})/);
-          if (fidMatch) {
-            fid = parseInt(fidMatch[1], 10);
-            
-            if (Number.isInteger(fid)) {
-              try {
-                const users = await fetchUsersByFids([fid]);
-                username = users[0]?.username || username;
-              } catch (e) {
-                console.error("Error fetching user data for fid:", fid, e);
-              }
-            }
-          }
-        }
-
-        return {
-          id: entry.id,
-          entry_id: entry.entry,
-          rank: entry.rank,
-          manager: username,
-          teamName: teamName,
-          totalPoints: entry.total,
-          eventTotal: entry.event_total,
-          entry: entry.entry,
-          entryName: entry.entry_name,
-          fid: fid || undefined
-        };
-      })
-      );
-
-    return transformedData;
+    return transformFPLLeagueResponse(data);
   } catch (error) {
     console.error('Error fetching FPL league data:', error);
     
@@ -174,47 +222,13 @@ export const fetchFPLLeagueData = async (leagueId: number = FPL_LEAGUE_ID): Prom
       
       const data = await response.json();
       
-      if (!data.standings?.results) {
+      if (!data.standings?.results && !data.new_entries?.results) {
         throw new Error('No standings data in direct API response');
       }
       
       console.log('✅ Direct FPL API fallback successful');
-      
-      // Transform the data the same way
-      const allStandings = data.standings.results;
-      const transformedData = await Promise.all(
-        allStandings.map(async (entry: FPLStandingResult) => {
-          // Look up FID and team name from our lookup file
-          const lookupEntry = fantasyManagersLookup.find(
-            (lookup) => lookup.entry_id === entry.entry
-          );
-          
-          let username = entry.player_name || 'Unknown';
-          let fid: number | null = null;
-          let teamName = entry.entry_name;
 
-          if (lookupEntry) {
-            fid = lookupEntry.fid;
-            username = lookupEntry.team_name;
-            teamName = lookupEntry.team_name;
-          }
-
-          return {
-            id: entry.id,
-            entry_id: entry.entry,
-            rank: entry.rank,
-            manager: username,
-            teamName: teamName,
-            totalPoints: entry.total,
-            eventTotal: entry.event_total,
-            entry: entry.entry,
-            entryName: entry.entry_name,
-            fid: fid || undefined
-          };
-        })
-      );
-      
-      return transformedData;
+      return transformFPLLeagueResponse(data);
     } catch (fallbackError) {
       console.error('❌ Both proxy and direct API failed:', fallbackError);
       throw error; // Throw the original error

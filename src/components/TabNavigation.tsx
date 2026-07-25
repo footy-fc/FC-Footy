@@ -16,7 +16,6 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
     "scores",
     "fantasy",
     "fanClubs",
-    "channels",
   ];
   const iconMap: Record<string, JSX.Element> = {
     home: (
@@ -67,7 +66,7 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
 
   return (
     <div className="fixed bottom-4 left-1/2 z-50 w-[calc(100%-20px)] max-w-[380px] -translate-x-1/2 rounded-[28px] border border-limeGreenOpacity/20 bg-darkPurple/90 px-2 py-2 shadow-[0_18px_50px_rgba(0,0,0,0.45)] backdrop-blur-xl">
-      <div className="grid grid-cols-5 gap-0.5">
+      <div className="grid grid-cols-4 gap-0.5">
       {tabs.map((tab) => (
         <button
           key={tab}
