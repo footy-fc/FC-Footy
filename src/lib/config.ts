@@ -8,6 +8,8 @@ export const IS_TESTING = false
 // Fan Clubs subview regardless of install status or preferences.
 export const MOCK_FIRST_TIME_USER = false
 
+export const FPL_LEAGUE_ID = 143466
+
 // ─── World Cup mode ──────────────────────────────────────────────────────────
 // Master switch for the festive World Cup experience (banner + World Cup Home
 // section + accent treatment). Flip to `false` once the tournament is over to

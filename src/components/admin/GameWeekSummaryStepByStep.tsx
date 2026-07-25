@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { fetchFanUserData } from '../utils/fetchFCProfile';
 import { useFootyFarcaster } from "~/lib/farcaster/useFootyFarcaster";
+import { FPL_LEAGUE_ID } from "~/lib/config";
 
 interface FPLManager {
   username: string;
@@ -151,7 +152,7 @@ export default function GameWeekSummaryStepByStep() {
       for (const base of baseCandidates) {
         try {
           // Construct the URL based on whether base is empty (relative) or not (absolute)
-          const url = base ? `${base}/api/fpl-league?leagueId=18526` : `/api/fpl-league?leagueId=18526`;
+          const url = base ? `${base}/api/fpl-league?leagueId=${FPL_LEAGUE_ID}` : `/api/fpl-league?leagueId=${FPL_LEAGUE_ID}`;
           console.log(`🔍 Trying to fetch FPL data from: ${url}`);
           const response = await fetch(url, {
             method: 'GET',
@@ -182,7 +183,7 @@ export default function GameWeekSummaryStepByStep() {
       if (!standings) {
         console.log('🔄 Falling back to direct FPL API...');
         try {
-          const response = await fetch('https://fantasy.premierleague.com/api/leagues-classic/18526/standings/', {
+          const response = await fetch(`https://fantasy.premierleague.com/api/leagues-classic/${FPL_LEAGUE_ID}/standings/`, {
             method: 'GET',
             headers: {
               'Accept': 'application/json',

@@ -1,12 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Redis } from '@upstash/redis';
+import { FPL_LEAGUE_ID } from '~/lib/config';
 
 const redis = new Redis({
   url: process.env.NEXT_PUBLIC_KV_REST_API_URL!,
   token: process.env.NEXT_PUBLIC_KV_REST_API_TOKEN!,
 });
-
-const FPL_LEAGUE_ID = 18526; // Your league ID
 
 export async function GET(request: NextRequest) {
   try {

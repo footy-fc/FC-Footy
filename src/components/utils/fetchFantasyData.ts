@@ -1,6 +1,7 @@
 import { getTeamPreferences } from '../../lib/kvPerferences';
 import fantasyManagersLookup from '../../data/fantasy-managers-lookup.json';
 import { fetchUsersByFids } from '~/lib/hypersnap';
+import { FPL_LEAGUE_ID } from '~/lib/config';
 
 // Define FPL API response types
 interface FPLStandingResult {
@@ -74,7 +75,7 @@ export interface FantasyEntry {
 /**
  * Fetch FPL league standings (cached daily)
  */
-export const fetchFPLLeagueData = async (leagueId: number = 18526): Promise<FantasyEntry[]> => {
+export const fetchFPLLeagueData = async (leagueId: number = FPL_LEAGUE_ID): Promise<FantasyEntry[]> => {
   //console.log(`Fetching FPL league data for league ${leagueId}...`);
 
   try {
@@ -228,7 +229,7 @@ export const fetchFantasyData = async (): Promise<FantasyEntry[]> => {
   try {
     // Try FPL API first for current standings
     //console.log('🔄 Fetching FPL league data...');
-    const fplData = await fetchFPLLeagueData(18526); // Farcaster Fantasy League
+    const fplData = await fetchFPLLeagueData(FPL_LEAGUE_ID); // Farcaster Fantasy League
     //console.log(`✅ FPL data fetched in ${Date.now() - startTime}ms`);
     
     // Enhance FPL data with favorite team information from Upstash

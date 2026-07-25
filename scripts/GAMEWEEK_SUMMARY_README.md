@@ -65,7 +65,7 @@ This uses the app's existing `/api/upload` route, so the target app environment 
 
 ### What it does:
 
-1. **Fetches FPL Data**: Gets current standings from the Farcaster Fantasy League (ID: 18526)
+1. **Fetches FPL Data**: Gets current standings from the Farcaster Fantasy League (ID: 143466)
 2. **Retrieves Usernames**: Fetches lowercase usernames from Merv Hub using FIDs
 3. **Generates Banter**: Creates friendly, playful text with football emojis for top and bottom performers
 4. **Posts Cast**: Publishes the summary to Farcaster with proper mentions (no FIDs, no hashtags)
@@ -91,7 +91,7 @@ The script will generate a cast like this:
 ## Configuration
 
 ### League ID
-The script is configured to use the Farcaster Fantasy League (ID: 18526). To change this, modify the `leagueId` parameter in the `fetchFPLLeagueData()` function call.
+The script is configured to use the Farcaster Fantasy League (ID: 143466). To change this, modify the `leagueId` parameter in the `fetchFPLLeagueData()` function call.
 
 ### Banter Style
 The banter is designed to be friendly and playful, not mean-spirited, with football-themed emojis. You can customize the banter functions:

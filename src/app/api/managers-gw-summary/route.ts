@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { Redis } from '@upstash/redis';
 import { getManagerPicks } from '~/lib/kvPicksStorage';
 import { fetchUsersByFids } from '~/lib/hypersnap';
+import { FPL_LEAGUE_ID } from '~/lib/config';
 
 interface ManagerLookup {
   entry_id: number;
@@ -193,7 +194,7 @@ export async function GET(request: NextRequest) {
     // Enrich with league rank using cached endpoint
     const entryToRank = new Map<number, number>();
     try {
-      const standingsRes = await fetch(`${process.env.NEXT_PUBLIC_URL || ''}/api/fpl-league?leagueId=18526`).catch(() => fetch(`/api/fpl-league?leagueId=18526`));
+      const standingsRes = await fetch(`${process.env.NEXT_PUBLIC_URL || ''}/api/fpl-league?leagueId=${FPL_LEAGUE_ID}`).catch(() => fetch(`/api/fpl-league?leagueId=${FPL_LEAGUE_ID}`));
       if (standingsRes && standingsRes.ok) {
         const standingsData = await standingsRes.json();
         const list = Array.isArray(standingsData?.standings?.results) ? standingsData.standings.results : [];

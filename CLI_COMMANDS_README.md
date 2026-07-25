@@ -56,7 +56,7 @@ Brief reference for all FEPL (Farcaster Fantasy Premier League) CLI commands.
 | Command | What it does |
 |---------|-------------|
 | `curl "http://localhost:3000/api/manager-picks?fid=4163&gameweek=1"` | Get manager picks for specific FID and gameweek |
-| `curl "http://localhost:3000/api/fpl-league?leagueId=18526"` | Get FPL league standings |
+| `curl "http://localhost:3000/api/fpl-league?leagueId=143466"` | Get FPL league standings |
 | `curl "http://localhost:3000/api/cache-stats"` | Get cache statistics |
 | `curl "http://localhost:3000/api/cache-stats?detailed=true"` | Get detailed cache statistics |
 

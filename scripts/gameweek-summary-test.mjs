@@ -60,7 +60,7 @@ async function uploadInfographicBuffer(baseUrl, buffer, fileName) {
 /**
  * Fetch FPL league standings from cached API endpoint
  */
-async function fetchFPLLeagueData(leagueId = 18526) {
+async function fetchFPLLeagueData(leagueId = 143466) {
   // 1) Try cached API on ngrok, Vercel, or localhost
   const baseCandidates = [
     process.env.NEXT_PUBLIC_BASE_URL,
