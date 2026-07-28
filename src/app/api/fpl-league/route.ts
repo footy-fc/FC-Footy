@@ -7,6 +7,26 @@ const redis = new Redis({
   token: process.env.NEXT_PUBLIC_KV_REST_API_TOKEN!,
 });
 
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type',
+};
+
+function jsonResponse(body: unknown, status = 200) {
+  return NextResponse.json(body, {
+    status,
+    headers: corsHeaders,
+  });
+}
+
+export function OPTIONS() {
+  return new Response(null, {
+    status: 204,
+    headers: corsHeaders,
+  });
+}
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -20,7 +40,7 @@ export async function GET(request: NextRequest) {
 
     if (cachedData) {
       console.log('📊 Returning cached rankings for', today);
-      return NextResponse.json(cachedData);
+      return jsonResponse(cachedData);
     }
 
     console.log('🔄 No cached data found, fetching from FPL API...');
@@ -84,13 +104,13 @@ export async function GET(request: NextRequest) {
       // Still return the data even if caching fails
     }
 
-    return NextResponse.json(rankingsData);
+    return jsonResponse(rankingsData);
 
   } catch (error) {
     console.error('❌ Error fetching FPL data:', error);
-    return NextResponse.json(
+    return jsonResponse(
       { error: 'Failed to fetch FPL data' },
-      { status: 500 }
+      500
     );
   }
 }
