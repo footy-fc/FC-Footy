@@ -26,7 +26,7 @@ const {
   shouldIncludeManagersInfo,
 } = await import(pathToFileURL(bundlePath).href);
 
-function makeLeague(entryIds) {
+function makeLeague(entryIds, newEntryIds = []) {
   return {
     standings: {
       results: entryIds.map((entry, index) => ({
@@ -39,8 +39,12 @@ function makeLeague(entryIds) {
       total: entryIds.length,
     },
     new_entries: {
-      results: [],
-      total: 0,
+      results: newEntryIds.map((entry) => ({
+        entry,
+        entry_name: `New Team ${entry}`,
+        joined_time: '2026-07-24T06:59:24.000000Z',
+      })),
+      total: newEntryIds.length,
     },
     league: {
       id: 143466,
@@ -115,7 +119,7 @@ async function testPartialEntryFetchFailure() {
   let enriched;
   console.warn = () => {};
   try {
-    enriched = await enrichLeagueWithManagerBadges(makeLeague([1, 2]), cache, { fetchImpl });
+    enriched = await enrichLeagueWithManagerBadges(makeLeague([1, 2], [3]), cache, { fetchImpl });
   } finally {
     console.warn = originalWarn;
   }
@@ -125,8 +129,10 @@ async function testPartialEntryFetchFailure() {
     'https://fantasy.premierleague.com/premierleague/badges/1.png'
   );
   assert.equal(enriched.standings.results[1].club_badge_src, null);
+  assert.equal(enriched.new_entries.results[0].club_badge_src, null);
   assert.equal(cache.store.get('fc-footy:fpl-entry-badge-v1:2').club_badge_src, null);
   assert.equal(enriched.standings.results[0].entry_name, 'Team 1');
+  assert.equal(enriched.new_entries.results[0].entry_name, 'New Team 3');
 }
 
 async function testConcurrencyAndCaching() {

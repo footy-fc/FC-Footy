@@ -3,6 +3,11 @@ export type FplLeagueStanding = {
   [key: string]: unknown;
 };
 
+type FplLeagueManager = {
+  entry?: number;
+  [key: string]: unknown;
+};
+
 export type FplLeagueResponse = {
   standings: {
     results: FplLeagueStanding[];
@@ -226,9 +231,13 @@ export async function enrichLeagueWithManagerBadges(
   cache: BadgeCache,
   options: { fetchImpl?: typeof fetch; timeoutMs?: number } = {}
 ): Promise<FplLeagueResponse> {
+  const newEntryManagers = leagueData.new_entries.results.filter(
+    (manager): manager is FplLeagueManager => Boolean(manager) && typeof manager === 'object'
+  );
+
   const uniqueEntryIds = Array.from(
     new Set(
-      leagueData.standings.results
+      [...leagueData.standings.results, ...newEntryManagers]
         .map((manager) => manager.entry)
         .filter(
           (entryId): entryId is number =>
@@ -243,18 +252,25 @@ export async function enrichLeagueWithManagerBadges(
   });
 
   const badgesByEntryId = new Map<number, string | null>(badgePairs);
+  const addBadge = <T extends FplLeagueManager>(manager: T): T & { club_badge_src: string | null } => ({
+    ...manager,
+    club_badge_src:
+      typeof manager.entry === 'number' && badgesByEntryId.has(manager.entry)
+        ? badgesByEntryId.get(manager.entry) ?? null
+        : null,
+  });
 
   return {
     ...leagueData,
     standings: {
       ...leagueData.standings,
-      results: leagueData.standings.results.map((manager) => ({
-        ...manager,
-        club_badge_src:
-          typeof manager.entry === 'number' && badgesByEntryId.has(manager.entry)
-            ? badgesByEntryId.get(manager.entry) ?? null
-            : null,
-      })),
+      results: leagueData.standings.results.map(addBadge),
+    },
+    new_entries: {
+      ...leagueData.new_entries,
+      results: leagueData.new_entries.results.map((manager) =>
+        manager && typeof manager === 'object' ? addBadge(manager as FplLeagueManager) : manager
+      ),
     },
   };
 }
