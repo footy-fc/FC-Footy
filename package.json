@@ -24,7 +24,8 @@
     "scoresquare:players": "node scripts/scoresquare-players-test.mjs",
     "drury:test": "node scripts/peter-drury-test.mjs",
     "manager:picks:points": "node scripts/manager-picks-points.mjs",
-    "managers:chips": "node scripts/list-managers-chips.mjs"
+    "managers:chips": "node scripts/list-managers-chips.mjs",
+    "fpl-league:test": "node scripts/fpl-league-api-test.mjs"
   },
   "type": "module",
   "engines": {
