@@ -204,35 +204,11 @@ export const fetchFPLLeagueData = async (leagueId: number = FPL_LEAGUE_ID): Prom
 
     return transformFPLLeagueResponse(data);
   } catch (error) {
-    console.error('Error fetching FPL league data:', error);
-    
-    // Fallback: try direct FPL API if our proxy fails
-    try {
-      console.log('🔄 Trying direct FPL API as fallback...');
-      const directUrl = `https://fantasy.premierleague.com/api/leagues-classic/${leagueId}/standings/`;
-      const response = await fetch(directUrl, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-        }
-      });
-      
-      if (!response.ok) {
-        throw new Error(`Direct FPL API failed: ${response.status}`);
-      }
-      
-      const data = await response.json();
-      
-      if (!data.standings?.results && !data.new_entries?.results) {
-        throw new Error('No standings data in direct API response');
-      }
-      
-      console.log('✅ Direct FPL API fallback successful');
-
-      return transformFPLLeagueResponse(data);
-    } catch (fallbackError) {
-      console.error('❌ Both proxy and direct API failed:', fallbackError);
-      throw error; // Throw the original error
-    }
+    // The API endpoint owns pagination and caching. Do not fall back to a direct
+    // browser request here: the FPL endpoint returns one 50-manager page by
+    // default, which would silently render an incomplete league table.
+    console.error('Error fetching complete FPL league data from the API:', error);
+    throw error;
   }
 };
 

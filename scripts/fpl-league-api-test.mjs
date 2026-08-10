@@ -21,6 +21,7 @@ await build({
 const {
   enrichLeagueWithManagerBadges,
   fetchEntryClubBadgeSrc,
+  fetchFplLeagueStandings,
   normalizeClubBadgeSrc,
   parsePositiveInteger,
   shouldIncludeManagersInfo,
@@ -105,6 +106,45 @@ async function testRelativeUrlNormalization() {
   assert.equal(normalizeClubBadgeSrc(''), null);
 }
 
+async function testStandingsPagination() {
+  const requestedPages = [];
+  const fetchImpl = async (url) => {
+    const page = Number(new URL(url).searchParams.get('page_standings'));
+    requestedPages.push(page);
+
+    if (page === 1) {
+      return jsonResponse({
+        league: { id: 143466, name: 'Farcaster Fantasy League' },
+        new_entries: { results: [{ entry: 101 }] },
+        standings: {
+          results: Array.from({ length: 50 }, (_, index) => ({ entry: index + 1 })),
+          has_next: true,
+        },
+      });
+    }
+
+    if (page === 2) {
+      return jsonResponse({
+        standings: {
+          results: Array.from({ length: 17 }, (_, index) => ({ entry: index + 51 })),
+          has_next: false,
+        },
+      });
+    }
+
+    throw new Error(`Unexpected FPL page ${page}`);
+  };
+
+  const league = await fetchFplLeagueStandings(143466, { fetchImpl });
+
+  assert.deepEqual(requestedPages, [1, 2]);
+  assert.equal(league.standings.results.length, 67);
+  assert.equal(league.standings.total, 67);
+  assert.equal(league.standings.results.at(-1).entry, 67);
+  assert.equal(league.new_entries.results.length, 1);
+  assert.deepEqual(league.league, { id: 143466, name: 'Farcaster Fantasy League' });
+}
+
 async function testPartialEntryFetchFailure() {
   const cache = makeCache();
   const fetchImpl = async (url) => {
@@ -174,6 +214,7 @@ async function testConcurrencyAndCaching() {
 
 await testValidation();
 await testRelativeUrlNormalization();
+await testStandingsPagination();
 await testPartialEntryFetchFailure();
 await testConcurrencyAndCaching();
 

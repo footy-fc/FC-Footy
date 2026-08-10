@@ -54,7 +54,9 @@ export async function GET(request: NextRequest) {
     const includeManagersInfo = shouldIncludeManagersInfo(searchParams);
     
     const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
-    const cacheKey = `fc-footy:daily-rankings-v2:${leagueId}:${today}`;
+    // v3 caches the complete, server-aggregated standings response. Bumping this
+    // key intentionally avoids serving a legacy first-page-only payload.
+    const cacheKey = `fc-footy:daily-rankings-v3:${leagueId}:${today}`;
     
     // Check if we have cached data for today
     const cachedData = await redis.get<FplLeagueResponse>(cacheKey);
