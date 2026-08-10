@@ -109,13 +109,14 @@ async function testRelativeUrlNormalization() {
 async function testStandingsPagination() {
   const requestedPages = [];
   const fetchImpl = async (url) => {
-    const page = Number(new URL(url).searchParams.get('page_standings'));
-    requestedPages.push(page);
+    const searchParams = new URL(url).searchParams;
+    const standingsPage = searchParams.get('page_standings');
+    const newEntriesPage = searchParams.get('page_new_entries');
+    requestedPages.push({ standingsPage, newEntriesPage });
 
-    if (page === 1) {
+    if (standingsPage === '1') {
       return jsonResponse({
         league: { id: 143466, name: 'Farcaster Fantasy League' },
-        new_entries: { results: [{ entry: 101 }] },
         standings: {
           results: Array.from({ length: 50 }, (_, index) => ({ entry: index + 1 })),
           has_next: true,
@@ -123,7 +124,7 @@ async function testStandingsPagination() {
       });
     }
 
-    if (page === 2) {
+    if (standingsPage === '2') {
       return jsonResponse({
         standings: {
           results: Array.from({ length: 17 }, (_, index) => ({ entry: index + 51 })),
@@ -132,16 +133,39 @@ async function testStandingsPagination() {
       });
     }
 
-    throw new Error(`Unexpected FPL page ${page}`);
+    if (newEntriesPage === '1') {
+      return jsonResponse({
+        new_entries: {
+          results: Array.from({ length: 50 }, (_, index) => ({ entry: index + 101 })),
+          has_next: true,
+        },
+      });
+    }
+
+    if (newEntriesPage === '2') {
+      return jsonResponse({
+        new_entries: {
+          results: Array.from({ length: 20 }, (_, index) => ({ entry: index + 151 })),
+          has_next: false,
+        },
+      });
+    }
+
+    throw new Error(`Unexpected FPL request ${url}`);
   };
 
   const league = await fetchFplLeagueStandings(143466, { fetchImpl });
 
-  assert.deepEqual(requestedPages, [1, 2]);
+  assert.deepEqual(requestedPages, [
+    { standingsPage: '1', newEntriesPage: null },
+    { standingsPage: '2', newEntriesPage: null },
+    { standingsPage: null, newEntriesPage: '1' },
+    { standingsPage: null, newEntriesPage: '2' },
+  ]);
   assert.equal(league.standings.results.length, 67);
   assert.equal(league.standings.total, 67);
   assert.equal(league.standings.results.at(-1).entry, 67);
-  assert.equal(league.new_entries.results.length, 1);
+  assert.equal(league.new_entries.results.length, 70);
   assert.deepEqual(league.league, { id: 143466, name: 'Farcaster Fantasy League' });
 }
 

@@ -25,6 +25,7 @@ type FplStandingsPage = {
   league?: unknown;
   new_entries?: {
     results?: unknown[];
+    has_next?: boolean;
   };
   standings?: {
     results?: FplLeagueStanding[];
@@ -132,14 +133,34 @@ export async function fetchFplLeagueStandings(
 
     league = data.league ?? league;
 
-    if (page === 1 && data.new_entries?.results?.length) {
-      allNewEntries.push(...data.new_entries.results);
-    }
-
     const pageResults = data.standings?.results ?? [];
     if (pageResults.length > 0) {
       allStandings.push(...pageResults);
       hasMorePages = Boolean(data.standings?.has_next);
+      page += 1;
+    } else {
+      hasMorePages = false;
+    }
+  }
+
+  // Before a gameweek has standings, FPL returns league members through
+  // new_entries instead. That collection has its own pagination parameter and
+  // continuation flag; it is not advanced by page_standings.
+  page = 1;
+  hasMorePages = true;
+
+  while (hasMorePages) {
+    const data = await fetchJsonWithTimeout<FplStandingsPage>(
+      `${FPL_BASE_URL}/api/leagues-classic/${leagueId}/standings/?page_new_entries=${page}`,
+      options
+    );
+
+    league = data.league ?? league;
+
+    const pageResults = data.new_entries?.results ?? [];
+    if (pageResults.length > 0) {
+      allNewEntries.push(...pageResults);
+      hasMorePages = Boolean(data.new_entries?.has_next);
       page += 1;
     } else {
       hasMorePages = false;
