@@ -1,5 +1,5 @@
 export const tabDisplayMap: Record<string, string> = {
-    home: "Home",
+    home: "Feed",
     scores: "Scores",
     highlights: "Highlights",
     fanClubs: "Fan Clubs",
