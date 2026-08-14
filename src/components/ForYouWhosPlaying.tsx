@@ -92,7 +92,7 @@ const ForYouWhosPlaying: React.FC<Props> = ({ eventId, suppressAffordances = fal
         (async () => {
           try {
             setLoading(true);
-            const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${maybeLeague}/scoreboard`);
+            const res = await fetch(`https://site.web.api.espn.com/apis/site/v2/sports/soccer/${maybeLeague}/scoreboard`);
             const dataJson: unknown = await res.json();
             const events: unknown[] =
               dataJson && typeof dataJson === 'object' && Array.isArray((dataJson as Record<string, unknown>).events)
@@ -169,7 +169,7 @@ const ForYouWhosPlaying: React.FC<Props> = ({ eventId, suppressAffordances = fal
 
             await Promise.all(
               upcomingDates.map(async (dateKey) => {
-                const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${league}/scoreboard?dates=${dateKey}`);
+                const res = await fetch(`https://site.web.api.espn.com/apis/site/v2/sports/soccer/${league}/scoreboard?dates=${dateKey}`);
                 if (!res.ok) {
                   throw new Error(`Scoreboard request failed for ${league} on ${dateKey} with ${res.status}`);
                 }

@@ -19,7 +19,7 @@ const redis = new Redis({
 export async function POST(request: NextRequest) {
   // ESPN Scoreboard endpoint for English Premier League
   const scoreboardUrl =
-    "https://site.api.espn.com/apis/site/v2/sports/soccer/eng.league_cup/scoreboard";
+    "https://site.web.api.espn.com/apis/site/v2/sports/soccer/eng.league_cup/scoreboard";
 
   let liveEvents;
   const leagueId = "eng.1";

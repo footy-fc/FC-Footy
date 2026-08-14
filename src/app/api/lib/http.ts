@@ -19,7 +19,9 @@ export async function fetchJSONWithRetry<T = unknown>(
         cache: 'no-store',
         headers: {
           'User-Agent':
-            'Mozilla/5.0 (compatible; FC-Footy/1.0; +https://fc-footy.vercel.app)',
+            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+          Accept: 'application/json, text/plain, */*',
+          'Accept-Language': 'en-US,en;q=0.9',
         },
       });
       clearTimeout(id);

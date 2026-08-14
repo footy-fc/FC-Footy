@@ -793,7 +793,7 @@ export async function fetchEspnMatchContext(input: {
     };
   }
 
-  const url = new URL(`https://site.api.espn.com/apis/site/v2/sports/soccer/${input.leagueId}/scoreboard`);
+  const url = new URL(`https://site.web.api.espn.com/apis/site/v2/sports/soccer/${input.leagueId}/scoreboard`);
   if (input.matchDate) {
     const date = new Date(input.matchDate);
     if (!Number.isNaN(date.getTime())) {

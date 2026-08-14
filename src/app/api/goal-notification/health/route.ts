@@ -14,17 +14,17 @@ type LeagueHealth = {
 };
 
 const leagues: LeagueHealth[] = [
-  { id: "epl", label: "EPL", scoreboardUrl: "https://site.api.espn.com/apis/site/v2/sports/soccer/eng.1/scoreboard" },
-  { id: "ucl", label: "UCL", scoreboardUrl: "https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.champions/scoreboard" },
-  { id: "laliga", label: "La Liga", scoreboardUrl: "https://site.api.espn.com/apis/site/v2/sports/soccer/esp.1/scoreboard" },
-  { id: "bund", label: "Bundesliga", scoreboardUrl: "https://site.api.espn.com/apis/site/v2/sports/soccer/ger.1/scoreboard" },
-  { id: "eng-2", label: "Championship", scoreboardUrl: "https://site.api.espn.com/apis/site/v2/sports/soccer/eng.2/scoreboard" },
-  { id: "mls", label: "MLS", scoreboardUrl: "https://site.api.espn.com/apis/site/v2/sports/soccer/usa.1/scoreboard" },
-  { id: "eflcup", label: "EFL Cup", scoreboardUrl: "https://site.api.espn.com/apis/site/v2/sports/soccer/eng.league_cup/scoreboard" },
-  { id: "uel", label: "UEL", scoreboardUrl: "https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.europa/scoreboard" },
-  { id: "cwc", label: "Club World Cup", scoreboardUrl: "https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.cwc/scoreboard" },
-  { id: "afcon", label: "AFCON", scoreboardUrl: "https://site.api.espn.com/apis/site/v2/sports/soccer/caf.nations/scoreboard" },
-  { id: "worldcup", label: "FIFA World Cup", scoreboardUrl: "https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard" },
+  { id: "epl", label: "EPL", scoreboardUrl: "https://site.web.api.espn.com/apis/site/v2/sports/soccer/eng.1/scoreboard" },
+  { id: "ucl", label: "UCL", scoreboardUrl: "https://site.web.api.espn.com/apis/site/v2/sports/soccer/uefa.champions/scoreboard" },
+  { id: "laliga", label: "La Liga", scoreboardUrl: "https://site.web.api.espn.com/apis/site/v2/sports/soccer/esp.1/scoreboard" },
+  { id: "bund", label: "Bundesliga", scoreboardUrl: "https://site.web.api.espn.com/apis/site/v2/sports/soccer/ger.1/scoreboard" },
+  { id: "eng-2", label: "Championship", scoreboardUrl: "https://site.web.api.espn.com/apis/site/v2/sports/soccer/eng.2/scoreboard" },
+  { id: "mls", label: "MLS", scoreboardUrl: "https://site.web.api.espn.com/apis/site/v2/sports/soccer/usa.1/scoreboard" },
+  { id: "eflcup", label: "EFL Cup", scoreboardUrl: "https://site.web.api.espn.com/apis/site/v2/sports/soccer/eng.league_cup/scoreboard" },
+  { id: "uel", label: "UEL", scoreboardUrl: "https://site.web.api.espn.com/apis/site/v2/sports/soccer/uefa.europa/scoreboard" },
+  { id: "cwc", label: "Club World Cup", scoreboardUrl: "https://site.web.api.espn.com/apis/site/v2/sports/soccer/fifa.cwc/scoreboard" },
+  { id: "afcon", label: "AFCON", scoreboardUrl: "https://site.web.api.espn.com/apis/site/v2/sports/soccer/caf.nations/scoreboard" },
+  { id: "worldcup", label: "FIFA World Cup", scoreboardUrl: "https://site.web.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard" },
 ];
 
 export async function GET(request: Request) {
