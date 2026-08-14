@@ -14,7 +14,14 @@ export async function fetchJSONWithRetry<T = unknown>(
     const controller = new AbortController();
     const id = setTimeout(() => controller.abort(), timeoutMs);
     try {
-      const res = await fetch(url, { signal: controller.signal, cache: 'no-store' });
+      const res = await fetch(url, {
+        signal: controller.signal,
+        cache: 'no-store',
+        headers: {
+          'User-Agent':
+            'Mozilla/5.0 (compatible; FC-Footy/1.0; +https://fc-footy.vercel.app)',
+        },
+      });
       clearTimeout(id);
       if (!res.ok) {
         throw new Error(`HTTP ${res.status} ${res.statusText}`);
