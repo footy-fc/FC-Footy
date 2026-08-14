@@ -16,7 +16,7 @@
 
 // export async function POST(request: NextRequest) {
 //   const scoreboardUrl =
-//     "https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.champions/scoreboard";
+//     "https://site.web.api.espn.com/apis/site/v2/sports/soccer/uefa.champions/scoreboard";
 
 //   let liveEvents;
 //   try {
@@ -194,7 +194,7 @@ interface MatchState {
 
 export async function POST(request: NextRequest) {
   const scoreboardUrl =
-    "https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.champions/scoreboard";
+    "https://site.web.api.espn.com/apis/site/v2/sports/soccer/uefa.champions/scoreboard";
 
   let liveEvents;
   try {

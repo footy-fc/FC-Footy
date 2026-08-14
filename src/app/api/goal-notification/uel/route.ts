@@ -15,7 +15,7 @@ const redis = new Redis({
 
 export async function POST(request: NextRequest) {
   const scoreboardUrl =
-    "https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.europa/scoreboard";
+    "https://site.web.api.espn.com/apis/site/v2/sports/soccer/uefa.europa/scoreboard";
 
   let liveEvents: MatchEvent[];
   try {

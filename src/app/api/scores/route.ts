@@ -3,7 +3,7 @@ import { NextRequest } from "next/server";
 import { fetchJSONWithRetry, okJson } from "../lib/http";
 import type { ApiResponse } from "../lib/types";
 
-const SCOREBOARD_BASE_URL = "https://site.api.espn.com/apis/site/v2/sports/soccer";
+const SCOREBOARD_BASE_URL = "https://site.web.api.espn.com/apis/site/v2/sports/soccer";
 
 function getConfiguredApiKey(): string {
   return (

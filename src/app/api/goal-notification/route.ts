@@ -15,7 +15,7 @@ const redis = new Redis({
 
 export async function POST(request: NextRequest) {
   const scoreboardUrl =
-    "https://site.api.espn.com/apis/site/v2/sports/soccer/eng.1/scoreboard";
+    "https://site.web.api.espn.com/apis/site/v2/sports/soccer/eng.1/scoreboard";
   const leagueId = "eng.1";
 
   let liveEvents: MatchEvent[];

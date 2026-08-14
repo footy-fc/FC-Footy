@@ -99,7 +99,7 @@ function table(rows) {
 async function resolveEventId() {
   if (eventIdArg) return eventIdArg;
   if (!homeAbbr || !awayAbbr) return null;
-  const scoreboardUrl = `https://site.api.espn.com/apis/site/v2/sports/soccer/${tournament}/scoreboard`;
+  const scoreboardUrl = `https://site.web.api.espn.com/apis/site/v2/sports/soccer/${tournament}/scoreboard`;
   const data = await fetchJson(scoreboardUrl);
   const events = Array.isArray(data.events) ? data.events : [];
   const match = events.find((e) => {

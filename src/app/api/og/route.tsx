@@ -135,7 +135,7 @@ async function fetchBestMatch(): Promise<MatchCard | null> {
 
   for (const league of LEAGUES) {
     try {
-      const url = `https://site.api.espn.com/apis/site/v2/sports/soccer/${league.id}/scoreboard`;
+      const url = `https://site.web.api.espn.com/apis/site/v2/sports/soccer/${league.id}/scoreboard`;
       const res = await fetch(url, {
         cache: "no-store",
         signal: AbortSignal.timeout(4000),

@@ -119,7 +119,7 @@ const WorldCupSection: React.FC = () => {
     setError(null);
     try {
       const res = await fetch(
-        `https://site.api.espn.com/apis/site/v2/sports/soccer/${WORLD_CUP.league}/scoreboard`
+        `https://site.web.api.espn.com/apis/site/v2/sports/soccer/${WORLD_CUP.league}/scoreboard`
       );
       if (!res.ok) throw new Error(`Scoreboard request failed (${res.status})`);
       const json: unknown = await res.json();
