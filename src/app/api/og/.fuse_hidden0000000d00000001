@@ -703,7 +703,7 @@ function FanclubCardView({ clubs }: { clubs: FanclubCard[] }) {
 /*  Frame                                                             */
 /* ------------------------------------------------------------------ */
 
-function OgFrame({
+export function OgFrame({
   match,
   clubs,
 }: {
