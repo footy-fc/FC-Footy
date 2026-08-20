@@ -11,6 +11,31 @@ const redis = new Redis({
   token: process.env.NEXT_PUBLIC_KV_REST_API_TOKEN!,
 });
 
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type',
+};
+
+const responseHeaders = {
+  ...corsHeaders,
+  'Cache-Control': 'public, max-age=300, s-maxage=300, stale-while-revalidate=86400',
+};
+
+function jsonResponse(body: unknown, status = 200) {
+  return NextResponse.json(body, {
+    status,
+    headers: responseHeaders,
+  });
+}
+
+export function OPTIONS() {
+  return new Response(null, {
+    status: 204,
+    headers: corsHeaders,
+  });
+}
+
 interface ManagerPick {
   element: number;
   position: number;
@@ -230,18 +255,18 @@ export async function GET(request: NextRequest) {
     if (fid && !entryId) {
       const fidNum = parseInt(fid, 10);
       if (isNaN(fidNum)) {
-        return NextResponse.json(
+        return jsonResponse(
           { error: 'fid must be a valid number' },
-          { status: 400 }
+          400
         );
       }
       
       try {
         const resolvedEntryId = await getEntryIdFromFid(fidNum);
         if (!resolvedEntryId) {
-          return NextResponse.json(
+          return jsonResponse(
             { error: `No manager found for FID ${fidNum}` },
-            { status: 404 }
+            404
           );
         }
         
@@ -249,23 +274,23 @@ export async function GET(request: NextRequest) {
         console.log(`🔍 Found entry ID ${targetEntryId} for FID ${fidNum}`);
       } catch (error) {
         console.error(`❌ Error looking up entry ID for FID ${fidNum}:`, error);
-        return NextResponse.json(
+        return jsonResponse(
           { error: 'Failed to look up manager entry ID' },
-          { status: 500 }
+          500
         );
       }
     } else if (entryId) {
       targetEntryId = parseInt(entryId, 10);
       if (isNaN(targetEntryId)) {
-        return NextResponse.json(
+        return jsonResponse(
           { error: 'entryId must be a valid number' },
-          { status: 400 }
+          400
         );
       }
     } else {
-      return NextResponse.json(
+      return jsonResponse(
         { error: 'Either entryId or fid parameter is required' },
-        { status: 400 }
+        400
       );
     }
 
@@ -274,9 +299,9 @@ export async function GET(request: NextRequest) {
     if (gameweek) {
       targetGameweek = parseInt(gameweek, 10);
       if (isNaN(targetGameweek) || targetGameweek < 1 || targetGameweek > 38) {
-        return NextResponse.json(
+        return jsonResponse(
           { error: 'gameweek must be between 1 and 38' },
-          { status: 400 }
+          400
         );
       }
     } else {
@@ -285,9 +310,9 @@ export async function GET(request: NextRequest) {
         targetGameweek = await getCurrentGameweek();
       } catch (error) {
         console.error(`❌ Error getting current gameweek:`, error);
-        return NextResponse.json(
+        return jsonResponse(
           { error: 'Failed to determine current gameweek' },
-          { status: 503 }
+          503
         );
       }
     }
@@ -308,7 +333,7 @@ export async function GET(request: NextRequest) {
     
     if (cachedPicks) {
       console.log(`✅ Returning cached manager picks for entry ${targetEntryId}, gameweek ${targetGameweek}`);
-      return NextResponse.json(cachedPicks);
+      return jsonResponse(cachedPicks);
     }
 
     console.log(`🔄 Fetching manager picks for entry ${targetEntryId}, gameweek ${targetGameweek}...`);
@@ -327,9 +352,9 @@ export async function GET(request: NextRequest) {
 
     if (!response.ok) {
       if (response.status === 404) {
-        return NextResponse.json(
+        return jsonResponse(
           { error: `No picks found for entry ${targetEntryId} in gameweek ${targetGameweek}` },
-          { status: 404 }
+          404
         );
       }
       
@@ -366,7 +391,7 @@ export async function GET(request: NextRequest) {
       } catch (cacheError) {
         console.error(`❌ Error storing basic data:`, cacheError);
       }
-      return NextResponse.json(basicData);
+      return jsonResponse(basicData);
     }
     
     // Enrich picks with player and team information
@@ -417,7 +442,7 @@ export async function GET(request: NextRequest) {
       // Still return the data even if caching fails
     }
 
-    return NextResponse.json(enrichedData);
+    return jsonResponse(enrichedData);
 
   } catch (error) {
     console.error('❌ Error fetching manager picks:', error);
@@ -434,9 +459,9 @@ export async function GET(request: NextRequest) {
       errorDetails = error.message;
     }
     
-    return NextResponse.json(
+    return jsonResponse(
       { error: errorMessage, details: errorDetails },
-      { status: 500 }
+      500
     );
   }
 }
