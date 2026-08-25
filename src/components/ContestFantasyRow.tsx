@@ -4,6 +4,7 @@ import Image from 'next/image';
 import { sdk } from "@farcaster/miniapp-sdk";
 import { FantasyEntry } from './utils/fetchFantasyData';
 import { fetchUsersByFids } from '~/lib/hypersnap';
+import type { FplClaimSummary } from '~/lib/fplClaimConstants';
 // import { BASE_URL } from '~/lib/config';
 
 
@@ -11,14 +12,16 @@ interface FantasyRowProps {
   entry: FantasyEntry;  // Consistent FantasyEntry type
   onRowClick: (entry: FantasyEntry) => void;
   onClaimClick: (entry: FantasyEntry) => void;
-  claimed?: boolean;
+  onReleaseClick: (entry: FantasyEntry, claim: FplClaimSummary) => void;
+  claim?: FplClaimSummary | null;
   claimDisabled?: boolean;
   currentUserFid?: number | null;  // Add currentUserFid for highlighting
 }
 
-const FantasyRow: React.FC<FantasyRowProps> = ({ entry, onRowClick, onClaimClick, claimed = false, claimDisabled = false, currentUserFid }) => {
+const FantasyRow: React.FC<FantasyRowProps> = ({ entry, onRowClick, onClaimClick, onReleaseClick, claim = null, claimDisabled = false, currentUserFid }) => {
   const { totalPoints, team, entryName } = entry;
   const [pfpUrl, setPfpUrl] = useState<string>('/defifa_spinner.gif');
+  const [claimant, setClaimant] = useState<{ username?: string; pfpUrl: string }>({ pfpUrl: '/defifa_spinner.gif' });
 
   useEffect(() => {
     const fetchPfp = async () => {
@@ -44,6 +47,25 @@ const FantasyRow: React.FC<FantasyRowProps> = ({ entry, onRowClick, onClaimClick
     fetchPfp();
   }, [entry.fid, entry.entry_id]);
 
+  useEffect(() => {
+    let cancelled = false;
+    if (!claim?.fid) {
+      setClaimant({ pfpUrl: '/defifa_spinner.gif' });
+      return;
+    }
+    void fetchUsersByFids([claim.fid])
+      .then((users) => {
+        if (cancelled) return;
+        setClaimant({ username: users[0]?.username, pfpUrl: users[0]?.pfp_url || '/defifa_spinner.gif' });
+      })
+      .catch(() => {
+        if (!cancelled) setClaimant({ pfpUrl: '/defifa_spinner.gif' });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [claim?.fid]);
+
   // Check if this is the user's own row
   const isUserRow = currentUserFid && entry.fid === currentUserFid;
   
@@ -59,6 +81,19 @@ const FantasyRow: React.FC<FantasyRowProps> = ({ entry, onRowClick, onClaimClick
     } catch (error) {
       console.error('Failed to open profile:', error);
       // Fail silently - no error logging or fallback
+    }
+  };
+
+  const openClaimantProfile = async (event: React.MouseEvent) => {
+    event.stopPropagation();
+    if (!claim?.fid) return;
+    try {
+      await sdk.actions.ready();
+      await sdk.actions.viewProfile({ fid: claim.fid });
+    } catch {
+      try {
+        await sdk.actions.openUrl(`https://warpcast.com/~/profiles/${claim.fid}`);
+      } catch {}
     }
   };
   
@@ -102,8 +137,17 @@ const FantasyRow: React.FC<FantasyRowProps> = ({ entry, onRowClick, onClaimClick
         {totalPoints ?? 'N/A'}
       </td>
       <td className="py-2 px-2 text-center">
-        {claimed ? (
-          <span className="text-xs font-semibold text-limeGreen">Claimed</span>
+        {claim ? (
+          <div className="flex flex-col items-center gap-1">
+            <button type="button" onClick={openClaimantProfile} className="flex items-center gap-1.5 rounded px-1 py-1 text-xs text-limeGreen hover:bg-limeGreen/10" title="Open claimant's Farcaster profile">
+              <Image src={claimant.pfpUrl} alt="Claimant Farcaster profile" width={24} height={24} className="h-6 w-6 rounded-full object-cover" />
+              <span>{claimant.username ? `@${claimant.username}` : `FID ${claim.fid}`}</span>
+            </button>
+            {currentUserFid === claim.fid && (
+              <button type="button" onClick={(event) => { event.stopPropagation(); onReleaseClick(entry, claim); }} className="text-[11px] text-red-300 underline-offset-2 hover:underline">Release</button>
+            )}
+            {currentUserFid !== claim.fid && <span className="text-[10px] text-lightPurple/60">Wrong claim? Tap profile</span>}
+          </div>
         ) : claimDisabled ? (
           <span className="text-xs text-lightPurple/60">Locked</span>
         ) : (

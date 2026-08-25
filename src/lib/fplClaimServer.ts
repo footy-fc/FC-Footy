@@ -5,6 +5,7 @@ import {
   FPL_CLAIM_METHOD_FACT_CHALLENGE,
   FPL_CLAIM_SCHEMA_UID,
   FPL_CLAIM_SEASON,
+  type FplClaimSummary,
 } from '~/lib/fplClaimConstants';
 
 const redis = new Redis({
@@ -12,17 +13,7 @@ const redis = new Redis({
   token: process.env.NEXT_PUBLIC_KV_REST_API_TOKEN,
 });
 
-export type FplClaimRecord = {
-  fid: number;
-  entryId: number;
-  season: number;
-  wallet: string;
-  attestationUid: string;
-  evidenceHash: string;
-  method: number;
-  status: 'active' | 'revoked';
-  createdAt: string;
-};
+export type FplClaimRecord = FplClaimSummary;
 
 export type FplChallengeRecord = {
   challengeId: string;
@@ -93,6 +84,14 @@ export async function getClaimByEntry(season: number, entryId: number): Promise<
   return (await redis.get<FplClaimRecord>(entryClaimKey(season, entryId))) || null;
 }
 
+export async function getClaimsByEntries(season: number, entryIds: number[]) {
+  if (entryIds.length === 0) return {} as Record<string, FplClaimRecord>;
+  const claims = await redis.mget<FplClaimRecord[]>(...entryIds.map((entryId) => entryClaimKey(season, entryId)));
+  return Object.fromEntries(
+    entryIds.flatMap((entryId, index) => claims[index] ? [[String(entryId), claims[index]]] : [])
+  ) as Record<string, FplClaimRecord>;
+}
+
 export async function getClaimStatus(season: number, fid: number, entryId: number) {
   const [byFid, byEntry] = await Promise.all([
     getClaimByFid(season, fid),
@@ -152,5 +151,23 @@ export async function saveActiveClaim(record: FplClaimRecord): Promise<boolean> 
     return false;
   }
 
+  return true;
+}
+
+export async function deleteActiveClaim(record: FplClaimRecord): Promise<boolean> {
+  const [byFid, byEntry] = await Promise.all([
+    getClaimByFid(record.season, record.fid),
+    getClaimByEntry(record.season, record.entryId),
+  ]);
+  if (
+    byFid?.attestationUid.toLowerCase() !== record.attestationUid.toLowerCase() ||
+    byEntry?.attestationUid.toLowerCase() !== record.attestationUid.toLowerCase()
+  ) {
+    return false;
+  }
+  const pipeline = redis.pipeline();
+  pipeline.del(fidClaimKey(record.season, record.fid));
+  pipeline.del(entryClaimKey(record.season, record.entryId));
+  await pipeline.exec();
   return true;
 }

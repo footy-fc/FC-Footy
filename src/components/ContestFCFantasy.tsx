@@ -5,7 +5,9 @@ import FantasyRow from './ContestFantasyRow';
 import { fetchFantasyData, FantasyEntry } from './utils/fetchFantasyData';
 import fantasyManagersLookup from '../data/fantasy-managers-lookup.json';
 import FplClaimPanel from './FplClaimPanel';
+import FplClaimReleaseModal from './FplClaimReleaseModal';
 import { useFootyFarcaster } from '~/lib/farcaster/useFootyFarcaster';
+import type { FplClaimSummary } from '~/lib/fplClaimConstants';
 
 const registeredManagerCount = fantasyManagersLookup.length;
 
@@ -14,25 +16,36 @@ const ContestFCFantasy = () => {
   const [loadingFantasy, setLoadingFantasy] = useState(false);
   const [errorFantasy, setErrorFantasy] = useState<string | null>(null);
   const [claimEntry, setClaimEntry] = useState<FantasyEntry | null>(null);
+  const [releaseTarget, setReleaseTarget] = useState<{ entry: FantasyEntry; claim: FplClaimSummary } | null>(null);
   const [activeClaimEntryId, setActiveClaimEntryId] = useState<number | null>(null);
+  const [claimsByEntry, setClaimsByEntry] = useState<Record<string, FplClaimSummary>>({});
   const { activeFid: currentUserFid, getAuthorizationHeaders } = useFootyFarcaster();
 
   useEffect(() => {
-    if (!currentUserFid) return;
+    if (!currentUserFid || fantasyData.length === 0) return;
     let cancelled = false;
     void getAuthorizationHeaders()
-      .then((headers) => fetch('/api/fpl-claim/status', { headers, cache: 'no-store' }))
-      .then((response) => response.json())
-      .then((payload: { byFid?: { entryId?: number } | null }) => {
-        if (!cancelled && payload.byFid?.entryId) {
-          setActiveClaimEntryId(payload.byFid.entryId);
-        }
+      .then((headers) => fetch('/api/fpl-claim/status', {
+        method: 'POST',
+        headers: { ...headers, 'content-type': 'application/json' },
+        body: JSON.stringify({ entryIds: fantasyData.map((entry) => entry.entry_id) }),
+        cache: 'no-store',
+      }))
+      .then(async (response) => {
+        const payload = await response.json();
+        if (!response.ok) throw new Error(payload?.error || 'Unable to load FPL claim status');
+        return payload;
+      })
+      .then((payload: { byFid?: FplClaimSummary | null; byEntry?: Record<string, FplClaimSummary> }) => {
+        if (cancelled) return;
+        setActiveClaimEntryId(payload.byFid?.entryId ?? null);
+        setClaimsByEntry(payload.byEntry ?? {});
       })
       .catch(() => undefined);
     return () => {
       cancelled = true;
     };
-  }, [currentUserFid, getAuthorizationHeaders]);
+  }, [currentUserFid, fantasyData, getAuthorizationHeaders]);
 
   useEffect(() => {
     let isMounted = true;
@@ -126,7 +139,8 @@ const ContestFCFantasy = () => {
                   entry={entry}
                   onRowClick={handleRowSelect}
                   onClaimClick={handleClaimClick}
-                  claimed={activeClaimEntryId === entry.entry_id}
+                  onReleaseClick={(selected, claim) => setReleaseTarget({ entry: selected, claim })}
+                  claim={claimsByEntry[String(entry.entry_id)] ?? null}
                   claimDisabled={activeClaimEntryId !== null}
                   currentUserFid={currentUserFid}
                 />
@@ -136,13 +150,30 @@ const ContestFCFantasy = () => {
         ) : (
           <div>No fantasy data available. {registeredManagerCount} Farcaster manager mappings are registered locally.</div>
         )}
-        {claimEntry && currentUserFid && (
+        {claimEntry && (
           <FplClaimPanel
             entry={claimEntry}
             getAuthorizationHeaders={getAuthorizationHeaders}
             onClose={() => setClaimEntry(null)}
-            onClaimed={(entryId) => {
-              setActiveClaimEntryId(entryId);
+            onClaimed={(claim) => {
+              setActiveClaimEntryId(claim.entryId);
+              setClaimsByEntry((current) => ({ ...current, [String(claim.entryId)]: claim }));
+            }}
+          />
+        )}
+        {releaseTarget && (
+          <FplClaimReleaseModal
+            entry={releaseTarget.entry}
+            claim={releaseTarget.claim}
+            getAuthorizationHeaders={getAuthorizationHeaders}
+            onClose={() => setReleaseTarget(null)}
+            onReleased={(entryId) => {
+              setActiveClaimEntryId(null);
+              setClaimsByEntry((current) => {
+                const next = { ...current };
+                delete next[String(entryId)];
+                return next;
+              });
             }}
           />
         )}

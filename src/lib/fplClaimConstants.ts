@@ -9,6 +9,18 @@ export const FPL_CLAIM_SEASON = Number(
 export const FPL_CLAIM_METHOD_FACT_CHALLENGE = 1;
 export const FPL_CLAIM_CHALLENGE_SECONDS = 10;
 
+export type FplClaimSummary = {
+  fid: number;
+  entryId: number;
+  season: number;
+  wallet: string;
+  attestationUid: string;
+  evidenceHash: string;
+  method: number;
+  status: 'active' | 'revoked';
+  createdAt: string;
+};
+
 export const FPL_CLAIM_EAS_ABI = [
   {
     type: 'function',
@@ -35,6 +47,29 @@ export const FPL_CLAIM_EAS_ABI = [
       },
     ],
     outputs: [{ name: 'uid', type: 'bytes32' }],
+  },
+  {
+    type: 'function',
+    name: 'revoke',
+    stateMutability: 'payable',
+    inputs: [
+      {
+        name: 'request',
+        type: 'tuple',
+        components: [
+          { name: 'schema', type: 'bytes32' },
+          {
+            name: 'data',
+            type: 'tuple',
+            components: [
+              { name: 'uid', type: 'bytes32' },
+              { name: 'value', type: 'uint256' },
+            ],
+          },
+        ],
+      },
+    ],
+    outputs: [],
   },
 ] as const;
 

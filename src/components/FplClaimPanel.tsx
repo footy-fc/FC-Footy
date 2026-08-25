@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { parseEventLogs } from 'viem';
 import { useAccount, useConnect, usePublicClient, useSwitchChain, useWriteContract } from 'wagmi';
 import { config } from '~/components/providers/WagmiProvider';
@@ -10,14 +10,16 @@ import {
   BASE_EAS_ADDRESS,
   FPL_CLAIM_ATTESTED_EVENT_ABI,
   FPL_CLAIM_EAS_ABI,
+  FPL_CLAIM_SCHEMA_UID,
   ZERO_BYTES32,
+  type FplClaimSummary,
 } from '~/lib/fplClaimConstants';
 
 type ClaimPanelProps = {
   entry: FantasyEntry;
   getAuthorizationHeaders: () => Promise<Record<string, string>>;
   onClose: () => void;
-  onClaimed: (entryId: number) => void;
+  onClaimed: (claim: FplClaimSummary) => void;
 };
 
 type Challenge = {
@@ -34,9 +36,11 @@ export default function FplClaimPanel({ entry, getAuthorizationHeaders, onClose,
   const [claimToken, setClaimToken] = useState<string | null>(null);
   const [encodedData, setEncodedData] = useState<`0x${string}` | null>(null);
   const [clock, setClock] = useState(() => Date.now());
-  const [phase, setPhase] = useState<'idle' | 'loading' | 'challenge' | 'verifying' | 'attesting' | 'success' | 'blocked'>('idle');
+  const [phase, setPhase] = useState<'idle' | 'loading' | 'challenge' | 'verifying' | 'attesting' | 'success' | 'blocked'>('loading');
   const [error, setError] = useState<string | null>(null);
   const [successUid, setSuccessUid] = useState<string | null>(null);
+  const [isSubmittingAttestation, setIsSubmittingAttestation] = useState(false);
+  const startedRef = useRef(false);
   const { address, chainId } = useAccount();
   const { connectAsync } = useConnect();
   const { switchChainAsync } = useSwitchChain();
@@ -58,7 +62,7 @@ export default function FplClaimPanel({ entry, getAuthorizationHeaders, onClose,
     }
   }, [challenge, phase, remaining]);
 
-  async function startChallenge() {
+  const startChallenge = useCallback(async () => {
     setError(null);
     setPhase('loading');
     try {
@@ -74,6 +78,7 @@ export default function FplClaimPanel({ entry, getAuthorizationHeaders, onClose,
         throw new Error(payload.error || 'Unable to start the claim challenge');
       }
       setChallenge(payload);
+      setClock(Date.now());
       setSelectedAnswer(null);
       setClaimToken(null);
       setEncodedData(null);
@@ -82,7 +87,13 @@ export default function FplClaimPanel({ entry, getAuthorizationHeaders, onClose,
       setError(caught instanceof Error ? caught.message : 'Unable to start the claim challenge');
       setPhase((current) => current === 'blocked' ? 'blocked' : 'idle');
     }
-  }
+  }, [entry.entry_id, getAuthorizationHeaders]);
+
+  useEffect(() => {
+    if (startedRef.current) return;
+    startedRef.current = true;
+    void startChallenge();
+  }, [startChallenge]);
 
   async function verifyAnswer() {
     if (!challenge || !selectedAnswer) return;
@@ -112,6 +123,7 @@ export default function FplClaimPanel({ entry, getAuthorizationHeaders, onClose,
     if (!claimToken || !encodedData) return;
     setError(null);
     setPhase('attesting');
+    setIsSubmittingAttestation(true);
     try {
       let walletAddress = address;
       if (!walletAddress) {
@@ -127,7 +139,7 @@ export default function FplClaimPanel({ entry, getAuthorizationHeaders, onClose,
         abi: FPL_CLAIM_EAS_ABI,
         functionName: 'attest',
         args: [{
-          schema: process.env.NEXT_PUBLIC_EAS_SCHEMA_UID as `0x${string}` || '0xe040ef5094a51f751f3d6258011b8ce8156b7e522e1283c139f584f443e6c825',
+          schema: FPL_CLAIM_SCHEMA_UID,
           data: {
             recipient: walletAddress,
             expirationTime: 0n,
@@ -148,33 +160,36 @@ export default function FplClaimPanel({ entry, getAuthorizationHeaders, onClose,
         headers: { ...headers, 'content-type': 'application/json' },
         body: JSON.stringify({ claimToken, attestationUid: uid }),
       });
-      const completePayload = (await completeResponse.json().catch(() => ({}))) as { error?: string };
-      if (!completeResponse.ok) throw new Error(completePayload.error || 'The attestation could not be finalized');
+      const completePayload = (await completeResponse.json().catch(() => ({}))) as { error?: string; claim?: FplClaimSummary };
+      if (!completeResponse.ok || !completePayload.claim) throw new Error(completePayload.error || 'The attestation could not be finalized');
 
       setSuccessUid(uid);
       setPhase('success');
-      onClaimed(entry.entry_id);
+      onClaimed(completePayload.claim);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'The attestation failed');
       setPhase('attesting');
+    } finally {
+      setIsSubmittingAttestation(false);
     }
   }
 
   return (
-    <div className="mt-3 rounded-lg border border-limeGreenOpacity bg-darkPurple p-4 text-lightPurple" role="dialog" aria-label="Claim FPL team">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 p-4" role="dialog" aria-modal="true" aria-label="Claim FPL team" onClick={() => { if (!isSubmittingAttestation) onClose(); }}>
+      <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-limeGreenOpacity bg-darkPurple p-5 text-lightPurple shadow-2xl" onClick={(event) => event.stopPropagation()}>
       <div className="flex items-start justify-between gap-3">
         <div>
           <div className="text-xs uppercase tracking-wide text-limeGreen">FPL team claim</div>
           <h3 className="mt-1 text-lg font-semibold text-notWhite">{entry.entryName}</h3>
           <p className="text-xs text-lightPurple/80">FPL entry #{entry.entry_id} · {entry.manager}</p>
         </div>
-        <button type="button" onClick={onClose} className="text-sm text-lightPurple hover:text-notWhite">Close</button>
+        <button type="button" onClick={onClose} disabled={isSubmittingAttestation} className="text-sm text-lightPurple hover:text-notWhite disabled:opacity-50">Close</button>
       </div>
 
       {phase === 'idle' && (
         <div className="mt-3">
           <p className="text-sm">Pass one short current-squad fact, then sign a public Base attestation saying this is your team.</p>
-          <button type="button" onClick={startChallenge} className="mt-3 rounded bg-limeGreen px-3 py-2 text-sm font-semibold text-darkPurple">Start 10-second check</button>
+          <button type="button" onClick={() => void startChallenge()} className="mt-3 rounded bg-limeGreen px-3 py-2 text-sm font-semibold text-darkPurple">Try a fresh 10-second check</button>
         </div>
       )}
 
@@ -197,7 +212,7 @@ export default function FplClaimPanel({ entry, getAuthorizationHeaders, onClose,
       {phase === 'attesting' && !successUid && (
         <div className="mt-3">
           <p className="text-sm">Your challenge passed. Sign the Base attestation from the wallet associated with this claim.</p>
-          <button type="button" onClick={attest} className="mt-3 rounded bg-limeGreen px-3 py-2 text-sm font-semibold text-darkPurple">Sign attestation</button>
+          <button type="button" onClick={() => void attest()} disabled={isSubmittingAttestation} className="mt-3 rounded bg-limeGreen px-3 py-2 text-sm font-semibold text-darkPurple disabled:opacity-60">{isSubmittingAttestation ? 'Confirming on Base…' : 'Sign attestation'}</button>
         </div>
       )}
 
@@ -206,6 +221,7 @@ export default function FplClaimPanel({ entry, getAuthorizationHeaders, onClose,
       )}
 
       {error && <p className="mt-3 text-sm text-red-300">{error}</p>}
+      </div>
     </div>
   );
 }

@@ -391,8 +391,7 @@ export function useFootyFarcaster(): FootyFarcasterState {
     // In a Mini App, Quick Auth binds the request to the FID supplied by the
     // Farcaster host. Prefer it even when Privy has also created a session.
     if (runtime === 'miniapp') {
-      const quickAuth = (sdk as typeof sdk & { experimental?: { quickAuth?: (opts?: { force?: boolean }) => Promise<string> } }).experimental;
-      const token = quickAuth?.quickAuth ? await quickAuth.quickAuth({ force: false }) : null;
+      const { token } = await sdk.quickAuth.getToken();
 
       if (!token) {
         throw new Error('Mini app auth is unavailable');
