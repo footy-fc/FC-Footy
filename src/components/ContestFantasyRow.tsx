@@ -25,6 +25,7 @@ const FantasyRow: React.FC<FantasyRowProps> = ({ entry, onRowClick, onClaimClick
 
   useEffect(() => {
     const fetchPfp = async () => {
+      if (claim?.fid) return;
       if (!entry.fid) {
         setPfpUrl('/defifa_spinner.gif');
         return;
@@ -45,7 +46,7 @@ const FantasyRow: React.FC<FantasyRowProps> = ({ entry, onRowClick, onClaimClick
     };
 
     fetchPfp();
-  }, [entry.fid, entry.entry_id]);
+  }, [claim?.fid, entry.fid, entry.entry_id]);
 
   useEffect(() => {
     let cancelled = false;
@@ -68,6 +69,7 @@ const FantasyRow: React.FC<FantasyRowProps> = ({ entry, onRowClick, onClaimClick
 
   // Check if this is the user's own row
   const isUserRow = currentUserFid && entry.fid === currentUserFid;
+  const displayedPfpUrl = claim ? claimant.pfpUrl : pfpUrl;
   
   // Handler for PFP click to open user profile
   const handlePfpClick = async (e: React.MouseEvent) => {
@@ -110,14 +112,14 @@ const FantasyRow: React.FC<FantasyRowProps> = ({ entry, onRowClick, onClaimClick
       </td>
       <td className="py-2 px-2 flex items-center space-x-2">
         <Image
-          src={pfpUrl}
-          alt="Manager Avatar"
+          src={displayedPfpUrl}
+          alt={claim ? 'Claimant Farcaster profile' : 'Manager Avatar'}
           className="rounded-full w-8 h-8 cursor-pointer hover:opacity-80 transition-opacity"
           width={32}
           height={32}
-          onClick={handlePfpClick}
-          onError={() => setPfpUrl('/defifa_spinner.gif')}
-          title={`Click to view ${entryName}'s profile`}
+          onClick={claim ? openClaimantProfile : handlePfpClick}
+          onError={() => claim ? setClaimant((current) => ({ ...current, pfpUrl: '/defifa_spinner.gif' })) : setPfpUrl('/defifa_spinner.gif')}
+          title={claim ? 'Open claimant’s Farcaster profile' : `Click to view ${entryName}'s profile`}
         />
         {team?.logo && team.logo !== '/defifa_spinner.gif' && (
           <Image
@@ -139,8 +141,7 @@ const FantasyRow: React.FC<FantasyRowProps> = ({ entry, onRowClick, onClaimClick
       <td className="py-2 px-2 text-center">
         {claim ? (
           <div className="flex flex-col items-center gap-1">
-            <button type="button" onClick={openClaimantProfile} className="flex items-center gap-1.5 rounded px-1 py-1 text-xs text-limeGreen hover:bg-limeGreen/10" title="Open claimant's Farcaster profile">
-              <Image src={claimant.pfpUrl} alt="Claimant Farcaster profile" width={24} height={24} className="h-6 w-6 rounded-full object-cover" />
+            <button type="button" onClick={openClaimantProfile} className="rounded px-1 py-1 text-xs text-limeGreen hover:bg-limeGreen/10" title="Open claimant's Farcaster profile">
               <span>{claimant.username ? `@${claimant.username}` : `FID ${claim.fid}`}</span>
             </button>
             {currentUserFid === claim.fid && (
