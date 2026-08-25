@@ -2,18 +2,24 @@
 "use client";
 
 import { Redis } from "@upstash/redis";
+import dynamic from "next/dynamic";
 import { useEffect, useState } from "react";
 import { get as idbGet, set as idbSet } from 'idb-keyval';
-import NotificationsTab from "../../components/admin/NotificationsTab";
-import TeamsTab from "../../components/admin/TeamsTab";
-import LeaguesTab from "../../components/admin/LeaguesTab";
-import MatchRoomsTab from "../../components/admin/MatchRoomsTab";
-import GameWeekSummaryStepByStep from "../../components/admin/GameWeekSummaryStepByStep";
-import GroupChatsTab from "../../components/admin/GroupChatsTab";
-import RevnetInspector from "../../components/admin/RevnetInspector";
-import HealthTab from "../../components/admin/HealthTab";
 import useEventsData from "../../components/utils/useEventsData";
 // import { parseEventId } from "../../utils/eventIdParser";
+
+const panelLoading = () => <div className="py-8 text-center text-sm text-lightPurple">Loading panel…</div>;
+
+// Admin tools have independent dependencies and are used one at a time. Loading
+// them on demand keeps the login and default notification view responsive.
+const NotificationsTab = dynamic(() => import("../../components/admin/NotificationsTab"), { loading: panelLoading });
+const TeamsTab = dynamic(() => import("../../components/admin/TeamsTab"), { loading: panelLoading });
+const LeaguesTab = dynamic(() => import("../../components/admin/LeaguesTab"), { loading: panelLoading });
+const MatchRoomsTab = dynamic(() => import("../../components/admin/MatchRoomsTab"), { loading: panelLoading });
+const GameWeekSummaryStepByStep = dynamic(() => import("../../components/admin/GameWeekSummaryStepByStep"), { loading: panelLoading });
+const GroupChatsTab = dynamic(() => import("../../components/admin/GroupChatsTab"), { loading: panelLoading });
+const RevnetInspector = dynamic(() => import("../../components/admin/RevnetInspector"), { loading: panelLoading });
+const HealthTab = dynamic(() => import("../../components/admin/HealthTab"), { loading: panelLoading });
 
 const redis = new Redis({
   url: process.env.NEXT_PUBLIC_KV_REST_API_URL,

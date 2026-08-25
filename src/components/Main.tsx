@@ -7,23 +7,32 @@ import "@farcaster/auth-kit/styles.css";
 import { AuthKitProvider, SignInButton } from "@farcaster/auth-kit";
 import { usePrivy } from "@privy-io/react-auth";
 import { useSearchParams, useRouter } from "next/navigation";
+import dynamic from "next/dynamic";
 import { Dispatch, SetStateAction } from "react";
 import TabNavigation from "./TabNavigation";
 import AppIdentityBar from "./AppIdentityBar";
-import AdminDashboard from "./AdminDashboard";
-import HomeTab from "./HomeTab";
-import ScoresTab from "./ScoresTab";
-import FanClubsTab from "./FanClubsTab";
-import FantasyTab from "./FantasyTab";
-import ChannelsTab from "./ChannelsTab";
-import ToolsTab from "./ToolsTab";
-import ProfileTab from "./ProfileTab";
-import HighlightsTab from "./HighlightsTab";
 import { tabDisplayMap } from "../lib/navigation";
 import { Pingem } from 'pingem-sdk';
 import { IS_TESTING } from "../lib/config";
 import { getFootyShareContext } from "~/lib/farcaster/shareContext";
 import { useFootyFarcaster } from "~/lib/farcaster/useFootyFarcaster";
+
+const tabLoading = () => (
+  <div className="py-8 text-center text-sm text-gray-400">Loading…</div>
+);
+
+// Keep feature tabs out of the initial Mini App bundle. Each tab is mounted only
+// when selected, so loading it on demand preserves navigation while avoiding the
+// cost of every chart, wallet, and data client on the landing screen.
+const AdminDashboard = dynamic(() => import("./AdminDashboard"), { loading: tabLoading });
+const HomeTab = dynamic(() => import("./HomeTab"), { loading: tabLoading });
+const ScoresTab = dynamic(() => import("./ScoresTab"), { loading: tabLoading });
+const FanClubsTab = dynamic(() => import("./FanClubsTab"), { loading: tabLoading });
+const FantasyTab = dynamic(() => import("./FantasyTab"), { loading: tabLoading });
+const ChannelsTab = dynamic(() => import("./ChannelsTab"), { loading: tabLoading });
+const ToolsTab = dynamic(() => import("./ToolsTab"), { loading: tabLoading });
+const ProfileTab = dynamic(() => import("./ProfileTab"), { loading: tabLoading });
+const HighlightsTab = dynamic(() => import("./HighlightsTab"), { loading: tabLoading });
 
 function BrowserAuthFallback({
   authError,
