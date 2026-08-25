@@ -10,13 +10,15 @@ import { fetchUsersByFids } from '~/lib/hypersnap';
 interface FantasyRowProps {
   entry: FantasyEntry;  // Consistent FantasyEntry type
   onRowClick: (entry: FantasyEntry) => void;
+  onClaimClick: (entry: FantasyEntry) => void;
+  claimed?: boolean;
+  claimDisabled?: boolean;
   currentUserFid?: number | null;  // Add currentUserFid for highlighting
 }
 
-const FantasyRow: React.FC<FantasyRowProps> = ({ entry, onRowClick, currentUserFid }) => {
+const FantasyRow: React.FC<FantasyRowProps> = ({ entry, onRowClick, onClaimClick, claimed = false, claimDisabled = false, currentUserFid }) => {
   const { totalPoints, team, entryName } = entry;
   const [pfpUrl, setPfpUrl] = useState<string>('/defifa_spinner.gif');
-  const [isLoadingPfp, setIsLoadingPfp] = useState(false);
 
   useEffect(() => {
     const fetchPfp = async () => {
@@ -25,7 +27,6 @@ const FantasyRow: React.FC<FantasyRowProps> = ({ entry, onRowClick, currentUserF
         return;
       }
 
-      setIsLoadingPfp(true);
       try {
         const users = await fetchUsersByFids([entry.fid]);
         const pfp = users[0]?.pfp_url;
@@ -37,8 +38,6 @@ const FantasyRow: React.FC<FantasyRowProps> = ({ entry, onRowClick, currentUserF
       } catch (error) {
         console.error('Error fetching PFP for FID:', entry.fid, error);
         setPfpUrl('/defifa_spinner.gif');
-      } finally {
-        setIsLoadingPfp(false);
       }
     };
 
@@ -101,6 +100,24 @@ const FantasyRow: React.FC<FantasyRowProps> = ({ entry, onRowClick, currentUserF
       </td>
       <td className="py-2 px-2 text-center text-lightPurple">
         {totalPoints ?? 'N/A'}
+      </td>
+      <td className="py-2 px-2 text-center">
+        {claimed ? (
+          <span className="text-xs font-semibold text-limeGreen">Claimed</span>
+        ) : claimDisabled ? (
+          <span className="text-xs text-lightPurple/60">Locked</span>
+        ) : (
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              onClaimClick(entry);
+            }}
+            className="rounded border border-limeGreen px-2 py-1 text-xs font-semibold text-limeGreen hover:bg-limeGreen hover:text-darkPurple"
+          >
+            Claim
+          </button>
+        )}
       </td>
     </tr>
   );

@@ -263,7 +263,6 @@ export function useFootyFarcaster(): FootyFarcasterState {
   const hasEmail = Boolean(user?.email?.address);
   const hasWallet = Boolean(user?.wallet?.address);
   const hasLinkedFarcaster = Boolean(linkedFid);
-  const hasStoredFarcaster = Boolean(storedFid);
   const isHydratingAccount =
     runtime !== 'miniapp' &&
     authenticated &&
@@ -389,14 +388,8 @@ export function useFootyFarcaster(): FootyFarcasterState {
   }, [activeFid]);
 
   const getAuthorizationHeaders = useCallback(async (): Promise<FootyAuthHeaders> => {
-    if (user?.id) {
-      return {
-        'x-footy-runtime': 'standalone',
-        'x-footy-user-id': `privy:${user.id}`,
-        ...(linkedFid ? { 'x-footy-fid': String(linkedFid) } : {}),
-      };
-    }
-
+    // In a Mini App, Quick Auth binds the request to the FID supplied by the
+    // Farcaster host. Prefer it even when Privy has also created a session.
     if (runtime === 'miniapp') {
       const quickAuth = (sdk as typeof sdk & { experimental?: { quickAuth?: (opts?: { force?: boolean }) => Promise<string> } }).experimental;
       const token = quickAuth?.quickAuth ? await quickAuth.quickAuth({ force: false }) : null;
@@ -408,6 +401,14 @@ export function useFootyFarcaster(): FootyFarcasterState {
       return {
         Authorization: `Bearer ${token}`,
         'x-footy-runtime': 'miniapp',
+      };
+    }
+
+    if (user?.id) {
+      return {
+        'x-footy-runtime': 'standalone',
+        'x-footy-user-id': `privy:${user.id}`,
+        ...(linkedFid ? { 'x-footy-fid': String(linkedFid) } : {}),
       };
     }
 

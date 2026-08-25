@@ -25,7 +25,8 @@
     "drury:test": "node scripts/peter-drury-test.mjs",
     "manager:picks:points": "node scripts/manager-picks-points.mjs",
     "managers:chips": "node scripts/list-managers-chips.mjs",
-    "fpl-league:test": "node scripts/fpl-league-api-test.mjs"
+    "fpl-league:test": "node scripts/fpl-league-api-test.mjs",
+    "eas:schema:register": "node scripts/register-fpl-manager-schema.mjs"
   },
   "type": "module",
   "engines": {
@@ -35,6 +36,7 @@
     "@apollo/client": "^3.13.3",
     "@aws-sdk/client-s3": "^3.1029.0",
     "@divvi/referral-sdk": "^1.0.0",
+    "@ethereum-attestation-service/eas-sdk": "^2.9.1",
     "@farcaster/auth-kit": "^0.6.0",
     "@farcaster/frame-core": "^0.3.7",
     "@farcaster/frame-node": "^0.1.7",

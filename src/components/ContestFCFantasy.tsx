@@ -4,6 +4,8 @@ import { sdk } from "@farcaster/miniapp-sdk";
 import FantasyRow from './ContestFantasyRow';
 import { fetchFantasyData, FantasyEntry } from './utils/fetchFantasyData';
 import fantasyManagersLookup from '../data/fantasy-managers-lookup.json';
+import FplClaimPanel from './FplClaimPanel';
+import { useFootyFarcaster } from '~/lib/farcaster/useFootyFarcaster';
 
 const registeredManagerCount = fantasyManagersLookup.length;
 
@@ -11,48 +13,26 @@ const ContestFCFantasy = () => {
   const [fantasyData, setFantasyData] = useState<FantasyEntry[]>([]);
   const [loadingFantasy, setLoadingFantasy] = useState(false);
   const [errorFantasy, setErrorFantasy] = useState<string | null>(null);
-  const [currentUserFid, setCurrentUserFid] = useState<number | null>(null);
-  const [feplChat, setFeplChat] = useState<{ exists: boolean; invite?: string | null }>({ exists: false, invite: null });
+  const [claimEntry, setClaimEntry] = useState<FantasyEntry | null>(null);
+  const [activeClaimEntryId, setActiveClaimEntryId] = useState<number | null>(null);
+  const { activeFid: currentUserFid, getAuthorizationHeaders } = useFootyFarcaster();
 
   useEffect(() => {
+    if (!currentUserFid) return;
     let cancelled = false;
-
-    const loadContext = async () => {
-      try {
-        const ctx = await sdk.context;
-        if (!cancelled) {
-          setCurrentUserFid(ctx?.user?.fid || null);
+    void getAuthorizationHeaders()
+      .then((headers) => fetch('/api/fpl-claim/status', { headers, cache: 'no-store' }))
+      .then((response) => response.json())
+      .then((payload: { byFid?: { entryId?: number } | null }) => {
+        if (!cancelled && payload.byFid?.entryId) {
+          setActiveClaimEntryId(payload.byFid.entryId);
         }
-
-        try {
-          const res = await fetch('/api/fanclub-chat?teamId=fepl');
-          if (!cancelled) {
-            if (res.ok) {
-              const j = await res.json();
-              setFeplChat({ exists: true, invite: j?.inviteLinkUrl || null });
-            } else {
-              setFeplChat({ exists: false, invite: null });
-            }
-          }
-        } catch {
-          if (!cancelled) {
-            setFeplChat({ exists: false, invite: null });
-          }
-        }
-      } catch (error) {
-        if (!cancelled) {
-          console.error("Failed to load Farcaster context:", error);
-          setCurrentUserFid(null);
-        }
-      }
-    };
-
-    loadContext();
-
+      })
+      .catch(() => undefined);
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [currentUserFid, getAuthorizationHeaders]);
 
   useEffect(() => {
     let isMounted = true;
@@ -85,15 +65,6 @@ const ContestFCFantasy = () => {
     };
   }, []);
 
-  const openSupportChat = async () => {
-    if (!feplChat.invite) return;
-
-    try {
-      await sdk.actions.ready();
-      await sdk.actions.openUrl(feplChat.invite);
-    } catch {}
-  };
-
   const handleRowSelect = async (selected: FantasyEntry) => {
     if (!selected.fid) {
       return;
@@ -108,6 +79,10 @@ const ContestFCFantasy = () => {
         await sdk.actions.openUrl(`https://warpcast.com/~/profiles/${selected.fid}`);
       } catch {}
     }
+  };
+
+  const handleClaimClick = (selected: FantasyEntry) => {
+    setClaimEntry(selected);
   };
 
   const mappedManagerCount = fantasyData.filter((entry) => Number.isInteger(entry.fid)).length;
@@ -139,6 +114,9 @@ const ContestFCFantasy = () => {
                 <th className="h-12 px-1 sm:px-4 border-b border-limeGreenOpacity text-notWhite text-center font-medium">
                   Total
                 </th>
+                <th className="h-12 px-1 sm:px-4 border-b border-limeGreenOpacity text-notWhite text-center font-medium">
+                  Claim
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -147,6 +125,9 @@ const ContestFCFantasy = () => {
                   key={entry.entry_id ?? `${entry.fid}-${index}`}
                   entry={entry}
                   onRowClick={handleRowSelect}
+                  onClaimClick={handleClaimClick}
+                  claimed={activeClaimEntryId === entry.entry_id}
+                  claimDisabled={activeClaimEntryId !== null}
                   currentUserFid={currentUserFid}
                 />
               ))}
@@ -154,6 +135,16 @@ const ContestFCFantasy = () => {
           </table>
         ) : (
           <div>No fantasy data available. {registeredManagerCount} Farcaster manager mappings are registered locally.</div>
+        )}
+        {claimEntry && currentUserFid && (
+          <FplClaimPanel
+            entry={claimEntry}
+            getAuthorizationHeaders={getAuthorizationHeaders}
+            onClose={() => setClaimEntry(null)}
+            onClaimed={(entryId) => {
+              setActiveClaimEntryId(entryId);
+            }}
+          />
         )}
       </div>
   );
