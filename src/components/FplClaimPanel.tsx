@@ -146,6 +146,7 @@ export default function FplClaimPanel({ entry, getAuthorizationHeaders, onClose,
             revocable: true,
             refUID: ZERO_BYTES32,
             data: encodedData,
+            value: 0n,
           },
         }],
       });

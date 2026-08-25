@@ -41,6 +41,7 @@ export const FPL_CLAIM_EAS_ABI = [
               { name: 'revocable', type: 'bool' },
               { name: 'refUID', type: 'bytes32' },
               { name: 'data', type: 'bytes' },
+              { name: 'value', type: 'uint256' },
             ],
           },
         ],
