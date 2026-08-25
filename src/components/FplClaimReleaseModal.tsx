@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useAccount, useConnect, usePublicClient, useSwitchChain, useWriteContract } from 'wagmi';
-import { config } from '~/components/providers/WagmiProvider';
+import { config } from '~/app/providers';
 import type { FantasyEntry } from '~/components/utils/fetchFantasyData';
 import {
   BASE_CHAIN_ID,

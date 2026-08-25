@@ -2,11 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { AbiCoder, Contract, JsonRpcProvider, getAddress } from 'ethers';
 import { authenticateFootyUser } from '~/lib/farcaster/serverAuth';
 import { deleteActiveClaim, getClaimByFid, getClaimSeason } from '~/lib/fplClaimServer';
-import { BASE_CHAIN_ID, BASE_EAS_ADDRESS, FPL_CLAIM_METHOD_FACT_CHALLENGE, FPL_CLAIM_SCHEMA_UID } from '~/lib/fplClaimConstants';
-
-const EAS_ABI = [
-  'function getAttestation(bytes32 uid) view returns (tuple(bytes32 uid,bytes32 schema,uint64 time,uint64 expirationTime,uint64 revocationTime,bool revocable,bytes32 refUID,address recipient,address attester,bytes data))',
-];
+import { BASE_CHAIN_ID, BASE_EAS_ADDRESS, FPL_CLAIM_METHOD_FACT_CHALLENGE, FPL_CLAIM_READ_ABI, FPL_CLAIM_SCHEMA_UID } from '~/lib/fplClaimConstants';
 
 export async function POST(request: NextRequest) {
   try {
@@ -26,7 +22,7 @@ export async function POST(request: NextRequest) {
     }
 
     const provider = new JsonRpcProvider(process.env.BASE_RPC_URL || 'https://mainnet.base.org', BASE_CHAIN_ID);
-    const eas = new Contract(BASE_EAS_ADDRESS, EAS_ABI, provider);
+    const eas = new Contract(BASE_EAS_ADDRESS, FPL_CLAIM_READ_ABI, provider);
     const attestation = await eas.getAttestation(attestationUid);
     const decoded = AbiCoder.defaultAbiCoder().decode(
       ['uint64', 'uint32', 'uint16', 'bytes32', 'uint8'],

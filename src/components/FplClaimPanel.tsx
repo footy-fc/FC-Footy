@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { parseEventLogs } from 'viem';
 import { useAccount, useConnect, usePublicClient, useSwitchChain, useWriteContract } from 'wagmi';
-import { config } from '~/components/providers/WagmiProvider';
+import { config } from '~/app/providers';
 import type { FantasyEntry } from '~/components/utils/fetchFantasyData';
 import {
   BASE_CHAIN_ID,
@@ -39,6 +39,7 @@ export default function FplClaimPanel({ entry, getAuthorizationHeaders, onClose,
   const [phase, setPhase] = useState<'idle' | 'loading' | 'challenge' | 'verifying' | 'attesting' | 'success' | 'blocked'>('loading');
   const [error, setError] = useState<string | null>(null);
   const [successUid, setSuccessUid] = useState<string | null>(null);
+  const [confirmedUid, setConfirmedUid] = useState<`0x${string}` | null>(null);
   const [isSubmittingAttestation, setIsSubmittingAttestation] = useState(false);
   const startedRef = useRef(false);
   const { address, chainId } = useAccount();
@@ -112,11 +113,46 @@ export default function FplClaimPanel({ entry, getAuthorizationHeaders, onClose,
       }
       setClaimToken(payload.claimToken);
       setEncodedData(payload.encodedData);
+      if (address) {
+        const headers = await getAuthorizationHeaders();
+        const recoveryResponse = await fetch('/api/fpl-claim/complete', {
+          method: 'POST',
+          headers: { ...headers, 'content-type': 'application/json' },
+          body: JSON.stringify({ claimToken: payload.claimToken, wallet: address }),
+        });
+        if (recoveryResponse.ok) {
+          const recoveryPayload = (await recoveryResponse.json()) as { claim: FplClaimSummary };
+          setSuccessUid(recoveryPayload.claim.attestationUid);
+          setPhase('success');
+          onClaimed(recoveryPayload.claim);
+          return;
+        }
+        if (recoveryResponse.status !== 404) {
+          const recoveryPayload = (await recoveryResponse.json().catch(() => ({}))) as { error?: string };
+          throw new Error(recoveryPayload.error || 'Unable to check for an existing attestation');
+        }
+      }
       setPhase('attesting');
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'The challenge could not be verified');
       setPhase('idle');
     }
+  }
+
+  async function finalizeAttestation(uid: `0x${string}`) {
+    if (!claimToken) throw new Error('The verified claim authorization is unavailable');
+    const headers = await getAuthorizationHeaders();
+    const completeResponse = await fetch('/api/fpl-claim/complete', {
+      method: 'POST',
+      headers: { ...headers, 'content-type': 'application/json' },
+      body: JSON.stringify({ claimToken, attestationUid: uid }),
+    });
+    const completePayload = (await completeResponse.json().catch(() => ({}))) as { error?: string; claim?: FplClaimSummary };
+    if (!completeResponse.ok || !completePayload.claim) throw new Error(completePayload.error || 'The attestation could not be finalized');
+
+    setSuccessUid(uid);
+    setPhase('success');
+    onClaimed(completePayload.claim);
   }
 
   async function attest() {
@@ -125,6 +161,10 @@ export default function FplClaimPanel({ entry, getAuthorizationHeaders, onClose,
     setPhase('attesting');
     setIsSubmittingAttestation(true);
     try {
+      if (confirmedUid) {
+        await finalizeAttestation(confirmedUid);
+        return;
+      }
       let walletAddress = address;
       if (!walletAddress) {
         const connected = await connectAsync({ connector: config.connectors[0] });
@@ -154,19 +194,8 @@ export default function FplClaimPanel({ entry, getAuthorizationHeaders, onClose,
       const events = parseEventLogs({ abi: FPL_CLAIM_ATTESTED_EVENT_ABI, logs: receipt.logs, eventName: 'Attested' });
       const uid = events[0]?.args.uid;
       if (!uid) throw new Error('The attestation transaction confirmed but no EAS UID was found');
-
-      const headers = await getAuthorizationHeaders();
-      const completeResponse = await fetch('/api/fpl-claim/complete', {
-        method: 'POST',
-        headers: { ...headers, 'content-type': 'application/json' },
-        body: JSON.stringify({ claimToken, attestationUid: uid }),
-      });
-      const completePayload = (await completeResponse.json().catch(() => ({}))) as { error?: string; claim?: FplClaimSummary };
-      if (!completeResponse.ok || !completePayload.claim) throw new Error(completePayload.error || 'The attestation could not be finalized');
-
-      setSuccessUid(uid);
-      setPhase('success');
-      onClaimed(completePayload.claim);
+      setConfirmedUid(uid);
+      await finalizeAttestation(uid);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'The attestation failed');
       setPhase('attesting');
@@ -213,7 +242,7 @@ export default function FplClaimPanel({ entry, getAuthorizationHeaders, onClose,
       {phase === 'attesting' && !successUid && (
         <div className="mt-3">
           <p className="text-sm">Your challenge passed. Sign the Base attestation from the wallet associated with this claim.</p>
-          <button type="button" onClick={() => void attest()} disabled={isSubmittingAttestation} className="mt-3 rounded bg-limeGreen px-3 py-2 text-sm font-semibold text-darkPurple disabled:opacity-60">{isSubmittingAttestation ? 'Confirming on Base…' : 'Sign attestation'}</button>
+          <button type="button" onClick={() => void attest()} disabled={isSubmittingAttestation} className="mt-3 rounded bg-limeGreen px-3 py-2 text-sm font-semibold text-darkPurple disabled:opacity-60">{isSubmittingAttestation ? 'Confirming on Base…' : confirmedUid ? 'Finish recording claim' : 'Sign attestation'}</button>
         </div>
       )}
 

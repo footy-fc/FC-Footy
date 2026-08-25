@@ -88,4 +88,29 @@ export const FPL_CLAIM_ATTESTED_EVENT_ABI = [
   },
 ] as const;
 
+export const FPL_CLAIM_READ_ABI = [
+  {
+    type: 'function',
+    name: 'getAttestation',
+    stateMutability: 'view',
+    inputs: [{ name: 'uid', type: 'bytes32' }],
+    outputs: [{
+      name: '',
+      type: 'tuple',
+      components: [
+        { name: 'uid', type: 'bytes32' },
+        { name: 'schema', type: 'bytes32' },
+        { name: 'time', type: 'uint64' },
+        { name: 'expirationTime', type: 'uint64' },
+        { name: 'revocationTime', type: 'uint64' },
+        { name: 'refUID', type: 'bytes32' },
+        { name: 'recipient', type: 'address' },
+        { name: 'attester', type: 'address' },
+        { name: 'revocable', type: 'bool' },
+        { name: 'data', type: 'bytes' },
+      ],
+    }],
+  },
+] as const;
+
 export const ZERO_BYTES32 = `0x${'0'.repeat(64)}` as const;
