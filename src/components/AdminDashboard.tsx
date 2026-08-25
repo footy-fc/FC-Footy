@@ -16,7 +16,6 @@ const AdminDashboard: React.FC = () => {
     { id: "notifications", label: "Notifications", icon: "🔔" },
     { id: "teams", label: "Teams", icon: "⚽" },
     { id: "leagues", label: "Leagues", icon: "🏅" },
-    { id: "matchRooms", label: "Match Rooms", icon: "💬" },
     { id: "worldCup", label: "World Cup", icon: "🏆" },
     { id: "revnet", label: "Revnet", icon: "🛠️" },
   ];
@@ -187,21 +186,6 @@ const AdminDashboard: React.FC = () => {
             <h3 className="text-lg font-semibold text-notWhite mb-4">Leagues Management</h3>
             <p className="text-lightPurple">
               Use the standalone admin panel at /admin for full leagues management.
-            </p>
-            <button
-              onClick={() => window.open('/admin', '_blank')}
-              className="mt-4 px-4 py-2 bg-deepPink text-white rounded-lg hover:bg-fontRed"
-            >
-              Open Full Admin Panel
-            </button>
-          </div>
-        )}
-
-        {activeTab === "matchRooms" && (
-          <div className="text-center py-8">
-            <h3 className="text-lg font-semibold text-notWhite mb-4">Match Rooms</h3>
-            <p className="text-lightPurple">
-              Use the standalone admin panel at /admin for full match rooms management.
             </p>
             <button
               onClick={() => window.open('/admin', '_blank')}

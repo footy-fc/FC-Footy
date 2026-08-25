@@ -9,7 +9,7 @@ import {
   summarizeCrowdAffinity,
 } from '~/lib/farcaster/banter';
 import { fetchRecentMatchChannelCasts, lookupRecentMatchThread } from '~/lib/farcaster/matchThread';
-import type { RichMatchEvent } from '~/types/commentatorTypes';
+import type { RichMatchEvent } from '~/types/match';
 import { getTeamPreferences } from '~/lib/kvPerferences';
 
 type BanterSuggestionsRequest = {

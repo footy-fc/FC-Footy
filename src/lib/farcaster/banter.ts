@@ -1,5 +1,5 @@
 import { getTeamPreferences } from '~/lib/kvPerferences';
-import type { RichMatchEvent } from '~/types/commentatorTypes';
+import type { RichMatchEvent } from '~/types/match';
 import type { MatchChannelCast, MatchThreadReply } from '~/lib/farcaster/matchThread';
 
 export type FanAffinity = 'home' | 'away' | 'neutral' | 'split' | 'unknown';
@@ -990,7 +990,7 @@ export async function generateBanterSuggestions(input: {
   matchEvents?: RichMatchEvent[];
   espn: EspnMatchContext;
 }): Promise<BanterSuggestion[]> {
-  const apiKey = process.env.OPENAI_API_KEY || process.env.NEXT_PUBLIC_OPENAIKEY;
+  const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
     return fallbackSuggestions(input);
   }

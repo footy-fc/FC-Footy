@@ -11,7 +11,6 @@ import NoGameData from './game/NoGameData';
 import RefereeCard from './game/RefereeCard';
 import RefereeControls from './game/RefereeControls';
 import LiveMatchEvents from './game/LiveMatchEvents';
-import ContentLiveChat from './ContentLiveChat';
 import NotificationBanner from './game/NotificationBanner';
 import UserInstructions from './UserInstructions';
 import { SCORE_SQUARE_ADDRESS, BASE_URL } from '../lib/config';
@@ -20,7 +19,7 @@ import { Info } from 'lucide-react';
 import { WarpcastShareButton } from './ui/WarpcastShareButton';
 import { parseEventId } from '../utils/eventIdParser';
 import { getTeamLogo, getLeagueCode } from './utils/fetchTeamLogos';
-import type { RichMatchEvent } from '../types/commentatorTypes';
+import type { RichMatchEvent } from '../types/match';
 import { buildMatchEventHooks } from '../lib/farcaster/banter';
 
 interface BlockchainScoreSquareDisplayProps {
@@ -283,31 +282,6 @@ useEffect(() => {
     eventId: gameDataState?.eventId || '',
   };
 
-  // Resolve chat parent (cast hash and/or URL) for this event, if any
-  const [chatParentUrl, setChatParentUrl] = useState<string | null>(null);
-  const [chatCastHash, setChatCastHash] = useState<string | null>(null);
-  useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      try {
-        if (!gameDataState?.eventId) return;
-        const res = await fetch(`/api/match-rooms?eventId=${encodeURIComponent(gameDataState.eventId)}`);
-        const data = await res.json();
-        if (!cancelled) {
-          setChatParentUrl(data?.room?.parentUrl || null);
-          setChatCastHash(data?.room?.castHash || null);
-        }
-      } catch {
-        if (!cancelled) {
-          setChatParentUrl(null);
-          setChatCastHash(null);
-        }
-      }
-    };
-    load();
-    return () => { cancelled = true; };
-  }, [gameDataState?.eventId]);
-
 const copyShareLink = async () => {
     try {
       const appUrlRaw = BASE_URL || 'https://fc-footy.vercel.app';
@@ -483,22 +457,6 @@ const copyShareLink = async () => {
 
           {/* Live Match Events Component */}
           <LiveMatchEvents events={matchEvents} />
-
-          {/* Match Chat (if room configured) */}
-          {(chatParentUrl || chatCastHash) && (
-            <div className="mt-3">
-              <h3 className="text-notWhite font-semibold mb-2">Match Chat</h3>
-              <ContentLiveChat
-                parentCastHash={chatCastHash ?? undefined}
-                parentUrl={chatParentUrl ?? undefined}
-                behaviorMode="score-square"
-                layoutMode="embedded"
-                showBackButton={false}
-                showMatchContextCard={false}
-                inputPlaceholder="Reply to the match thread..."
-              />
-            </div>
-          )}
 
           {/* Notifications Banner */}
           <NotificationBanner />

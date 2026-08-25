@@ -91,7 +91,7 @@ interface SelectedMatch {
   matchDate?: string;
   espnEventId?: string;
   keyMoments: string[];
-  // Rich match data for Peter Drury integration
+  // Rich match data used for AI banter ideas when sharing.
   matchEvents?: Detail[];
   competition?: string;
   eventId?: string;
@@ -303,7 +303,7 @@ const MatchEventCard: React.FC<EventCardProps> = ({ event, sportId, isOpen: isOp
         matchDate: event.date,
         espnEventId: event.id,
         keyMoments: keyMomentStrings,
-        // Add rich match data for commentator integration
+        // Add rich match data for shareable banter ideas.
         matchEvents: matchData.matchEvents,
         competition: leagueId,
         eventId: baseId,

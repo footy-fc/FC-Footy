@@ -1,10 +1,9 @@
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import ContestFCFantasy from "./ContestFCFantasy";
 import FavoriteTeamLeaderboard from "./ContestFavoriteTeamLeaderboard";
 import ContestScoresPoints from "./ContestScoresPoints";
 import FPLAnalytics from "./FPLAnalytics";
 import TokenGatedContent from "./TokenGatedContent";
-import { sdk } from "@farcaster/miniapp-sdk";
 // import ContestScoreSquare from "./ContestScoreSquare"; // Temporarily disabled
 
 const Contests = () => {
@@ -14,48 +13,10 @@ const Contests = () => {
     setSelectedTab(tab);
   };
 
-  // FEPL support chat invite (elevated affordance)
-  const [feplInvite, setFeplInvite] = useState<string | null>(null);
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await fetch('/api/fanclub-chat?teamId=fepl');
-        if (!cancelled) {
-          if (res.ok) {
-            const j = await res.json();
-            setFeplInvite(j?.inviteLinkUrl || null);
-          } else {
-            setFeplInvite(null);
-          }
-        }
-      } catch {
-        if (!cancelled) setFeplInvite(null);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, []);
-
   return (
     <div className="mb-4">
-      {/* Header row with support affordance */}
-      <div className="flex items-center justify-between mb-4">
+      <div className="mb-4">
         <h2 className="font-2xl text-notWhite font-bold">Standings and Analytics</h2>
-        {feplInvite && (
-          <button
-            title="Need help? Ask other managers in the league chat"
-            aria-label="Open league support chat"
-            className="px-3 py-1 text-xs rounded text-lightPurple hover:bg-deepPink hover:text-white transition-colors"
-            onClick={async () => {
-              try {
-                await sdk.actions.ready();
-                if (feplInvite) await sdk.actions.openUrl(feplInvite);
-              } catch {}
-            }}
-          >
-            ❓ Need help? Ask in chat
-          </button>
-        )}
       </div>
       {/* Horizontal Scrollable Menu for Tabs */}
       <div className="flex overflow-x-auto space-x-4 mb-4">

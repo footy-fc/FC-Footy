@@ -3,10 +3,7 @@ import { sdk } from "@farcaster/miniapp-sdk";
 import { BASE_URL } from '~/lib/config';
 import { useFootyFarcaster } from '~/lib/farcaster/useFootyFarcaster';
 import { normalizeFootyShareUrl } from '~/lib/farcaster/shareUrl';
-import { useCommentator } from '~/hooks/useCommentator';
-import { findMostSignificantEvent } from '~/utils/matchDataUtils';
-import { RichMatchEvent } from '~/types/commentatorTypes';
-import { CommentaryPipeline, CommentaryContext } from '~/services/CommentaryPipeline';
+import type { RichMatchEvent } from '~/types/match';
 
 const imageLoadCache = new Map<string, Promise<HTMLImageElement>>();
 const FARCASTER_CAST_MAX_BYTES = 320;
@@ -125,35 +122,6 @@ function fitCastText(parts: string[]) {
   }
 
   return truncateToUtf8Bytes(text, FARCASTER_CAST_MAX_BYTES);
-}
-
-function withTimeout<T>(promise: Promise<T>, timeoutMs: number, fallback: T): Promise<T> {
-  return new Promise((resolve) => {
-    let settled = false;
-
-    const timer = setTimeout(() => {
-      if (!settled) {
-        settled = true;
-        resolve(fallback);
-      }
-    }, timeoutMs);
-
-    promise
-      .then((value) => {
-        if (!settled) {
-          settled = true;
-          clearTimeout(timer);
-          resolve(value);
-        }
-      })
-      .catch(() => {
-        if (!settled) {
-          settled = true;
-          clearTimeout(timer);
-          resolve(fallback);
-        }
-      });
-  });
 }
 
 function drawLogoPanel(
@@ -334,7 +302,6 @@ interface BanterSuggestion {
 }
 
 export function WarpcastShareButton({ selectedMatch, compositeImage, leagueId, moneyGamesParams, ticketPriceEth, prizePoolEth }: WarpcastShareButtonProps) {
-  const { isGenerating, currentCommentator } = useCommentator();
   const {
     runtime,
     hasFootySession,
@@ -349,9 +316,9 @@ export function WarpcastShareButton({ selectedMatch, compositeImage, leagueId, m
     fid,
   } = useFootyFarcaster();
   const [ethUsdPrice, setEthUsdPrice] = useState<number | null>(null);
-  const [isCreatingRoom, setIsCreatingRoom] = useState<boolean>(false);
+  const [isSharing, setIsSharing] = useState<boolean>(false);
   const [messageIndex, setMessageIndex] = useState<number>(0);
-  const [personalCommentary, setPersonalCommentary] = useState('');
+  const [personalBanter, setPersonalBanter] = useState('');
   const [shareStatus, setShareStatus] = useState<'idle' | 'sent'>('idle');
   const [shareMessage, setShareMessage] = useState<string | null>(null);
   const [isAdvancingOnboarding, setIsAdvancingOnboarding] = useState(false);
@@ -541,7 +508,7 @@ export function WarpcastShareButton({ selectedMatch, compositeImage, leagueId, m
 
   // Cycle through 3 loading messages and stop
   useEffect(() => {
-    if (!isCreatingRoom) {
+    if (!isSharing) {
       setMessageIndex(0);
       return;
     }
@@ -558,7 +525,7 @@ export function WarpcastShareButton({ selectedMatch, compositeImage, leagueId, m
     }, 1500); // Change message every 1.5 seconds
 
     return () => clearInterval(interval);
-  }, [isCreatingRoom]);
+  }, [isSharing]);
 
   // Fun soccer loading messages
   const getLoadingMessage = () => {
@@ -571,9 +538,8 @@ export function WarpcastShareButton({ selectedMatch, compositeImage, leagueId, m
   };
 
   const shareButtonLabel =
-    isGenerating ? '🎤 Generating Commentary...' :
     isAdvancingOnboarding ? 'Opening Footy sign in...' :
-    isCreatingRoom ? getLoadingMessage() :
+    isSharing ? getLoadingMessage() :
     shareStatus === 'sent' ? 'Shared to Farcaster' :
     !hasFootySession && runtime === 'miniapp' ? 'Authorize Footy to cast' :
     !hasFootySession ? 'Sign in to share' :
@@ -593,10 +559,10 @@ export function WarpcastShareButton({ selectedMatch, compositeImage, leagueId, m
   const visibleParticipants = matchThreadState === 'existing' ? matchThreadParticipants.slice(0, 3) : [];
   const additionalParticipants = Math.max(matchThreadReplyCount - visibleParticipants.length, 0);
 
-  const commentaryPlaceholder =
+  const banterPlaceholder =
     matchThreadState === 'first'
       ? 'Start the banter'
-      : 'Add your commentary';
+      : 'Add your banter';
 
   const onboardingMessage = (() => {
     if (!hasFootySession) {
@@ -622,52 +588,6 @@ export function WarpcastShareButton({ selectedMatch, compositeImage, leagueId, m
         return null;
     }
   })();
-
-  const generateCommentaryForMatch = async (
-    homeTeam: string,
-    awayTeam: string,
-    competition: string,
-    matchEvents: RichMatchEvent[],
-    homeScore: number,
-    awayScore: number
-  ): Promise<string> => {
-    try {
-      const significantEvent = findMostSignificantEvent(matchEvents);
-
-      // Build flexible context for match sharing
-      const context: CommentaryContext = {
-        eventId: `match-${Date.now()}`,
-        homeTeam,
-        awayTeam,
-        competition: competition || 'Football Match',
-        eventType: significantEvent ? 'goal' : 'final_whistle',
-        score: `${homeScore}-${awayScore}`,
-        context: `Match between ${homeTeam} and ${awayTeam}`,
-        // Match sharing context - only match events, no chat or FPL
-        matchEvents: matchEvents?.map(event => ({
-          type: { text: event.type?.text || '' },
-          athletesInvolved: event.athletesInvolved || [],
-          clock: { displayValue: event.clock?.displayValue || '' },
-          action: undefined,
-          playerName: event.athletesInvolved?.[0]?.displayName,
-          time: event.clock?.displayValue
-        })),
-        currentScore: `${homeScore}-${awayScore}`,
-        matchStatus: 'Final'
-      };
-
-      // Use the flexible pipeline for match sharing
-      const response = await CommentaryPipeline.generateMatchSharingCommentary(
-        'peter-drury', // Default commentator for match sharing
-        context
-      );
-
-      return response.commentary;
-    } catch (error) {
-      console.error('Error generating commentary:', error);
-      return '';
-    }
-  };
 
   const openWarpcastUrl = useCallback(async () => {
     setShareMessage(null);
@@ -704,8 +624,7 @@ export function WarpcastShareButton({ selectedMatch, compositeImage, leagueId, m
       }
     }
 
-    // Set creating room state for loading message
-    setIsCreatingRoom(true);
+    setIsSharing(true);
     
     // Stronger and more noticeable haptic feedback
     try {
@@ -734,15 +653,13 @@ export function WarpcastShareButton({ selectedMatch, compositeImage, leagueId, m
         awayLogo,
         eventStarted,
         keyMoments,
-        matchEvents,
-        competition,
       } = selectedMatch;
 
       const keyMomentsText = keyMoments && keyMoments.length > 0
         ? `\n\nKey Moments:\n${keyMoments.join('\n')}`
         : "";
-      const personalCommentaryText = personalCommentary.trim()
-        ? `\n\n${personalCommentary.trim()}`
+      const personalBanterText = personalBanter.trim()
+        ? `\n\n${personalBanter.trim()}`
         : '';
 
       const search = new URLSearchParams();
@@ -777,22 +694,6 @@ export function WarpcastShareButton({ selectedMatch, compositeImage, leagueId, m
 
       // Build the base mini app URL from frameUrl and current query string.
       const miniAppUrl = `${frameUrl}${currentQuery}`;
-
-      const commentaryPromise =
-        matchEvents && matchEvents.length > 0 && !moneyGamesParams
-          ? withTimeout(
-              generateCommentaryForMatch(
-                selectedMatch.homeTeam,
-                selectedMatch.awayTeam,
-                competition || 'Football Match',
-                matchEvents,
-                homeScore,
-                awayScore
-              ),
-              1500,
-              ''
-            )
-          : Promise.resolve('');
 
       const shareTargetPromise =
         compositeImage
@@ -830,7 +731,7 @@ export function WarpcastShareButton({ selectedMatch, compositeImage, leagueId, m
               imageUrl: null,
             });
 
-      const [commentary, shareTarget] = await Promise.all([commentaryPromise, shareTargetPromise]);
+      const shareTarget = await shareTargetPromise;
       const canonicalShareUrl = normalizeFootyShareUrl(shareTarget.shareUrl);
 
       let parentCast: { fid: number; hash: `0x${string}` } | undefined;
@@ -856,7 +757,7 @@ export function WarpcastShareButton({ selectedMatch, compositeImage, leagueId, m
       const isMoneyGame = Boolean(moneyGamesParams);
       const isReply = Boolean(parentCast);
       let matchSummary = fitCastText([
-        `${competitorsLong}${personalCommentaryText}${keyMomentsText}`,
+        `${competitorsLong}${personalBanterText}${keyMomentsText}`,
         ...(isReply ? [] : ['@gabedev.eth @kmacb.eth are you in on this one?']),
       ]);
       
@@ -876,14 +777,6 @@ export function WarpcastShareButton({ selectedMatch, compositeImage, leagueId, m
         matchSummary = fitCastText([
           `${selectedMatch.homeTeam} v ${selectedMatch.awayTeam} ScoreSquare 🎟️ 25 squares, 2 winners\nTicket: ${ticketEthStr}${ticketUsdStr} \nPrize: ${prizeEthStr}${prizeUsdStr}`,
         ]);
-      } else if (commentary) {
-        // Prepend commentary for regular matches with proper formatting
-        const commentatorDisplay = currentCommentator?.displayName || 'Hattrick Homer';
-        matchSummary = fitCastText([
-          `${competitorsLong}${personalCommentaryText}${keyMomentsText}`,
-          `🎤 ${commentary} — ${commentatorDisplay} ai`,
-          ...(isReply ? [] : ['@gabedev.eth @kmacb.eth are you in on this one?']),
-        ]);
       }
 
       const embeds: [] | [string] | [string, string] = isReply
@@ -899,22 +792,20 @@ export function WarpcastShareButton({ selectedMatch, compositeImage, leagueId, m
       });
 
       await submitSignedMessage(signedMessage);
-      setPersonalCommentary('');
+      setPersonalBanter('');
       setShareStatus('sent');
       setShareMessage('Cast sent from Footy.');
       }
     } catch (error) {
       setShareMessage(error instanceof Error ? error.message : 'Unable to share this match right now.');
     } finally {
-      // Reset creating room state
-      setIsCreatingRoom(false);
+      setIsSharing(false);
     }
   }, [
     beginLinkFarcaster,
     beginPrivyLogin,
     beginSignerAuthorization,
     compositeImage,
-    currentCommentator?.displayName,
     ethUsdPrice,
     hasLinkedFarcaster,
     hasSigner,
@@ -922,7 +813,7 @@ export function WarpcastShareButton({ selectedMatch, compositeImage, leagueId, m
     moneyGamesParams,
     onboardingMessage,
     onboardingState,
-    personalCommentary,
+    personalBanter,
     prizePoolEth,
     runtime,
     selectedMatch,
@@ -980,9 +871,9 @@ export function WarpcastShareButton({ selectedMatch, compositeImage, leagueId, m
         )}
       </div>
       <textarea
-        value={personalCommentary}
-        onChange={(event) => setPersonalCommentary(event.target.value)}
-        placeholder={commentaryPlaceholder}
+        value={personalBanter}
+        onChange={(event) => setPersonalBanter(event.target.value)}
+        placeholder={banterPlaceholder}
         maxLength={220}
         rows={3}
         className="w-full rounded-lg border border-limeGreenOpacity/30 bg-darkPurple px-3 py-2 text-[16px] text-notWhite placeholder:text-lightPurple/60 focus:border-deepPink focus:outline-none"
@@ -990,7 +881,7 @@ export function WarpcastShareButton({ selectedMatch, compositeImage, leagueId, m
       {(matchThreadState === 'existing' || matchThreadState === 'first' || isLoadingBanterSuggestions || banterSuggestions.length > 0) ? (
         <div className="space-y-2">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] uppercase tracking-[0.14em] text-lightPurple/55">Suggested banter</span>
+            <span className="text-[10px] uppercase tracking-[0.14em] text-lightPurple/55">AI banter ideas</span>
             {isLoadingBanterSuggestions ? (
               <span className="text-[10px] uppercase tracking-[0.12em] text-lightPurple/40">Loading</span>
             ) : null}
@@ -1008,7 +899,7 @@ export function WarpcastShareButton({ selectedMatch, compositeImage, leagueId, m
                     <button
                       key={suggestion.id}
                       type="button"
-                      onClick={() => setPersonalCommentary(suggestion.text)}
+                      onClick={() => setPersonalBanter(suggestion.text)}
                       className="w-[240px] flex-none rounded-xl border border-lightPurple/20 bg-darkPurple px-3 py-2 text-left transition hover:border-deepPink"
                     >
                       <div className="text-[10px] uppercase tracking-[0.14em] text-lightPurple/55">{suggestion.label}</div>
@@ -1021,7 +912,7 @@ export function WarpcastShareButton({ selectedMatch, compositeImage, leagueId, m
       ) : null}
       <button
         onClick={openWarpcastUrl}
-        disabled={isGenerating || isCreatingRoom || isAdvancingOnboarding || shareStatus === 'sent'}
+        disabled={isSharing || isAdvancingOnboarding || shareStatus === 'sent'}
         className="w-full sm:w-38 bg-deepPink text-white py-2 px-4 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-deepPink hover:bg-fontRed"
       >
         {shareButtonLabel}

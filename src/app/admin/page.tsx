@@ -15,9 +15,7 @@ const panelLoading = () => <div className="py-8 text-center text-sm text-lightPu
 const NotificationsTab = dynamic(() => import("../../components/admin/NotificationsTab"), { loading: panelLoading });
 const TeamsTab = dynamic(() => import("../../components/admin/TeamsTab"), { loading: panelLoading });
 const LeaguesTab = dynamic(() => import("../../components/admin/LeaguesTab"), { loading: panelLoading });
-const MatchRoomsTab = dynamic(() => import("../../components/admin/MatchRoomsTab"), { loading: panelLoading });
 const GameWeekSummaryStepByStep = dynamic(() => import("../../components/admin/GameWeekSummaryStepByStep"), { loading: panelLoading });
-const GroupChatsTab = dynamic(() => import("../../components/admin/GroupChatsTab"), { loading: panelLoading });
 const RevnetInspector = dynamic(() => import("../../components/admin/RevnetInspector"), { loading: panelLoading });
 const HealthTab = dynamic(() => import("../../components/admin/HealthTab"), { loading: panelLoading });
 
@@ -610,8 +608,6 @@ export default function AdminPage() {
                 { id: "notifications", label: "Notifications" },
                 { id: "teams", label: "Teams" },
                 { id: "leagues", label: "Leagues" },
-                { id: "matchRooms", label: "Match Rooms" },
-                { id: "groupChats", label: "Group Chats" },
                 { id: "gameWeekSummary", label: "Game Week Casts" },
                 { id: "findEventId", label: "Find Event ID" },
                 { id: "revnet", label: "Revnet" },
@@ -683,14 +679,6 @@ export default function AdminPage() {
               setResponseMessage={setResponseMessage}
               refreshAllData={refreshAllData}
             />
-          )}
-
-          {activeTab === "matchRooms" && (
-            <MatchRoomsTab />
-          )}
-
-          {activeTab === "groupChats" && (
-            <GroupChatsTab />
           )}
 
           {activeTab === "gameWeekSummary" && (

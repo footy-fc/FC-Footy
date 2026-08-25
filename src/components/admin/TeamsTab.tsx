@@ -90,9 +90,6 @@ export default function TeamsTab({
   const [newMetadataKey, setNewMetadataKey] = useState('');
   const [newMetadataValue, setNewMetadataValue] = useState('');
   const [isUpdating, setIsUpdating] = useState(false);
-  const [emojiList, setEmojiList] = useState<Array<{ code: string; url: string }>>([]);
-  const [newEmojiCode, setNewEmojiCode] = useState('');
-  const [newEmojiUrl, setNewEmojiUrl] = useState('');
 
   // League assignment state
   const [showLeagueAssignment, setShowLeagueAssignment] = useState(false);
@@ -295,32 +292,6 @@ export default function TeamsTab({
       roomHash: team.roomHash || '',
       metadata: { ...team.metadata }
     });
-    // Initialize emoji list from metadata.emojis (stored as JSON string)
-    try {
-      const raw = team.metadata?.emojis;
-      if (raw) {
-        const parsed: unknown = JSON.parse(raw);
-        if (Array.isArray(parsed)) {
-          const cleaned: Array<{ code: string; url: string }> = parsed
-            .filter((e: unknown): e is { code: string; url: string } => {
-              return (
-                !!e &&
-                typeof e === 'object' &&
-                typeof (e as Record<string, unknown>).code === 'string' &&
-                typeof (e as Record<string, unknown>).url === 'string'
-              );
-            })
-            .map((e) => ({ code: e.code, url: e.url }));
-          setEmojiList(cleaned);
-        } else {
-          setEmojiList([]);
-        }
-      } else {
-        setEmojiList([]);
-      }
-    } catch {
-      setEmojiList([]);
-    }
   };
 
   const handleUpdateTeam = async () => {
@@ -328,14 +299,7 @@ export default function TeamsTab({
     
     setIsUpdating(true);
     try {
-      const updates = {
-        ...editForm,
-        metadata: {
-          ...editForm.metadata,
-          emojis: JSON.stringify(emojiList || [])
-        }
-      };
-      const success = await updateTeam(editingTeam.id, updates);
+      const success = await updateTeam(editingTeam.id, editForm);
       if (success) {
         setResponseMessage('Team updated successfully');
         setEditingTeam(null);
@@ -348,9 +312,6 @@ export default function TeamsTab({
           roomHash: '',
           metadata: {}
         });
-        setEmojiList([]);
-        setNewEmojiCode('');
-        setNewEmojiUrl('');
         refreshAllData?.();
       } else {
         setResponseMessage('Failed to update team');
@@ -365,12 +326,6 @@ export default function TeamsTab({
 
   const addMetadata = () => {
     if (newMetadataKey.trim() && newMetadataValue.trim()) {
-      if (newMetadataKey.trim().toLowerCase() === 'emojis') {
-        // Prevent adding emojis via generic metadata editor; use Team Emojis section instead
-        setNewMetadataKey('');
-        setNewMetadataValue('');
-        return;
-      }
       setEditForm(prev => ({
         ...prev,
         metadata: {
@@ -542,13 +497,6 @@ export default function TeamsTab({
                 placeholder="Logo URL"
                 value={newTeam.logoUrl}
                 onChange={(e) => setNewTeam({...newTeam, logoUrl: e.target.value})}
-                className="p-2 border border-limeGreenOpacity rounded bg-darkPurple text-lightPurple"
-              />
-              <input
-                type="text"
-                placeholder="Room Hash (optional)"
-                value={newTeam.roomHash}
-                onChange={(e) => setNewTeam({...newTeam, roomHash: e.target.value})}
                 className="p-2 border border-limeGreenOpacity rounded bg-darkPurple text-lightPurple"
               />
             </div>
@@ -865,15 +813,6 @@ export default function TeamsTab({
                     className="w-full p-2 border border-limeGreenOpacity rounded bg-darkPurple text-lightPurple"
                   />
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-notWhite mb-1">Room Hash</label>
-                  <input
-                    type="text"
-                    value={editForm.roomHash}
-                    onChange={(e) => setEditForm({...editForm, roomHash: e.target.value})}
-                    className="w-full p-2 border border-limeGreenOpacity rounded bg-darkPurple text-lightPurple"
-                  />
-                </div>
               </div>
 
               {/* Metadata Section */}
@@ -931,74 +870,6 @@ export default function TeamsTab({
                   </div>
                 ) : (
                   <p className="text-sm text-notWhite italic">No custom metadata added yet.</p>
-                )}
-              </div>
-
-              {/* Team Emojis Section */}
-              <div className="border-t border-limeGreenOpacity pt-4">
-                <h4 className="text-md font-semibold text-notWhite mb-3">Team Emojis</h4>
-                <p className="text-sm text-lightPurple mb-3">Manage team-specific custom emojis shown in chat. Codes must follow pack::name, e.g. &quot;ars::saka&quot;. URLs can be relative to /public or absolute.</p>
-                {/* Add New Emoji */}
-                <div className="flex flex-col md:flex-row md:items-center md:space-x-2 space-y-2 md:space-y-0 mb-3">
-                  <input
-                    type="text"
-                    placeholder="Emoji code (e.g., ars::saka)"
-                    value={newEmojiCode}
-                    onChange={(e) => setNewEmojiCode(e.target.value)}
-                    className="flex-1 p-2 border border-limeGreenOpacity rounded bg-darkPurple text-lightPurple"
-                  />
-                  <input
-                    type="text"
-                    placeholder="Image URL (e.g., /assets/ars-saka.png)"
-                    value={newEmojiUrl}
-                    onChange={(e) => setNewEmojiUrl(e.target.value)}
-                    className="flex-1 p-2 border border-limeGreenOpacity rounded bg-darkPurple text-lightPurple"
-                  />
-                  <button
-                    onClick={() => {
-                      const code = newEmojiCode.trim();
-                      const url = newEmojiUrl.trim();
-                      if (!code || !url) return;
-                      setEmojiList(prev => {
-                        if (prev.some(e => e.code === code)) return prev; // avoid duplicates
-                        return [...prev, { code, url }];
-                      });
-                      setNewEmojiCode('');
-                      setNewEmojiUrl('');
-                    }}
-                    disabled={!newEmojiCode.trim() || !newEmojiUrl.trim()}
-                    className={`px-3 py-2 rounded transition-colors ${
-                      !newEmojiCode.trim() || !newEmojiUrl.trim()
-                        ? 'bg-gray-500 text-gray-300 cursor-not-allowed'
-                        : 'bg-green-600 text-white hover:bg-green-700'
-                    }`}
-                  >
-                    Add Emoji
-                  </button>
-                </div>
-                {/* Emoji List */}
-                {emojiList.length > 0 ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                    {emojiList.map((e, idx) => (
-                      <div key={`${e.code}-${idx}`} className="flex items-center justify-between p-2 bg-darkPurple border border-limeGreenOpacity rounded">
-                        <div className="flex items-center space-x-3 overflow-hidden">
-                          <img src={e.url} alt={e.code} className="w-8 h-8 rounded object-contain bg-gray-800" />
-                          <div className="truncate">
-                            <div className="text-sm text-notWhite truncate">{e.code}</div>
-                            <div className="text-xs text-lightPurple truncate">{e.url}</div>
-                          </div>
-                        </div>
-                        <button
-                          onClick={() => setEmojiList(prev => prev.filter((x, i) => i !== idx))}
-                          className="text-fontRed hover:text-deepPink transition-colors ml-2"
-                        >
-                          <X className="w-4 h-4" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-sm text-notWhite italic">No team emojis configured.</p>
                 )}
               </div>
 
