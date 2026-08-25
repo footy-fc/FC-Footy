@@ -1,15 +1,11 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 import React, { useEffect, useState } from 'react';
-import { sdk } from "@farcaster/miniapp-sdk";
 import FantasyRow from './ContestFantasyRow';
 import { fetchFantasyData, FantasyEntry } from './utils/fetchFantasyData';
-import fantasyManagersLookup from '../data/fantasy-managers-lookup.json';
 import FplClaimPanel from './FplClaimPanel';
 import FplClaimReleaseModal from './FplClaimReleaseModal';
 import { useFootyFarcaster } from '~/lib/farcaster/useFootyFarcaster';
 import type { FplClaimSummary } from '~/lib/fplClaimConstants';
-
-const registeredManagerCount = fantasyManagersLookup.length;
 
 const ContestFCFantasy = () => {
   const [fantasyData, setFantasyData] = useState<FantasyEntry[]>([]);
@@ -78,57 +74,34 @@ const ContestFCFantasy = () => {
     };
   }, []);
 
-  const handleRowSelect = async (selected: FantasyEntry) => {
-    if (!selected.fid) {
-      return;
-    }
-
-    try {
-      await sdk.actions.ready();
-      await sdk.actions.viewProfile({ fid: selected.fid });
-    } catch (error) {
-      console.error('Failed to open profile:', error);
-      try {
-        await sdk.actions.openUrl(`https://warpcast.com/~/profiles/${selected.fid}`);
-      } catch {}
-    }
-  };
-
   const handleClaimClick = (selected: FantasyEntry) => {
     setClaimEntry(selected);
   };
 
-  const mappedManagerCount = fantasyData.filter((entry) => Number.isInteger(entry.fid)).length;
-
   return (
       <div>
-        <div className="mb-2 rounded bg-darkPurple px-2 py-1 text-xs text-lightPurple">
-          {fantasyData.length > 0
-            ? `${mappedManagerCount} of ${fantasyData.length} loaded managers mapped to Farcaster profiles. ${registeredManagerCount} registered mappings on file.`
-            : `${registeredManagerCount} registered Farcaster manager mappings on file.`}
-        </div>
         {loadingFantasy ? (
           <div className="text-center">Loading...</div>
         ) : errorFantasy ? (
           <div className="text-red-500">{errorFantasy}</div>
         ) : fantasyData.length > 0 ? (
-          <table className="w-full bg-darkPurple">
+          <table className="w-full table-fixed bg-darkPurple">
             <thead className="bg-darkPurple">
               <tr>
-                <th className="h-12 px-1 sm:px-4 border-b border-limeGreenOpacity text-notWhite text-center font-medium">
+                <th className="h-12 w-[14%] px-1 border-b border-limeGreenOpacity text-notWhite text-center font-medium">
                   Rank
                 </th>
-                <th className="h-12 px-1 sm:px-4 border-b border-limeGreenOpacity text-notWhite text-center font-medium">
+                <th className="h-12 w-[14%] px-1 border-b border-limeGreenOpacity text-notWhite text-center font-medium">
                   Profile
                 </th>
                 <th className="h-12 px-1 sm:px-4 border-b border-limeGreenOpacity text-notWhite text-left font-medium">
                   Team
                 </th>
-                <th className="h-12 px-1 sm:px-4 border-b border-limeGreenOpacity text-notWhite text-center font-medium">
+                <th className="h-12 w-[14%] px-1 border-b border-limeGreenOpacity text-notWhite text-center font-medium">
                   Total
                 </th>
-                <th className="h-12 px-1 sm:px-4 border-b border-limeGreenOpacity text-notWhite text-center font-medium">
-                  Claim
+                <th className="h-12 w-12 px-1 border-b border-limeGreenOpacity text-notWhite text-center font-medium">
+                  <span className="sr-only">Claim controls</span>
                 </th>
               </tr>
             </thead>
@@ -137,7 +110,6 @@ const ContestFCFantasy = () => {
                 <FantasyRow
                   key={entry.entry_id ?? `${entry.fid}-${index}`}
                   entry={entry}
-                  onRowClick={handleRowSelect}
                   onClaimClick={handleClaimClick}
                   onReleaseClick={(selected, claim) => setReleaseTarget({ entry: selected, claim })}
                   claim={claimsByEntry[String(entry.entry_id)] ?? null}
@@ -148,7 +120,7 @@ const ContestFCFantasy = () => {
             </tbody>
           </table>
         ) : (
-          <div>No fantasy data available. {registeredManagerCount} Farcaster manager mappings are registered locally.</div>
+          <div>No fantasy data available.</div>
         )}
         {claimEntry && (
           <FplClaimPanel

@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import Image from 'next/image';
 import { sdk } from "@farcaster/miniapp-sdk";
+import { LockKeyhole } from 'lucide-react';
 import { FantasyEntry } from './utils/fetchFantasyData';
 import { fetchUsersByFids } from '~/lib/hypersnap';
 import type { FplClaimSummary } from '~/lib/fplClaimConstants';
@@ -10,7 +11,6 @@ import type { FplClaimSummary } from '~/lib/fplClaimConstants';
 
 interface FantasyRowProps {
   entry: FantasyEntry;  // Consistent FantasyEntry type
-  onRowClick: (entry: FantasyEntry) => void;
   onClaimClick: (entry: FantasyEntry) => void;
   onReleaseClick: (entry: FantasyEntry, claim: FplClaimSummary) => void;
   claim?: FplClaimSummary | null;
@@ -18,49 +18,23 @@ interface FantasyRowProps {
   currentUserFid?: number | null;  // Add currentUserFid for highlighting
 }
 
-const FantasyRow: React.FC<FantasyRowProps> = ({ entry, onRowClick, onClaimClick, onReleaseClick, claim = null, claimDisabled = false, currentUserFid }) => {
-  const { totalPoints, team, entryName } = entry;
-  const [pfpUrl, setPfpUrl] = useState<string>('/defifa_spinner.gif');
-  const [claimant, setClaimant] = useState<{ username?: string; pfpUrl: string }>({ pfpUrl: '/defifa_spinner.gif' });
-
-  useEffect(() => {
-    const fetchPfp = async () => {
-      if (claim?.fid) return;
-      if (!entry.fid) {
-        setPfpUrl('/defifa_spinner.gif');
-        return;
-      }
-
-      try {
-        const users = await fetchUsersByFids([entry.fid]);
-        const pfp = users[0]?.pfp_url;
-        if (pfp) {
-          setPfpUrl(pfp);
-        } else {
-          setPfpUrl('/defifa_spinner.gif');
-        }
-      } catch (error) {
-        console.error('Error fetching PFP for FID:', entry.fid, error);
-        setPfpUrl('/defifa_spinner.gif');
-      }
-    };
-
-    fetchPfp();
-  }, [claim?.fid, entry.fid, entry.entry_id]);
+const FantasyRow: React.FC<FantasyRowProps> = ({ entry, onClaimClick, onReleaseClick, claim = null, claimDisabled = false, currentUserFid }) => {
+  const { totalPoints, entryName } = entry;
+  const [claimantPfpUrl, setClaimantPfpUrl] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     if (!claim?.fid) {
-      setClaimant({ pfpUrl: '/defifa_spinner.gif' });
+      setClaimantPfpUrl(null);
       return;
     }
     void fetchUsersByFids([claim.fid])
       .then((users) => {
         if (cancelled) return;
-        setClaimant({ username: users[0]?.username, pfpUrl: users[0]?.pfp_url || '/defifa_spinner.gif' });
+        setClaimantPfpUrl(users[0]?.pfp_url || null);
       })
       .catch(() => {
-        if (!cancelled) setClaimant({ pfpUrl: '/defifa_spinner.gif' });
+        if (!cancelled) setClaimantPfpUrl(null);
       });
     return () => {
       cancelled = true;
@@ -68,23 +42,7 @@ const FantasyRow: React.FC<FantasyRowProps> = ({ entry, onRowClick, onClaimClick
   }, [claim?.fid]);
 
   // Check if this is the user's own row
-  const isUserRow = currentUserFid && entry.fid === currentUserFid;
-  const displayedPfpUrl = claim ? claimant.pfpUrl : pfpUrl;
-  
-  // Handler for PFP click to open user profile
-  const handlePfpClick = async (e: React.MouseEvent) => {
-    e.stopPropagation(); // Prevent row click event
-    
-    if (!entry.fid) return;
-    
-    try {
-      await sdk.actions.ready();
-      await sdk.actions.viewProfile({ fid: entry.fid });
-    } catch (error) {
-      console.error('Failed to open profile:', error);
-      // Fail silently - no error logging or fallback
-    }
-  };
+  const isUserRow = Boolean(currentUserFid && claim?.fid === currentUserFid);
 
   const openClaimantProfile = async (event: React.MouseEvent) => {
     event.stopPropagation();
@@ -104,32 +62,23 @@ const FantasyRow: React.FC<FantasyRowProps> = ({ entry, onRowClick, onClaimClick
       className={`border-b border-limeGreenOpacity transition-colors text-lightPurple text-sm ${
         isUserRow
           ? 'bg-limeGreenOpacity/20 border-limeGreenOpacity/50 font-bold' // Highlight user's row
-          : 'hover:bg-purplePanel cursor-pointer'
-      }`}
-      onClick={() => onRowClick(entry)}>
+          : 'hover:bg-purplePanel'
+      }`}>
       <td className="py-2 px-2 text-center text-lightPurple font-bold">
         {entry.rank ?? 'N/A'}
       </td>
-      <td className="py-2 px-2 flex items-center space-x-2">
-        <Image
-          src={displayedPfpUrl}
-          alt={claim ? 'Claimant Farcaster profile' : 'Manager Avatar'}
-          className="rounded-full w-8 h-8 cursor-pointer hover:opacity-80 transition-opacity"
-          width={32}
-          height={32}
-          onClick={claim ? openClaimantProfile : handlePfpClick}
-          onError={() => claim ? setClaimant((current) => ({ ...current, pfpUrl: '/defifa_spinner.gif' })) : setPfpUrl('/defifa_spinner.gif')}
-          title={claim ? 'Open claimant’s Farcaster profile' : `Click to view ${entryName}'s profile`}
-        />
-        {team?.logo && team.logo !== '/defifa_spinner.gif' && (
-          <Image
-            src={team.logo || '/default-team-logo.png'}
-            alt="Team Logo"
-            className="rounded-full object-cover"
-            width={24}
-            height={24}
-            loading="lazy"
-          />
+      <td className="px-1 py-2 text-center">
+        {claim && claimantPfpUrl && (
+          <button type="button" onClick={openClaimantProfile} className="inline-flex rounded-full hover:opacity-80" title="Open claimant’s Farcaster profile" aria-label="Open claimant’s Farcaster profile">
+            <Image
+              src={claimantPfpUrl}
+              alt="Claimant Farcaster profile"
+              className="h-8 w-8 rounded-full object-cover"
+              width={32}
+              height={32}
+              onError={() => setClaimantPfpUrl(null)}
+            />
+          </button>
         )}
       </td>
       <td className="py-2 px-2 text-lightPurple font-medium text-left">
@@ -138,20 +87,14 @@ const FantasyRow: React.FC<FantasyRowProps> = ({ entry, onRowClick, onClaimClick
       <td className="py-2 px-2 text-center text-lightPurple">
         {totalPoints ?? 'N/A'}
       </td>
-      <td className="py-2 px-2 text-center">
+      <td className="w-12 px-1 py-2 text-center">
         {claim ? (
-          <div className="flex flex-col items-center gap-1">
-            <button type="button" onClick={openClaimantProfile} className="rounded px-1 py-1 text-xs text-limeGreen hover:bg-limeGreen/10" title="Open claimant's Farcaster profile">
-              <span>{claimant.username ? `@${claimant.username}` : `FID ${claim.fid}`}</span>
+          currentUserFid === claim.fid ? (
+            <button type="button" onClick={(event) => { event.stopPropagation(); onReleaseClick(entry, claim); }} className="inline-flex rounded p-1 text-red-300 hover:bg-red-300/10" title="Release claim" aria-label="Release claim">
+              <LockKeyhole className="h-4 w-4" aria-hidden="true" />
             </button>
-            {currentUserFid === claim.fid && (
-              <button type="button" onClick={(event) => { event.stopPropagation(); onReleaseClick(entry, claim); }} className="text-[11px] text-red-300 underline-offset-2 hover:underline">Release</button>
-            )}
-            {currentUserFid !== claim.fid && <span className="text-[10px] text-lightPurple/60">Wrong claim? Tap profile</span>}
-          </div>
-        ) : claimDisabled ? (
-          <span className="text-xs text-lightPurple/60">Locked</span>
-        ) : (
+          ) : null
+        ) : claimDisabled ? null : (
           <button
             type="button"
             onClick={(event) => {
