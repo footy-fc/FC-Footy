@@ -8,6 +8,40 @@ type FplLeagueManager = {
   [key: string]: unknown;
 };
 
+export type FplManagerClaim = {
+  fid: number;
+  entryId: number;
+  season: number;
+  attestationUid: string;
+  method: number;
+  status: 'active' | 'revoked';
+  createdAt: string;
+};
+
+export type FarcasterManagerProfile = {
+  fid: number;
+  username?: string;
+  display_name?: string;
+  displayName?: string;
+  pfp_url?: string;
+};
+
+export type PublicFplManagerClaim = {
+  status: 'active';
+  season: number;
+  attestation_uid: string;
+  method: number;
+  claimed_at: string;
+};
+
+export type FplManagerIdentity = {
+  fid: number | null;
+  username: string | null;
+  display_name: string | null;
+  pfp_url: string | null;
+  claim: PublicFplManagerClaim | null;
+};
+
 export type FplLeagueResponse = {
   standings: {
     results: FplLeagueStanding[];
@@ -70,6 +104,11 @@ export function shouldIncludeManagersInfo(searchParams: URLSearchParams): boolea
     searchParams.get('includeMangersInfo') ??
     searchParams.get('includeBadges');
 
+  return value === '1' || value === 'true' || value === 'yes';
+}
+
+export function shouldIncludeManagerIdentities(searchParams: URLSearchParams): boolean {
+  const value = searchParams.get('includeManagersInfo') ?? searchParams.get('includeMangersInfo');
   return value === '1' || value === 'true' || value === 'yes';
 }
 
@@ -291,6 +330,100 @@ export async function enrichLeagueWithManagerBadges(
       ...leagueData.new_entries,
       results: leagueData.new_entries.results.map((manager) =>
         manager && typeof manager === 'object' ? addBadge(manager as FplLeagueManager) : manager
+      ),
+    },
+  };
+}
+
+export async function enrichLeagueWithManagerIdentities(
+  leagueData: FplLeagueResponse,
+  options: {
+    season: number;
+    fetchClaimsByEntries: (season: number, entryIds: number[]) => Promise<Record<string, FplManagerClaim>>;
+    fetchUsersByFids: (fids: number[]) => Promise<FarcasterManagerProfile[]>;
+  }
+): Promise<FplLeagueResponse> {
+  const newEntryManagers = leagueData.new_entries.results.filter(
+    (manager): manager is FplLeagueManager => Boolean(manager) && typeof manager === 'object'
+  );
+  const allManagers = [...leagueData.standings.results, ...newEntryManagers];
+  const entryIds = Array.from(
+    new Set(
+      allManagers
+        .map((manager) => manager.entry)
+        .filter(
+          (entryId): entryId is number =>
+            typeof entryId === 'number' && Number.isSafeInteger(entryId) && entryId > 0
+        )
+    )
+  );
+
+  let claimsByEntry: Record<string, FplManagerClaim> = {};
+  try {
+    claimsByEntry = await options.fetchClaimsByEntries(options.season, entryIds);
+  } catch (error) {
+    console.error('Failed to load FPL manager claims:', error);
+  }
+
+  const validClaims = Object.values(claimsByEntry).filter(
+    (claim) =>
+      claim?.status === 'active' &&
+      claim.season === options.season &&
+      Number.isSafeInteger(claim.entryId) &&
+      claim.entryId > 0 &&
+      Number.isSafeInteger(claim.fid) &&
+      claim.fid > 0
+  );
+  const claimByEntryId = new Map(validClaims.map((claim) => [claim.entryId, claim]));
+  const fids = Array.from(new Set(validClaims.map((claim) => claim.fid)));
+
+  let profiles: FarcasterManagerProfile[] = [];
+  if (fids.length > 0) {
+    try {
+      profiles = await options.fetchUsersByFids(fids);
+    } catch (error) {
+      console.warn('Failed to load Farcaster profiles for FPL managers:', error);
+    }
+  }
+
+  const profilesByFid = new Map(
+    profiles
+      .filter((profile) => Number.isSafeInteger(profile?.fid) && profile.fid > 0)
+      .map((profile) => [profile.fid, profile])
+  );
+
+  const addIdentity = <T extends FplLeagueManager>(manager: T): T & FplManagerIdentity => {
+    const claim = typeof manager.entry === 'number' ? claimByEntryId.get(manager.entry) : undefined;
+    const profile = claim ? profilesByFid.get(claim.fid) : undefined;
+
+    return {
+      ...manager,
+      fid: claim?.fid ?? null,
+      username: profile?.username?.trim() || null,
+      display_name: profile?.display_name?.trim() || profile?.displayName?.trim() || null,
+      pfp_url: profile?.pfp_url?.trim() || null,
+      claim: claim
+        ? {
+            status: 'active',
+            season: claim.season,
+            attestation_uid: claim.attestationUid,
+            method: claim.method,
+            claimed_at: claim.createdAt,
+          }
+        : null,
+    };
+  };
+
+  return {
+    ...leagueData,
+    standings: {
+      ...leagueData.standings,
+      results: leagueData.standings.results.map(addIdentity),
+    },
+    new_entries: {
+      ...leagueData.new_entries,
+      results: leagueData.new_entries.results.map((manager) =>
+        manager && typeof manager === 'object' ? addIdentity(manager as FplLeagueManager) : manager
       ),
     },
   };

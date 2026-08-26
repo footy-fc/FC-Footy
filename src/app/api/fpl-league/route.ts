@@ -3,11 +3,15 @@ import { Redis } from '@upstash/redis';
 import { FPL_LEAGUE_ID } from '~/lib/config';
 import {
   enrichLeagueWithManagerBadges,
+  enrichLeagueWithManagerIdentities,
   fetchFplLeagueStandings,
   parsePositiveInteger,
+  shouldIncludeManagerIdentities,
   shouldIncludeManagersInfo,
   type FplLeagueResponse,
 } from '~/lib/fplLeague';
+import { getClaimsByEntries, getClaimSeason } from '~/lib/fplClaimServer';
+import { fetchUsersByFids } from '~/lib/hypersnap';
 
 const redis = new Redis({
   url: process.env.NEXT_PUBLIC_KV_REST_API_URL!,
@@ -51,7 +55,23 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const includeManagersInfo = shouldIncludeManagersInfo(searchParams);
+    const includeManagerBadges = shouldIncludeManagersInfo(searchParams);
+    const includeManagerIdentities = shouldIncludeManagerIdentities(searchParams);
+
+    const enrichResponse = async (leagueData: FplLeagueResponse) => {
+      let enriched = leagueData;
+      if (includeManagerBadges) {
+        enriched = await enrichLeagueWithManagerBadges(enriched, redis);
+      }
+      if (includeManagerIdentities) {
+        enriched = await enrichLeagueWithManagerIdentities(enriched, {
+          season: getClaimSeason(),
+          fetchClaimsByEntries: getClaimsByEntries,
+          fetchUsersByFids,
+        });
+      }
+      return enriched;
+    };
     
     const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
     // v4 caches the complete, server-aggregated standings and new_entries
@@ -64,9 +84,7 @@ export async function GET(request: NextRequest) {
 
     if (cachedData) {
       console.log('📊 Returning cached rankings for', today);
-      const body = includeManagersInfo
-        ? await enrichLeagueWithManagerBadges(cachedData, redis)
-        : cachedData;
+      const body = await enrichResponse(cachedData);
 
       return jsonResponse(body);
     }
@@ -84,9 +102,7 @@ export async function GET(request: NextRequest) {
       // Still return the data even if caching fails
     }
 
-    const body = includeManagersInfo
-      ? await enrichLeagueWithManagerBadges(rankingsData, redis)
-      : rankingsData;
+    const body = await enrichResponse(rankingsData);
 
     return jsonResponse(body);
 

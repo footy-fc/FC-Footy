@@ -20,10 +20,12 @@ await build({
 
 const {
   enrichLeagueWithManagerBadges,
+  enrichLeagueWithManagerIdentities,
   fetchEntryClubBadgeSrc,
   fetchFplLeagueStandings,
   normalizeClubBadgeSrc,
   parsePositiveInteger,
+  shouldIncludeManagerIdentities,
   shouldIncludeManagersInfo,
 } = await import(pathToFileURL(bundlePath).href);
 
@@ -88,6 +90,9 @@ async function testValidation() {
   assert.equal(shouldIncludeManagersInfo(new URLSearchParams('includeMangersInfo=true')), true);
   assert.equal(shouldIncludeManagersInfo(new URLSearchParams('includeBadges=yes')), true);
   assert.equal(shouldIncludeManagersInfo(new URLSearchParams('includeManagersInfo=0')), false);
+  assert.equal(shouldIncludeManagerIdentities(new URLSearchParams('includeManagersInfo=1')), true);
+  assert.equal(shouldIncludeManagerIdentities(new URLSearchParams('includeMangersInfo=yes')), true);
+  assert.equal(shouldIncludeManagerIdentities(new URLSearchParams('includeBadges=1')), false);
 }
 
 async function testRelativeUrlNormalization() {
@@ -236,10 +241,104 @@ async function testConcurrencyAndCaching() {
   );
 }
 
+async function testManagerIdentityEnrichment() {
+  const requestedClaims = [];
+  const requestedFids = [];
+  const league = await enrichLeagueWithManagerIdentities(makeLeague([1, 2], [3]), {
+    season: 2026,
+    async fetchClaimsByEntries(season, entryIds) {
+      requestedClaims.push({ season, entryIds });
+      return {
+        '2': {
+          fid: 4163,
+          entryId: 2,
+          season: 2026,
+          attestationUid: `0x${'a'.repeat(64)}`,
+          method: 1,
+          status: 'active',
+          createdAt: '2026-08-25T00:00:00.000Z',
+        },
+        '3': {
+          fid: 9999,
+          entryId: 3,
+          season: 2026,
+          attestationUid: `0x${'b'.repeat(64)}`,
+          method: 1,
+          status: 'revoked',
+          createdAt: '2026-08-25T00:00:00.000Z',
+        },
+      };
+    },
+    async fetchUsersByFids(fids) {
+      requestedFids.push(...fids);
+      return [{ fid: 4163, username: 'kmacb.eth', display_name: 'KMac', pfp_url: 'https://example.com/kmac.png' }];
+    },
+  });
+
+  assert.deepEqual(requestedClaims, [{ season: 2026, entryIds: [1, 2, 3] }]);
+  assert.deepEqual(requestedFids, [4163]);
+  assert.deepEqual(
+    {
+      fid: league.standings.results[0].fid,
+      username: league.standings.results[0].username,
+      pfp_url: league.standings.results[0].pfp_url,
+      claim: league.standings.results[0].claim,
+    },
+    { fid: null, username: null, pfp_url: null, claim: null }
+  );
+  assert.equal(league.standings.results[1].fid, 4163);
+  assert.equal(league.standings.results[1].username, 'kmacb.eth');
+  assert.equal(league.standings.results[1].display_name, 'KMac');
+  assert.equal(league.standings.results[1].pfp_url, 'https://example.com/kmac.png');
+  assert.deepEqual(league.standings.results[1].claim, {
+    status: 'active',
+    season: 2026,
+    attestation_uid: `0x${'a'.repeat(64)}`,
+    method: 1,
+    claimed_at: '2026-08-25T00:00:00.000Z',
+  });
+  assert.equal(league.new_entries.results[0].fid, null);
+}
+
+async function testProfileFailureKeepsVerifiedFid() {
+  const originalWarn = console.warn;
+  console.warn = () => {};
+  try {
+    const league = await enrichLeagueWithManagerIdentities(makeLeague([1101413]), {
+      season: 2026,
+      async fetchClaimsByEntries() {
+        return {
+          '1101413': {
+            fid: 4163,
+            entryId: 1101413,
+            season: 2026,
+            attestationUid: `0x${'c'.repeat(64)}`,
+            method: 1,
+            status: 'active',
+            createdAt: '2026-08-25T00:00:00.000Z',
+          },
+        };
+      },
+      async fetchUsersByFids() {
+        throw new Error('HyperSnap unavailable');
+      },
+    });
+
+    assert.equal(league.standings.results[0].fid, 4163);
+    assert.equal(league.standings.results[0].username, null);
+    assert.equal(league.standings.results[0].pfp_url, null);
+    assert.equal(league.standings.results[0].claim.status, 'active');
+  } finally {
+    console.warn = originalWarn;
+  }
+}
+
 await testValidation();
 await testRelativeUrlNormalization();
 await testStandingsPagination();
 await testPartialEntryFetchFailure();
 await testConcurrencyAndCaching();
+await testManagerIdentityEnrichment();
+await testProfileFailureKeepsVerifiedFid();
 
 console.log('fpl-league api tests passed');
