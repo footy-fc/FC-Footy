@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { sdk } from "@farcaster/miniapp-sdk";
 import { BASE_URL } from '~/lib/config';
 import { useFootyFarcaster } from '~/lib/farcaster/useFootyFarcaster';
@@ -301,7 +301,8 @@ interface BanterSuggestion {
   mode: 'same-side' | 'rival-poke' | 'player-specific';
 }
 
-type BanterGenerationSource = 'openai' | 'gemini' | 'fallback';
+type BanterGenerationSource = 'openai' | 'gemini';
+type BanterAvailability = 'checking' | 'available' | 'used' | 'daily-limit' | 'unavailable';
 
 export function WarpcastShareButton({ selectedMatch, compositeImage, leagueId, moneyGamesParams, ticketPriceEth, prizePoolEth }: WarpcastShareButtonProps) {
   const {
@@ -315,7 +316,7 @@ export function WarpcastShareButton({ selectedMatch, compositeImage, leagueId, m
     beginSignerAuthorization,
     signCast,
     submitSignedMessage,
-    fid,
+    getAuthorizationHeaders,
   } = useFootyFarcaster();
   const [ethUsdPrice, setEthUsdPrice] = useState<number | null>(null);
   const [isSharing, setIsSharing] = useState<boolean>(false);
@@ -330,7 +331,66 @@ export function WarpcastShareButton({ selectedMatch, compositeImage, leagueId, m
   const [banterSuggestions, setBanterSuggestions] = useState<BanterSuggestion[]>([]);
   const [banterGenerationSource, setBanterGenerationSource] = useState<BanterGenerationSource | null>(null);
   const [isLoadingBanterSuggestions, setIsLoadingBanterSuggestions] = useState(false);
+  const [banterAvailability, setBanterAvailability] = useState<BanterAvailability>('checking');
   const [isResolvingThreadContext, setIsResolvingThreadContext] = useState(true);
+
+  const canonicalShareUrl = useMemo(() => {
+    const frameUrlRaw = BASE_URL || 'https://fc-footy.vercel.app';
+    const frameUrl = frameUrlRaw.startsWith('http') ? frameUrlRaw : `https://${frameUrlRaw}`;
+    const search = new URLSearchParams();
+
+    if (moneyGamesParams) {
+      search.set('tab', 'moneyGames');
+      search.set('gameType', 'scoreSquare');
+      search.set('gameState', 'active');
+      search.set('eventId', moneyGamesParams.eventId);
+      if (moneyGamesParams.gameId) search.set('gameId', moneyGamesParams.gameId);
+      if (leagueId) search.set('league', leagueId);
+    } else {
+      search.set('tab', 'matches');
+      if (leagueId) search.set('league', leagueId);
+    }
+
+    search.set('home', selectedMatch.homeTeam);
+    search.set('away', selectedMatch.awayTeam);
+    search.set('homeScore', String(selectedMatch.homeScore));
+    search.set('awayScore', String(selectedMatch.awayScore));
+    search.set('status', selectedMatch.clock);
+    search.set('isLive', String(Boolean(selectedMatch.eventStarted)));
+
+    const query = search.toString();
+    return normalizeFootyShareUrl(`${frameUrl}${query ? `?${query}` : ''}`);
+  }, [
+    leagueId,
+    moneyGamesParams,
+    selectedMatch.awayScore,
+    selectedMatch.awayTeam,
+    selectedMatch.clock,
+    selectedMatch.eventStarted,
+    selectedMatch.homeScore,
+    selectedMatch.homeTeam,
+  ]);
+
+  const banterMatchPayload = useMemo(
+    () => ({
+      homeTeam: selectedMatch.homeTeam,
+      awayTeam: selectedMatch.awayTeam,
+      competition: selectedMatch.competition,
+      espnEventId: selectedMatch.espnEventId,
+      matchDate: selectedMatch.matchDate,
+      keyMoments: selectedMatch.keyMoments || [],
+      matchEvents: selectedMatch.matchEvents || [],
+    }),
+    [
+      selectedMatch.awayTeam,
+      selectedMatch.competition,
+      selectedMatch.espnEventId,
+      selectedMatch.homeTeam,
+      selectedMatch.keyMoments,
+      selectedMatch.matchDate,
+      selectedMatch.matchEvents,
+    ]
+  );
 
   useEffect(() => {
     if (shareStatus !== 'sent') {
@@ -374,44 +434,13 @@ export function WarpcastShareButton({ selectedMatch, compositeImage, leagueId, m
   useEffect(() => {
     let cancelled = false;
 
-    const frameUrlRaw = BASE_URL || 'https://fc-footy.vercel.app';
-    const frameUrl = frameUrlRaw.startsWith('http') ? frameUrlRaw : `https://${frameUrlRaw}`;
-    const search = new URLSearchParams();
-
-    if (moneyGamesParams) {
-      search.set("tab", "moneyGames");
-      search.set("gameType", "scoreSquare");
-      search.set("gameState", "active");
-      search.set("eventId", moneyGamesParams.eventId);
-      if (moneyGamesParams.gameId) {
-        search.set("gameId", moneyGamesParams.gameId);
-      }
-      if (leagueId) {
-        search.set("league", leagueId);
-      }
-    } else {
-      search.set("tab", "matches");
-      if (leagueId) {
-        search.set("league", leagueId);
-      }
-    }
-
-    search.set("home", selectedMatch.homeTeam);
-    search.set("away", selectedMatch.awayTeam);
-    search.set("homeScore", String(selectedMatch.homeScore));
-    search.set("awayScore", String(selectedMatch.awayScore));
-    search.set("status", selectedMatch.clock);
-    search.set("isLive", String(Boolean(selectedMatch.eventStarted)));
-
-    const query = search.toString();
-    const canonicalShareUrl = normalizeFootyShareUrl(`${frameUrl}${query ? `?${query}` : ''}`);
-
     setMatchThreadState('unknown');
     setMatchThreadParticipants([]);
     setMatchThreadReplyCount(0);
     setBanterSuggestions([]);
     setBanterGenerationSource(null);
     setIsLoadingBanterSuggestions(false);
+    setBanterAvailability('checking');
     setIsResolvingThreadContext(true);
 
     const loadMatchThreadState = async () => {
@@ -434,45 +463,40 @@ export function WarpcastShareButton({ selectedMatch, compositeImage, leagueId, m
           setMatchThreadParticipants(hasExistingThread && Array.isArray(payload?.replyParticipants) ? payload.replyParticipants : []);
           setMatchThreadReplyCount(hasExistingThread && typeof payload?.replyCount === 'number' ? payload.replyCount : 0);
 
-          setIsLoadingBanterSuggestions(true);
-
           try {
-            const suggestionsRes = await fetch('/api/farcaster/banter-suggestions', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                shareUrl: canonicalShareUrl,
-                viewerFid: fid,
-                selectedMatch: {
-                  homeTeam: selectedMatch.homeTeam,
-                  awayTeam: selectedMatch.awayTeam,
-                  competition: selectedMatch.competition,
-                  espnEventId: selectedMatch.espnEventId,
-                  matchDate: selectedMatch.matchDate,
-                  keyMoments: selectedMatch.keyMoments || [],
-                  matchEvents: selectedMatch.matchEvents || [],
-                },
-              }),
+            const headers = await getAuthorizationHeaders();
+            const usageParams = new URLSearchParams({
+              homeTeam: banterMatchPayload.homeTeam,
+              awayTeam: banterMatchPayload.awayTeam,
             });
-
-            const suggestionsPayload = (await suggestionsRes.json().catch(() => null)) as
-              | { suggestions?: BanterSuggestion[]; generationSource?: BanterGenerationSource }
+            if (banterMatchPayload.competition) usageParams.set('competition', banterMatchPayload.competition);
+            if (banterMatchPayload.espnEventId) usageParams.set('espnEventId', banterMatchPayload.espnEventId);
+            if (banterMatchPayload.matchDate) usageParams.set('matchDate', banterMatchPayload.matchDate);
+            const usageRes = await fetch(`/api/farcaster/banter-suggestions?${usageParams.toString()}`, {
+              headers,
+              cache: 'no-store',
+            });
+            const usagePayload = (await usageRes.json().catch(() => null)) as
+              | { usedForMatch?: boolean; remainingToday?: number }
               | null;
 
-            if (!cancelled) {
-              setBanterSuggestions(Array.isArray(suggestionsPayload?.suggestions) ? suggestionsPayload.suggestions : []);
-              setBanterGenerationSource(suggestionsPayload?.generationSource || null);
+            if (!cancelled && usageRes.ok) {
+              setBanterAvailability(
+                usagePayload?.usedForMatch
+                  ? 'used'
+                  : Number(usagePayload?.remainingToday || 0) <= 0
+                    ? 'daily-limit'
+                    : 'available'
+              );
+            } else if (!cancelled) {
+              setBanterAvailability('unavailable');
             }
           } catch {
             if (!cancelled) {
-              setBanterSuggestions([]);
-              setBanterGenerationSource(null);
+              setBanterAvailability('unavailable');
             }
           } finally {
             if (!cancelled) {
-              setIsLoadingBanterSuggestions(false);
               setIsResolvingThreadContext(false);
             }
           }
@@ -485,6 +509,7 @@ export function WarpcastShareButton({ selectedMatch, compositeImage, leagueId, m
           setBanterSuggestions([]);
           setBanterGenerationSource(null);
           setIsLoadingBanterSuggestions(false);
+          setBanterAvailability('unavailable');
           setIsResolvingThreadContext(false);
         }
       }
@@ -496,22 +521,63 @@ export function WarpcastShareButton({ selectedMatch, compositeImage, leagueId, m
       cancelled = true;
     };
   }, [
-    leagueId,
-    moneyGamesParams,
-    selectedMatch.awayScore,
-    selectedMatch.awayTeam,
-    selectedMatch.clock,
-    selectedMatch.eventStarted,
-    selectedMatch.espnEventId,
-    selectedMatch.homeScore,
-    selectedMatch.homeTeamId,
-    selectedMatch.homeTeam,
-    selectedMatch.keyMoments,
-    selectedMatch.matchDate,
-    selectedMatch.matchEvents,
-    selectedMatch.competition,
-    fid,
+    banterMatchPayload,
+    canonicalShareUrl,
+    getAuthorizationHeaders,
   ]);
+
+  const requestBanterSuggestions = useCallback(async () => {
+    setIsLoadingBanterSuggestions(true);
+    setBanterSuggestions([]);
+    setBanterGenerationSource(null);
+
+    try {
+      const authHeaders = await getAuthorizationHeaders();
+      const suggestionsRes = await fetch('/api/farcaster/banter-suggestions', {
+        method: 'POST',
+        headers: {
+          ...authHeaders,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          shareUrl: canonicalShareUrl,
+          selectedMatch: banterMatchPayload,
+        }),
+      });
+      const suggestionsPayload = (await suggestionsRes.json().catch(() => null)) as
+        | {
+            suggestions?: BanterSuggestion[];
+            generationSource?: BanterGenerationSource;
+            code?: string;
+          }
+        | null;
+
+      if (suggestionsRes.status === 429) {
+        setBanterAvailability(
+          suggestionsPayload?.code === 'daily_limit_reached' ? 'daily-limit' : 'used'
+        );
+        return;
+      }
+      if (!suggestionsRes.ok) {
+        throw new Error('AI ideas are unavailable');
+      }
+
+      const suggestions = Array.isArray(suggestionsPayload?.suggestions)
+        ? suggestionsPayload.suggestions
+        : [];
+      if (suggestions.length === 0) {
+        throw new Error('AI ideas were empty');
+      }
+
+      setBanterSuggestions(suggestions);
+      setBanterGenerationSource(suggestionsPayload?.generationSource || null);
+      setBanterAvailability('used');
+    } catch {
+      setBanterAvailability('unavailable');
+    } finally {
+      setIsLoadingBanterSuggestions(false);
+    }
+  }, [banterMatchPayload, canonicalShareUrl, getAuthorizationHeaders]);
 
   // Cycle through 3 loading messages and stop
   useEffect(() => {
@@ -889,36 +955,62 @@ export function WarpcastShareButton({ selectedMatch, compositeImage, leagueId, m
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <span className="text-[10px] uppercase tracking-[0.14em] text-lightPurple/55">
-              {banterGenerationSource === 'fallback' ? 'Banter starters' : 'AI banter ideas'}
+              AI banter ideas
             </span>
             {isLoadingBanterSuggestions ? (
-              <span className="text-[10px] uppercase tracking-[0.12em] text-lightPurple/40">Loading</span>
-            ) : banterGenerationSource === 'fallback' ? (
-              <span className="text-[10px] uppercase tracking-[0.12em] text-lightPurple/40">Fallback</span>
+              <span className="text-[10px] uppercase tracking-[0.12em] text-lightPurple/40">Generating</span>
+            ) : banterGenerationSource ? (
+              <span className="text-[10px] uppercase tracking-[0.12em] text-lightPurple/40">
+                {banterGenerationSource}
+              </span>
             ) : null}
           </div>
-          <div className="-mx-1 overflow-x-auto pb-1">
-            <div className="flex min-w-max gap-2 px-1">
-              {isLoadingBanterSuggestions
-                ? Array.from({ length: 3 }).map((_, index) => (
-                    <div
-                      key={index}
-                      className="h-[88px] w-[220px] animate-pulse rounded-xl border border-lightPurple/10 bg-lightPurple/5"
-                    />
-                  ))
-                : banterSuggestions.map((suggestion) => (
-                    <button
-                      key={suggestion.id}
-                      type="button"
-                      onClick={() => setPersonalBanter(suggestion.text)}
-                      className="w-[240px] flex-none rounded-xl border border-lightPurple/20 bg-darkPurple px-3 py-2 text-left transition hover:border-deepPink"
-                    >
-                      <div className="text-[10px] uppercase tracking-[0.14em] text-lightPurple/55">{suggestion.label}</div>
-                      <div className="mt-1 text-[13px] leading-5 text-notWhite">{suggestion.text}</div>
-                    </button>
-                  ))}
+          {isLoadingBanterSuggestions ? (
+            <div className="-mx-1 overflow-x-auto pb-1">
+              <div className="flex min-w-max gap-2 px-1">
+                {Array.from({ length: 3 }).map((_, index) => (
+                  <div
+                    key={index}
+                    className="h-[88px] w-[220px] animate-pulse rounded-xl border border-lightPurple/10 bg-lightPurple/5"
+                  />
+                ))}
+              </div>
             </div>
-          </div>
+          ) : banterSuggestions.length > 0 ? (
+            <div className="-mx-1 overflow-x-auto pb-1">
+              <div className="flex min-w-max gap-2 px-1">
+                {banterSuggestions.map((suggestion) => (
+                  <button
+                    key={suggestion.id}
+                    type="button"
+                    onClick={() => setPersonalBanter(suggestion.text)}
+                    className="w-[240px] flex-none rounded-xl border border-lightPurple/20 bg-darkPurple px-3 py-2 text-left transition hover:border-deepPink"
+                  >
+                    <div className="text-[10px] uppercase tracking-[0.14em] text-lightPurple/55">{suggestion.label}</div>
+                    <div className="mt-1 text-[13px] leading-5 text-notWhite">{suggestion.text}</div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : banterAvailability === 'available' ? (
+            <button
+              type="button"
+              onClick={() => void requestBanterSuggestions()}
+              className="w-full rounded-xl border border-deepPink/40 bg-deepPink/10 px-3 py-3 text-sm font-semibold text-notWhite transition hover:border-deepPink hover:bg-deepPink/20"
+            >
+              Generate one set for this match
+            </button>
+          ) : banterAvailability === 'used' ? (
+            <p className="rounded-xl border border-lightPurple/10 bg-darkPurple px-3 py-3 text-xs text-lightPurple/65">
+              Today&apos;s AI ideas for this match have already been used.
+            </p>
+          ) : banterAvailability === 'daily-limit' ? (
+            <p className="rounded-xl border border-lightPurple/10 bg-darkPurple px-3 py-3 text-xs text-lightPurple/65">
+              Today&apos;s AI idea allowance has been used. Try again tomorrow.
+            </p>
+          ) : banterAvailability === 'unavailable' ? (
+            <p className="text-xs text-lightPurple/55">AI ideas are unavailable. You can still write your own.</p>
+          ) : null}
         </div>
       ) : null}
       <button
