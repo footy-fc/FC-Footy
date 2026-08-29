@@ -62,6 +62,12 @@ export type BanterSuggestion = {
   mode: 'same-side' | 'rival-poke' | 'player-specific';
 };
 
+export type BanterGenerationResult = {
+  suggestions: BanterSuggestion[];
+  source: 'openai' | 'gemini' | 'fallback';
+  fallbackReason?: 'missing_provider_credentials' | 'provider_unavailable';
+};
+
 const DEFAULT_MENTION_LINE = '@gabedev.eth @kmacb.eth are you in on this one?';
 
 type ClubVoice = {
@@ -978,6 +984,135 @@ function fallbackSuggestions(input: {
   ];
 }
 
+const BANTER_SYSTEM_PROMPT =
+  'You generate sharp, funny, club-aware football banter suggestions as strict JSON. You prefer jokes, lore, chants, and rivalry-specific language over generic commentary.';
+
+const BANTER_MODES = ['same-side', 'rival-poke', 'player-specific'] as const;
+
+function parseBanterSuggestions(content: string): BanterSuggestion[] {
+  const parsed = JSON.parse(content) as { suggestions?: Array<Partial<BanterSuggestion>> };
+  if (!Array.isArray(parsed.suggestions)) {
+    throw new Error('Provider response did not contain suggestions');
+  }
+
+  return BANTER_MODES.map((mode) => {
+    const suggestion = parsed.suggestions?.find((candidate) => candidate.mode === mode);
+    const text = suggestion?.text?.trim();
+    if (!text) {
+      throw new Error(`Provider response omitted ${mode}`);
+    }
+
+    return {
+      id: mode,
+      mode,
+      label:
+        mode === 'same-side'
+          ? 'Same side'
+          : mode === 'rival-poke'
+            ? 'Rival poke'
+            : 'Player-specific',
+      text: text.slice(0, 220),
+    };
+  });
+}
+
+async function generateWithOpenAI(apiKey: string, prompt: string) {
+  const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model: 'gpt-4o',
+      temperature: 0.9,
+      max_tokens: 250,
+      response_format: { type: 'json_object' },
+      messages: [
+        { role: 'system', content: BANTER_SYSTEM_PROMPT },
+        { role: 'user', content: prompt },
+      ],
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`OpenAI returned ${response.status}`);
+  }
+
+  const data = (await response.json()) as { choices?: Array<{ message?: { content?: string } }> };
+  const content = data.choices?.[0]?.message?.content?.trim();
+  if (!content) {
+    throw new Error('OpenAI returned an empty response');
+  }
+
+  return parseBanterSuggestions(content);
+}
+
+async function generateWithGemini(apiKey: string, prompt: string) {
+  const response = await fetch(
+    'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent',
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-goog-api-key': apiKey,
+      },
+      body: JSON.stringify({
+        systemInstruction: {
+          parts: [{ text: BANTER_SYSTEM_PROMPT }],
+        },
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        generationConfig: {
+          temperature: 0.9,
+          maxOutputTokens: 300,
+          responseMimeType: 'application/json',
+          responseSchema: {
+            type: 'OBJECT',
+            properties: {
+              suggestions: {
+                type: 'ARRAY',
+                minItems: 3,
+                maxItems: 3,
+                items: {
+                  type: 'OBJECT',
+                  properties: {
+                    id: { type: 'STRING' },
+                    label: { type: 'STRING' },
+                    mode: {
+                      type: 'STRING',
+                      enum: [...BANTER_MODES],
+                    },
+                    text: { type: 'STRING' },
+                  },
+                  required: ['id', 'label', 'mode', 'text'],
+                },
+              },
+            },
+            required: ['suggestions'],
+          },
+        },
+      }),
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error(`Gemini returned ${response.status}`);
+  }
+
+  const data = (await response.json()) as {
+    candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
+  };
+  const content = data.candidates?.[0]?.content?.parts
+    ?.map((part) => part.text || '')
+    .join('')
+    .trim();
+  if (!content) {
+    throw new Error('Gemini returned an empty response');
+  }
+
+  return parseBanterSuggestions(content);
+}
+
 export async function generateBanterSuggestions(input: {
   homeTeam: string;
   awayTeam: string;
@@ -989,12 +1124,7 @@ export async function generateBanterSuggestions(input: {
   keyMoments?: string[];
   matchEvents?: RichMatchEvent[];
   espn: EspnMatchContext;
-}): Promise<BanterSuggestion[]> {
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) {
-    return fallbackSuggestions(input);
-  }
-
+}): Promise<BanterGenerationResult> {
   const clubVoiceNotes = buildClubVoiceNotes({
     homeTeam: input.homeTeam,
     awayTeam: input.awayTeam,
@@ -1057,50 +1187,37 @@ Return JSON:
 }
 `.trim();
 
-  try {
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o',
-        temperature: 0.9,
-        max_tokens: 250,
-        messages: [
-          {
-            role: 'system',
-            content:
-              'You generate sharp, funny, club-aware football banter suggestions as strict JSON. You prefer jokes, lore, chants, and rivalry-specific language over generic commentary.',
-          },
-          {
-            role: 'user',
-            content: prompt,
-          },
-        ],
-      }),
-    });
+  const openAiApiKey = process.env.OPENAI_API_KEY;
+  const geminiApiKey = process.env.GEMINI_API_KEY;
 
-    if (!response.ok) {
-      return fallbackSuggestions(input);
+  if (openAiApiKey) {
+    try {
+      return {
+        suggestions: await generateWithOpenAI(openAiApiKey, prompt),
+        source: 'openai',
+      };
+    } catch (error) {
+      console.error('[banter] OpenAI generation failed:', error instanceof Error ? error.message : error);
     }
-
-    const data = (await response.json()) as { choices?: Array<{ message?: { content?: string } }> };
-    const content = data.choices?.[0]?.message?.content?.trim();
-    if (!content) {
-      return fallbackSuggestions(input);
-    }
-
-    const parsed = JSON.parse(content) as { suggestions?: BanterSuggestion[] };
-    if (!Array.isArray(parsed.suggestions) || parsed.suggestions.length === 0) {
-      return fallbackSuggestions(input);
-    }
-
-    return parsed.suggestions.slice(0, 3);
-  } catch {
-    return fallbackSuggestions(input);
   }
+
+  if (geminiApiKey) {
+    try {
+      return {
+        suggestions: await generateWithGemini(geminiApiKey, prompt),
+        source: 'gemini',
+      };
+    } catch (error) {
+      console.error('[banter] Gemini generation failed:', error instanceof Error ? error.message : error);
+    }
+  }
+
+  return {
+    suggestions: fallbackSuggestions(input),
+    source: 'fallback',
+    fallbackReason:
+      openAiApiKey || geminiApiKey ? 'provider_unavailable' : 'missing_provider_credentials',
+  };
 }
 
 export function buildTeamPreferenceIds(input: {

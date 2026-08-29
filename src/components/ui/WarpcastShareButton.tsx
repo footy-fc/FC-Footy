@@ -301,6 +301,8 @@ interface BanterSuggestion {
   mode: 'same-side' | 'rival-poke' | 'player-specific';
 }
 
+type BanterGenerationSource = 'openai' | 'gemini' | 'fallback';
+
 export function WarpcastShareButton({ selectedMatch, compositeImage, leagueId, moneyGamesParams, ticketPriceEth, prizePoolEth }: WarpcastShareButtonProps) {
   const {
     runtime,
@@ -326,6 +328,7 @@ export function WarpcastShareButton({ selectedMatch, compositeImage, leagueId, m
   const [matchThreadParticipants, setMatchThreadParticipants] = useState<MatchThreadParticipant[]>([]);
   const [matchThreadReplyCount, setMatchThreadReplyCount] = useState(0);
   const [banterSuggestions, setBanterSuggestions] = useState<BanterSuggestion[]>([]);
+  const [banterGenerationSource, setBanterGenerationSource] = useState<BanterGenerationSource | null>(null);
   const [isLoadingBanterSuggestions, setIsLoadingBanterSuggestions] = useState(false);
   const [isResolvingThreadContext, setIsResolvingThreadContext] = useState(true);
 
@@ -407,6 +410,7 @@ export function WarpcastShareButton({ selectedMatch, compositeImage, leagueId, m
     setMatchThreadParticipants([]);
     setMatchThreadReplyCount(0);
     setBanterSuggestions([]);
+    setBanterGenerationSource(null);
     setIsLoadingBanterSuggestions(false);
     setIsResolvingThreadContext(true);
 
@@ -454,15 +458,17 @@ export function WarpcastShareButton({ selectedMatch, compositeImage, leagueId, m
             });
 
             const suggestionsPayload = (await suggestionsRes.json().catch(() => null)) as
-              | { suggestions?: BanterSuggestion[] }
+              | { suggestions?: BanterSuggestion[]; generationSource?: BanterGenerationSource }
               | null;
 
             if (!cancelled) {
               setBanterSuggestions(Array.isArray(suggestionsPayload?.suggestions) ? suggestionsPayload.suggestions : []);
+              setBanterGenerationSource(suggestionsPayload?.generationSource || null);
             }
           } catch {
             if (!cancelled) {
               setBanterSuggestions([]);
+              setBanterGenerationSource(null);
             }
           } finally {
             if (!cancelled) {
@@ -477,6 +483,7 @@ export function WarpcastShareButton({ selectedMatch, compositeImage, leagueId, m
           setMatchThreadParticipants([]);
           setMatchThreadReplyCount(0);
           setBanterSuggestions([]);
+          setBanterGenerationSource(null);
           setIsLoadingBanterSuggestions(false);
           setIsResolvingThreadContext(false);
         }
@@ -881,9 +888,13 @@ export function WarpcastShareButton({ selectedMatch, compositeImage, leagueId, m
       {(matchThreadState === 'existing' || matchThreadState === 'first' || isLoadingBanterSuggestions || banterSuggestions.length > 0) ? (
         <div className="space-y-2">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] uppercase tracking-[0.14em] text-lightPurple/55">AI banter ideas</span>
+            <span className="text-[10px] uppercase tracking-[0.14em] text-lightPurple/55">
+              {banterGenerationSource === 'fallback' ? 'Banter starters' : 'AI banter ideas'}
+            </span>
             {isLoadingBanterSuggestions ? (
               <span className="text-[10px] uppercase tracking-[0.12em] text-lightPurple/40">Loading</span>
+            ) : banterGenerationSource === 'fallback' ? (
+              <span className="text-[10px] uppercase tracking-[0.12em] text-lightPurple/40">Fallback</span>
             ) : null}
           </div>
           <div className="-mx-1 overflow-x-auto pb-1">

@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
       awayTeam: selectedMatch.awayTeam,
     });
 
-    const suggestions = await generateBanterSuggestions({
+    const generation = await generateBanterSuggestions({
       homeTeam: selectedMatch.homeTeam,
       awayTeam: selectedMatch.awayTeam,
       competition: selectedMatch.competition,
@@ -88,7 +88,9 @@ export async function POST(request: NextRequest) {
       hooks,
       channelCastCount: channelCasts.length,
       espn,
-      suggestions,
+      suggestions: generation.suggestions,
+      generationSource: generation.source,
+      fallbackReason: generation.fallbackReason,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Failed to build banter suggestions';
