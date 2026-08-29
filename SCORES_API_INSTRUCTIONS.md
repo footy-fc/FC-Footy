@@ -30,8 +30,8 @@ This endpoint proxies ESPN soccer scoreboard data by league slug and returns a J
 
 - `dates`
   - Optional
-  - Format: `YYYYMMDD`
-  - Example: `20260515`
+  - Format: `YYYYMMDD` for one day or `YYYYMMDD-YYYYMMDD` for a range
+  - Example: `20260515-20260522`
 - `apiKey`
   - Optional if auth is supplied another way
   - Example: `zaal_winning`
@@ -71,6 +71,12 @@ curl -H "x-api-key: zaal_winning" "https://fc-footy.vercel.com/api/scores?league
 curl "https://fc-footy.vercel.com/api/scores?league=eng.1&dates=20260515&apiKey=zaal_winning"
 ```
 
+### With a date range
+
+```bash
+curl "https://fc-footy.vercel.com/api/scores?league=eng.1&dates=20260515-20260522&apiKey=zaal_winning"
+```
+
 ## Response example
 
 ```json
@@ -89,7 +95,7 @@ curl "https://fc-footy.vercel.com/api/scores?league=eng.1&dates=20260515&apiKey=
 ## Error behavior
 
 - `400` if `league` is missing
-- `400` if `dates` is not in `YYYYMMDD` format
+- `400` if `dates` is not in `YYYYMMDD` or `YYYYMMDD-YYYYMMDD` format
 - `401` if auth is missing or invalid
 - `502` if the upstream ESPN scoreboard call fails
 

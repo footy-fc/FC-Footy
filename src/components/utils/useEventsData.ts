@@ -54,8 +54,37 @@ interface Detail {
   };
 }
 
+interface EventDateWindow {
+  pastDays: number;
+  futureDays: number;
+}
+
 const LIVE_SCOREBOARD_REFRESH_MS = 20000;
 const DUE_PREMATCH_REFRESH_MS = 60000;
+
+function formatEspnDate(date: Date) {
+  return [
+    date.getUTCFullYear(),
+    `${date.getUTCMonth() + 1}`.padStart(2, '0'),
+    `${date.getUTCDate()}`.padStart(2, '0'),
+  ].join('');
+}
+
+function getScoreboardUrl(baseUrl: string, dateWindow?: EventDateWindow) {
+  if (!dateWindow) {
+    return baseUrl;
+  }
+
+  const now = new Date();
+  const start = new Date(now);
+  const end = new Date(now);
+  start.setUTCDate(start.getUTCDate() - dateWindow.pastDays);
+  end.setUTCDate(end.getUTCDate() + dateWindow.futureDays);
+
+  const url = new URL(baseUrl);
+  url.searchParams.set('dates', `${formatEspnDate(start)}-${formatEspnDate(end)}`);
+  return url.toString();
+}
 
 function getEventStatusState(event: Event) {
   return event.competitions?.[0]?.status?.type?.state || event.status?.type?.state || null;
@@ -89,7 +118,7 @@ function getNextUnstartedEventDelay(events: Event[]) {
   return nextDelay + 5000;
 }
 
-function useEventsData(selectedSport: string) {
+function useEventsData(selectedSport: string, dateWindow?: EventDateWindow) {
   const [events, setEvents] = useState<Event[]>([]); // Use the Event type
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -119,7 +148,7 @@ function useEventsData(selectedSport: string) {
         throw new Error("Invalid sport selected");
       }
   
-      const response = await fetch(sport.url, { cache: 'no-store' });
+      const response = await fetch(getScoreboardUrl(sport.url, dateWindow), { cache: 'no-store' });
       if (!response.ok) {
         throw new Error(`Failed to fetch data for ${sport.name}`);
       }
@@ -140,7 +169,7 @@ function useEventsData(selectedSport: string) {
         setLoading(false);
       }
     }
-  }, [selectedSport]);
+  }, [dateWindow?.futureDays, dateWindow?.pastDays, selectedSport]);
 
   useEffect(() => {
     if (selectedSport) {

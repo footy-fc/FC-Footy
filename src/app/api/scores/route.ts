@@ -89,10 +89,11 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  if (dates && !/^\d{8}$/.test(dates)) {
+  if (dates && !/^\d{8}(?:-\d{8})?$/.test(dates)) {
     return Response.json(
       {
-        error: "Invalid dates parameter. Expected YYYYMMDD, for example 20260515",
+        error:
+          "Invalid dates parameter. Expected YYYYMMDD or YYYYMMDD-YYYYMMDD, for example 20260515-20260522",
         dates,
       },
       { status: 400 }
@@ -135,4 +136,3 @@ export async function GET(request: NextRequest) {
     );
   }
 }
-

@@ -63,7 +63,10 @@ interface EventCardProps {
     shortName: string;
     name: string;
     date: string;
-    status: { displayClock: string; type: { detail: string } };
+    status: {
+      displayClock: string;
+      type: { detail: string; state?: string; completed?: boolean };
+    };
     competitions: {
       competitors: {
         team: { logo: string; id: string; abbreviation: string };
@@ -223,7 +226,8 @@ const MatchEventCard: React.FC<EventCardProps> = ({ event, sportId, isOpen: isOp
   const competitorsLong = event.name;
   
   const eventStarted = new Date() >= new Date(event.date);
-  const clock = event.status.displayClock + ' ' + event.status.type.detail || '00:00';
+  const clock = `${event.status.displayClock || ''} ${event.status.type.detail || ''}`.trim() || '00:00';
+  const eventCompleted = event.status.type.completed || event.status.type.state === 'post';
 
   // Use match data utilities for consistent processing
   const matchData = createRichMatchData(event, teams, sportId);
@@ -360,6 +364,15 @@ const MatchEventCard: React.FC<EventCardProps> = ({ event, sportId, isOpen: isOp
                     {homeScore} - {awayScore}
                   </span>
                   <span className="text-lightPurple text-xs text-center">{clock}</span>
+                  {eventCompleted && (
+                    <span className="text-lightPurple/70 text-[10px] text-center">
+                      {new Date(event.date).toLocaleDateString("en-GB", {
+                        weekday: "short",
+                        day: "2-digit",
+                        month: "short",
+                      })}
+                    </span>
+                  )}
                 </>
               ) : (
                 <span className="flex flex-col items-center">
