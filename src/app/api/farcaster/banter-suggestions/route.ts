@@ -104,7 +104,9 @@ export async function POST(request: NextRequest) {
           error:
             usage.reason === 'match_limit_reached'
               ? 'AI ideas have already been used for this match today.'
-              : 'Your daily AI idea limit has been reached.',
+              : usage.reason === 'service_limit_reached'
+                ? 'AI ideas have reached today\'s service limit.'
+                : 'Your daily AI idea limit has been reached.',
           code: usage.reason,
           usage,
         },

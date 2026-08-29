@@ -302,7 +302,13 @@ interface BanterSuggestion {
 }
 
 type BanterGenerationSource = 'openai' | 'gemini';
-type BanterAvailability = 'checking' | 'available' | 'used' | 'daily-limit' | 'unavailable';
+type BanterAvailability =
+  | 'checking'
+  | 'available'
+  | 'used'
+  | 'daily-limit'
+  | 'service-limit'
+  | 'unavailable';
 
 export function WarpcastShareButton({ selectedMatch, compositeImage, leagueId, moneyGamesParams, ticketPriceEth, prizePoolEth }: WarpcastShareButtonProps) {
   const {
@@ -477,16 +483,18 @@ export function WarpcastShareButton({ selectedMatch, compositeImage, leagueId, m
               cache: 'no-store',
             });
             const usagePayload = (await usageRes.json().catch(() => null)) as
-              | { usedForMatch?: boolean; remainingToday?: number }
+              | { usedForMatch?: boolean; remainingToday?: number; serviceLimitReached?: boolean }
               | null;
 
             if (!cancelled && usageRes.ok) {
               setBanterAvailability(
                 usagePayload?.usedForMatch
                   ? 'used'
-                  : Number(usagePayload?.remainingToday || 0) <= 0
-                    ? 'daily-limit'
-                    : 'available'
+                  : usagePayload?.serviceLimitReached
+                    ? 'service-limit'
+                    : Number(usagePayload?.remainingToday || 0) <= 0
+                      ? 'daily-limit'
+                      : 'available'
               );
             } else if (!cancelled) {
               setBanterAvailability('unavailable');
@@ -554,7 +562,11 @@ export function WarpcastShareButton({ selectedMatch, compositeImage, leagueId, m
 
       if (suggestionsRes.status === 429) {
         setBanterAvailability(
-          suggestionsPayload?.code === 'daily_limit_reached' ? 'daily-limit' : 'used'
+          suggestionsPayload?.code === 'service_limit_reached'
+            ? 'service-limit'
+            : suggestionsPayload?.code === 'daily_limit_reached'
+              ? 'daily-limit'
+              : 'used'
         );
         return;
       }
@@ -1007,6 +1019,10 @@ export function WarpcastShareButton({ selectedMatch, compositeImage, leagueId, m
           ) : banterAvailability === 'daily-limit' ? (
             <p className="rounded-xl border border-lightPurple/10 bg-darkPurple px-3 py-3 text-xs text-lightPurple/65">
               Today&apos;s AI idea allowance has been used. Try again tomorrow.
+            </p>
+          ) : banterAvailability === 'service-limit' ? (
+            <p className="rounded-xl border border-lightPurple/10 bg-darkPurple px-3 py-3 text-xs text-lightPurple/65">
+              AI ideas have reached today&apos;s service limit. Try again tomorrow.
             </p>
           ) : banterAvailability === 'unavailable' ? (
             <p className="text-xs text-lightPurple/55">AI ideas are unavailable. You can still write your own.</p>
