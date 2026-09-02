@@ -119,7 +119,7 @@ const AppIdentityBar: React.FC<AppIdentityBarProps> = ({
               type="button"
               onClick={() => onOpenTeam?.(favoriteTeamId)}
               className="shrink-0 rounded-full transition-transform hover:scale-105"
-              aria-label={`Open ${favoriteTeam.name} in Fan Clubs`}
+              aria-label={`Open Rivals with ${favoriteTeam.name} context`}
             >
               <Image
                 src={favoriteTeam.logoUrl}
@@ -137,7 +137,7 @@ const AppIdentityBar: React.FC<AppIdentityBarProps> = ({
               type="button"
               onClick={() => onOpenTeam?.(getTeamId(team))}
               className="shrink-0 rounded-full border border-darkPurple transition-transform hover:scale-105"
-              aria-label={`Open ${team.name} in Fan Clubs`}
+              aria-label={`Open Rivals with ${team.name} context`}
             >
               <Image
                 src={team.logoUrl}

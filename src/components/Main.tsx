@@ -27,7 +27,7 @@ const tabLoading = () => (
 const AdminDashboard = dynamic(() => import("./AdminDashboard"), { loading: tabLoading });
 const HomeTab = dynamic(() => import("./HomeTab"), { loading: tabLoading });
 const ScoresTab = dynamic(() => import("./ScoresTab"), { loading: tabLoading });
-const FanClubsTab = dynamic(() => import("./FanClubsTab"), { loading: tabLoading });
+const RivalsTab = dynamic(() => import("./RivalsTab"), { loading: tabLoading });
 const FantasyTab = dynamic(() => import("./FantasyTab"), { loading: tabLoading });
 const ChannelsTab = dynamic(() => import("./ChannelsTab"), { loading: tabLoading });
 const ToolsTab = dynamic(() => import("./ToolsTab"), { loading: tabLoading });
@@ -241,6 +241,7 @@ export default function Main() {
     }
   })();
   const [isAdminFid, setIsAdminFid] = useState(false);
+  const isRivalsDemo = selectedTab === "fanClubs" && effectiveSearchParams?.get("rivalsDemo") === "1";
 
   const withTimeout = async <T,>(promise: Promise<T>, fallback: T, timeoutMs = 1500): Promise<T> => {
     let timer: ReturnType<typeof setTimeout> | undefined;
@@ -498,7 +499,7 @@ export default function Main() {
               Testing Mode - Bypassing Connection Check
             </div>
           )}
-          {!authenticated && farcasterRuntime !== "miniapp" ? (
+          {!authenticated && farcasterRuntime !== "miniapp" && !isRivalsDemo ? (
             <FarcasterLandingGate selectedTab="home" />
           ) : (
             <>
@@ -521,7 +522,7 @@ export default function Main() {
                 {selectedTab === "home" && <HomeTab onNavigate={(tab) => handleTabChange(tab)} viewerFid={currentViewerFid} />}
                 {selectedTab === "scores" && <ScoresTab onNavigate={(tab) => handleTabChange(tab)} />}
                 {selectedTab === "highlights" && <HighlightsTab />}
-                {selectedTab === "fanClubs" && <FanClubsTab viewerFid={currentViewerFid} />}
+                {selectedTab === "fanClubs" && <RivalsTab />}
                 {selectedTab === "channels" && <ChannelsTab />}
                 {selectedTab === "fantasy" && <FantasyTab />}
                 {selectedTab === "tools" && <ToolsTab />}

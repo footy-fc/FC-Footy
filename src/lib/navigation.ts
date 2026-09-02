@@ -2,7 +2,7 @@ export const tabDisplayMap: Record<string, string> = {
     home: "Feed",
     scores: "Scores",
     highlights: "Highlights",
-    fanClubs: "Fan Clubs",
+    fanClubs: "Rivals",
     channels: "Channels",
     fantasy: "Fantasy",
     tools: "Tools",
