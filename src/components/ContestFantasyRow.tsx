@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import Image from 'next/image';
 import { sdk } from "@farcaster/miniapp-sdk";
-import { LockKeyhole } from 'lucide-react';
+import { LockKeyhole, UserRound } from 'lucide-react';
 import { FantasyEntry } from './utils/fetchFantasyData';
 import { fetchUsersByFids } from '~/lib/hypersnap';
 import type { FplClaimSummary } from '~/lib/fplClaimConstants';
@@ -19,7 +19,7 @@ interface FantasyRowProps {
 }
 
 const FantasyRow: React.FC<FantasyRowProps> = ({ entry, onClaimClick, onReleaseClick, claim = null, claimDisabled = false, currentUserFid }) => {
-  const { totalPoints, entryName } = entry;
+  const { totalPoints, eventTotal, entryName, manager } = entry;
   const [claimantPfpUrl, setClaimantPfpUrl] = useState<string | null>(null);
 
   useEffect(() => {
@@ -58,18 +58,19 @@ const FantasyRow: React.FC<FantasyRowProps> = ({ entry, onClaimClick, onReleaseC
   };
   
   return (
-    <tr
-      className={`border-b border-limeGreenOpacity transition-colors text-lightPurple text-sm ${
+    <article
+      role="listitem"
+      className={`grid min-h-[72px] grid-cols-[34px_minmax(0,1fr)_46px_52px_32px] items-center gap-2 rounded-[18px] border px-2 py-3 text-sm transition-colors ${
         isUserRow
-          ? 'bg-limeGreenOpacity/20 border-limeGreenOpacity/50 font-bold' // Highlight user's row
-          : 'hover:bg-purplePanel'
+          ? 'border-deepPink/35 bg-deepPink/10'
+          : 'border-lightPurple/10 bg-darkPurple/55 hover:border-lightPurple/20'
       }`}>
-      <td className="py-2 px-2 text-center text-lightPurple font-bold">
-        {entry.rank ?? 'N/A'}
-      </td>
-      <td className="px-1 py-2 text-center">
+      <div className={`text-center text-sm font-bold ${entry.rank <= 3 ? 'text-[#fea282]' : 'text-lightPurple'}`} aria-label={`Rank ${entry.rank}`}>
+        {entry.rank ?? '—'}
+      </div>
+      <div className="flex min-w-0 items-center gap-2">
         {claim && claimantPfpUrl && (
-          <button type="button" onClick={openClaimantProfile} className="inline-flex rounded-full hover:opacity-80" title="Open claimant’s Farcaster profile" aria-label="Open claimant’s Farcaster profile">
+          <button type="button" onClick={openClaimantProfile} className="inline-flex shrink-0 rounded-full hover:opacity-80" title="Open claimant’s Farcaster profile" aria-label="Open claimant’s Farcaster profile">
             <Image
               src={claimantPfpUrl}
               alt="Claimant Farcaster profile"
@@ -80,17 +81,26 @@ const FantasyRow: React.FC<FantasyRowProps> = ({ entry, onClaimClick, onReleaseC
             />
           </button>
         )}
-      </td>
-      <td className="py-2 px-2 text-lightPurple font-medium text-left">
-        {entryName}
-      </td>
-      <td className="py-2 px-2 text-center text-lightPurple">
-        {totalPoints ?? 'N/A'}
-      </td>
-      <td className="w-12 px-1 py-2 text-center">
+        {!claimantPfpUrl ? (
+          <div className="grid h-8 w-8 shrink-0 place-items-center rounded-full border border-lightPurple/10 bg-purplePanel/75 text-lightPurple/55" aria-hidden="true">
+            <UserRound className="h-4 w-4" />
+          </div>
+        ) : null}
+        <div className="min-w-0">
+          <div className="truncate text-[13px] font-semibold leading-5 text-notWhite">{entryName}</div>
+          <div className="truncate text-[10px] leading-4 text-lightPurple/65">{manager || (claim ? `FID ${claim.fid}` : 'Unclaimed')}</div>
+        </div>
+      </div>
+      <div className="text-right font-semibold tabular-nums text-lightPurple" aria-label={`${eventTotal ?? 0} gameweek points`}>
+        {eventTotal ?? '—'}
+      </div>
+      <div className="text-right font-bold tabular-nums text-notWhite" aria-label={`${totalPoints ?? 0} total points`}>
+        {totalPoints ?? '—'}
+      </div>
+      <div className="text-right">
         {claim ? (
           currentUserFid === claim.fid ? (
-            <button type="button" onClick={(event) => { event.stopPropagation(); onReleaseClick(entry, claim); }} className="inline-flex rounded p-1 text-red-300 hover:bg-red-300/10" title="Release claim" aria-label="Release claim">
+            <button type="button" onClick={(event) => { event.stopPropagation(); onReleaseClick(entry, claim); }} className="inline-flex rounded-full p-1.5 text-deepPink hover:bg-deepPink/10" title="Release claim" aria-label={`Release ${entryName}`}>
               <LockKeyhole className="h-4 w-4" aria-hidden="true" />
             </button>
           ) : null
@@ -101,13 +111,14 @@ const FantasyRow: React.FC<FantasyRowProps> = ({ entry, onClaimClick, onReleaseC
               event.stopPropagation();
               onClaimClick(entry);
             }}
-            className="rounded border border-limeGreen px-2 py-1 text-xs font-semibold text-limeGreen hover:bg-limeGreen hover:text-darkPurple"
+            className="rounded-full border border-deepPink/30 px-2 py-1 text-[10px] font-semibold text-deepPink transition-colors hover:bg-deepPink/10"
+            aria-label={`Claim ${entryName}`}
           >
             Claim
           </button>
         )}
-      </td>
-    </tr>
+      </div>
+    </article>
   );
 };
 

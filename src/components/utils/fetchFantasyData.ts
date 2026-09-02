@@ -215,12 +215,18 @@ export const fetchFPLLeagueData = async (leagueId: number = FPL_LEAGUE_ID): Prom
 
 
 // Update the main function to use FPL API with Upstash favorite team data
-export const fetchFantasyData = async (): Promise<FantasyEntry[]> => {
+export const fetchFantasyData = async (
+  options: { includeFavoriteTeams?: boolean } = {}
+): Promise<FantasyEntry[]> => {
   try {
     // Try FPL API first for current standings
     //console.log('🔄 Fetching FPL league data...');
     const fplData = await fetchFPLLeagueData(FPL_LEAGUE_ID); // Farcaster Fantasy League
     //console.log(`✅ FPL data fetched in ${Date.now() - startTime}ms`);
+
+    if (options.includeFavoriteTeams === false) {
+      return fplData;
+    }
     
     // Enhance FPL data with favorite team information from Upstash
     //console.log(`🔄 Enhancing ${fplData.length} entries with favorite team data...`);

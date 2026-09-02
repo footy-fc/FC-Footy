@@ -10,6 +10,7 @@ import useSortedSportsData from "./utils/useSortedSportsData";
 import { fetchTeamLogos } from "./utils/fetchTeamLogos";
 import { getTeamPreferences } from "~/lib/kvPerferences";
 import { TEAM_PREFERENCES_UPDATED_EVENT } from "~/lib/teamPreferenceModel";
+import { isEventForFollowedTeams } from "~/lib/followedMatches";
 
 interface Team {
   name: string;
@@ -103,11 +104,7 @@ const MatchesTab: React.FC<MatchesTabProps> = ({ league, setSelectedLeague, onOp
 
   const visibleEvents = React.useMemo(() => {
     if (matchView === "all") return events;
-    const followed = new Set(followedTeamIds);
-    return events.filter((event: any) => event.competitions?.[0]?.competitors?.some((competitor: any) => {
-      const abbreviation = competitor?.team?.abbreviation;
-      return abbreviation && followed.has(`${league}-${abbreviation}`);
-    }));
+    return events.filter((event: any) => isEventForFollowedTeams(event, league, followedTeamIds));
   }, [events, followedTeamIds, league, matchView]);
 
   const matchGroups = React.useMemo(() => {

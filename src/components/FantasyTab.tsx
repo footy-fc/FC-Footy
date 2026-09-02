@@ -7,9 +7,9 @@ const FantasyTab: React.FC = () => {
       <div className="app-eyebrow mb-2">Fantasy</div>
       <h2 className="app-title mb-2">League table</h2>
       <p className="app-copy mb-4">
-        FC Fantasy EPL mapped to Farcaster profiles.
+        The full FC Fantasy standings, mapped to Farcaster.
       </p>
-      <div className="bg-purplePanel text-lightPurple rounded-lg p-2 overflow-hidden">
+      <div className="overflow-hidden rounded-[20px] border border-lightPurple/12 bg-purplePanel/70 p-3 text-lightPurple">
         <ContestFCFantasy />
       </div>
     </div>

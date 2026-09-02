@@ -1,11 +1,14 @@
 /* eslint-disable react-hooks/exhaustive-deps */
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
+import { ChevronDown, RefreshCw, Trophy } from 'lucide-react';
 import FantasyRow from './ContestFantasyRow';
 import { fetchFantasyData, FantasyEntry } from './utils/fetchFantasyData';
 import FplClaimPanel from './FplClaimPanel';
 import FplClaimReleaseModal from './FplClaimReleaseModal';
 import { useFootyFarcaster } from '~/lib/farcaster/useFootyFarcaster';
 import type { FplClaimSummary } from '~/lib/fplClaimConstants';
+
+const PAGE_SIZE = 50;
 
 const ContestFCFantasy = () => {
   const [fantasyData, setFantasyData] = useState<FantasyEntry[]>([]);
@@ -15,6 +18,7 @@ const ContestFCFantasy = () => {
   const [releaseTarget, setReleaseTarget] = useState<{ entry: FantasyEntry; claim: FplClaimSummary } | null>(null);
   const [activeClaimEntryId, setActiveClaimEntryId] = useState<number | null>(null);
   const [claimsByEntry, setClaimsByEntry] = useState<Record<string, FplClaimSummary>>({});
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const { activeFid: currentUserFid, getAuthorizationHeaders } = useFootyFarcaster();
 
   useEffect(() => {
@@ -43,36 +47,27 @@ const ContestFCFantasy = () => {
     };
   }, [currentUserFid, fantasyData, getAuthorizationHeaders]);
 
-  useEffect(() => {
-    let isMounted = true;
-
-    const fetchData = async () => {
-      setLoadingFantasy(true);
-      try {
-        const data = await fetchFantasyData();
-        if (!isMounted) return;
-
-        const rankedData = data.map((item, i) => ({
-          ...item,
-          rank: item.rank ?? i + 1,
-        }));
-        setFantasyData(rankedData);
-      } catch (error) {
-        if (!isMounted) return;
-        setErrorFantasy(error instanceof Error ? error.message : 'An unknown error occurred');
-      } finally {
-        if (isMounted) {
-          setLoadingFantasy(false);
-        }
-      }
-    };
-
-    fetchData();
-
-    return () => {
-      isMounted = false;
-    };
+  const fetchData = useCallback(async () => {
+    setLoadingFantasy(true);
+    setErrorFantasy(null);
+    try {
+      const data = await fetchFantasyData({ includeFavoriteTeams: false });
+      const rankedData = data.map((item, i) => ({
+        ...item,
+        rank: item.rank ?? i + 1,
+      }));
+      setFantasyData(rankedData);
+      setVisibleCount(PAGE_SIZE);
+    } catch (error) {
+      setErrorFantasy(error instanceof Error ? error.message : 'An unknown error occurred');
+    } finally {
+      setLoadingFantasy(false);
+    }
   }, []);
+
+  useEffect(() => {
+    void fetchData();
+  }, [fetchData]);
 
   const handleClaimClick = (selected: FantasyEntry) => {
     setClaimEntry(selected);
@@ -81,32 +76,47 @@ const ContestFCFantasy = () => {
   return (
       <div>
         {loadingFantasy ? (
-          <div className="text-center">Loading...</div>
+          <div aria-label="Loading fantasy league standings" className="space-y-2">
+            <div className="mb-3 h-20 animate-pulse rounded-[18px] bg-darkPurple/65" />
+            {Array.from({ length: 6 }).map((_, index) => (
+              <div key={index} className="h-[74px] animate-pulse rounded-[18px] bg-darkPurple/55" />
+            ))}
+          </div>
         ) : errorFantasy ? (
-          <div className="text-red-500">{errorFantasy}</div>
+          <div className="rounded-[18px] border border-[#fea282]/25 bg-darkPurple/55 px-4 py-6 text-center">
+            <RefreshCw className="mx-auto h-6 w-6 text-deepPink" aria-hidden="true" />
+            <div className="mt-3 text-sm font-semibold text-notWhite">Standings are unavailable</div>
+            <p className="mt-1 text-xs leading-5 text-lightPurple/70">{errorFantasy}</p>
+            <button type="button" onClick={() => void fetchData()} className="mt-3 rounded-full border border-deepPink/30 px-4 py-2 text-xs font-semibold text-deepPink">
+              Try again
+            </button>
+          </div>
         ) : fantasyData.length > 0 ? (
-          <table className="w-full table-fixed bg-darkPurple">
-            <thead className="bg-darkPurple">
-              <tr>
-                <th className="h-12 w-[14%] px-1 border-b border-limeGreenOpacity text-notWhite text-center font-medium">
-                  Rank
-                </th>
-                <th className="h-12 w-[14%] px-1 border-b border-limeGreenOpacity text-notWhite text-center font-medium">
-                  Profile
-                </th>
-                <th className="h-12 px-1 sm:px-4 border-b border-limeGreenOpacity text-notWhite text-left font-medium">
-                  Team
-                </th>
-                <th className="h-12 w-[14%] px-1 border-b border-limeGreenOpacity text-notWhite text-center font-medium">
-                  Total
-                </th>
-                <th className="h-12 w-12 px-1 border-b border-limeGreenOpacity text-notWhite text-center font-medium">
-                  <span className="sr-only">Claim controls</span>
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {fantasyData.map((entry, index) => (
+          <>
+            <section className="mb-3 flex items-center gap-3 rounded-[18px] border border-lightPurple/12 bg-darkPurple/65 px-4 py-4" aria-label="Fantasy league summary">
+              <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-deepPink/15 text-deepPink">
+                <Trophy className="h-5 w-5" aria-hidden="true" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="app-card-title truncate">FC Fantasy League</div>
+                <div className="app-micro mt-1">Live FPL standings</div>
+              </div>
+              <div className="text-right">
+                <div className="text-lg font-bold leading-none text-notWhite">{fantasyData.length}</div>
+                <div className="app-micro mt-1">managers</div>
+              </div>
+            </section>
+
+            <div className="mb-2 grid grid-cols-[34px_minmax(0,1fr)_46px_52px_32px] items-center gap-2 px-2 text-[10px] font-bold uppercase tracking-[0.14em] text-lightPurple/55" aria-hidden="true">
+              <span className="text-center">#</span>
+              <span>Manager</span>
+              <span className="text-right">GW</span>
+              <span className="text-right">Total</span>
+              <span />
+            </div>
+
+            <div className="space-y-2" role="list" aria-label="Fantasy league standings">
+              {fantasyData.slice(0, visibleCount).map((entry, index) => (
                 <FantasyRow
                   key={entry.entry_id ?? `${entry.fid}-${index}`}
                   entry={entry}
@@ -117,10 +127,27 @@ const ContestFCFantasy = () => {
                   currentUserFid={currentUserFid}
                 />
               ))}
-            </tbody>
-          </table>
+            </div>
+
+            {visibleCount < fantasyData.length ? (
+              <button
+                type="button"
+                onClick={() => setVisibleCount((count) => Math.min(count + PAGE_SIZE, fantasyData.length))}
+                className="mt-3 flex w-full items-center justify-center gap-2 rounded-[16px] border border-lightPurple/14 bg-darkPurple/35 px-4 py-3 text-xs font-semibold text-lightPurple transition-colors hover:border-deepPink/30 hover:text-notWhite"
+              >
+                Show managers {visibleCount + 1}–{Math.min(visibleCount + PAGE_SIZE, fantasyData.length)}
+                <ChevronDown className="h-4 w-4" aria-hidden="true" />
+              </button>
+            ) : (
+              <p className="app-micro mt-4 text-center">All {fantasyData.length} managers shown</p>
+            )}
+          </>
         ) : (
-          <div>No fantasy data available.</div>
+          <div className="rounded-[18px] border border-dashed border-lightPurple/20 bg-darkPurple/45 px-4 py-7 text-center">
+            <Trophy className="mx-auto h-6 w-6 text-deepPink" aria-hidden="true" />
+            <div className="mt-3 text-sm font-semibold text-notWhite">The league is waiting to kick off</div>
+            <p className="mt-1 text-xs leading-5 text-lightPurple/70">Standings will appear as soon as FPL publishes the league table.</p>
+          </div>
         )}
         {claimEntry && (
           <FplClaimPanel

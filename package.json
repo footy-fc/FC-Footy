@@ -26,6 +26,7 @@
     "test:team-preferences": "node --experimental-strip-types --test src/lib/teamPreferenceModel.test.ts",
     "test:newsletter": "node --experimental-strip-types --test src/lib/newsletterModel.test.ts",
     "test:manager-rank-bands": "node --experimental-strip-types --test src/lib/managerRankBands.test.ts",
+    "test:followed-matches": "node --experimental-strip-types --test src/lib/followedMatches.test.ts",
     "scoresquare:players": "node scripts/scoresquare-players-test.mjs",
     "manager:picks:points": "node scripts/manager-picks-points.mjs",
     "managers:chips": "node scripts/list-managers-chips.mjs",
