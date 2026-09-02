@@ -3,6 +3,9 @@ import { Redis } from '@upstash/redis';
 import { getManagerPicks } from '~/lib/kvPicksStorage';
 import { fetchUsersByFids } from '~/lib/hypersnap';
 import { FPL_LEAGUE_ID } from '~/lib/config';
+import { fetchFplLeagueStandings } from '~/lib/fplLeague';
+import { getManagerRankBand } from '~/lib/managerRankBands';
+import { getClaimsByEntries, getClaimSeason } from '~/lib/fplClaimServer';
 
 interface ManagerLookup {
   entry_id: number;
@@ -69,7 +72,7 @@ export async function GET(request: NextRequest) {
     const refresh = searchParams.get('refresh') === 'true';
     const gameweek = gwParam ? Math.max(1, Math.min(38, parseInt(gwParam, 10) || 0)) : await getCurrentGameweek();
 
-    const cacheKey = `fc-footy:managers-gw-summary:${gameweek}`;
+    const cacheKey = `fc-footy:managers-gw-summary:v3:${gameweek}`;
     if (!refresh) {
       try {
         const cached = await redis.get(cacheKey);
@@ -77,12 +80,50 @@ export async function GET(request: NextRequest) {
       } catch {}
     }
 
-    // Load FEPL managers list
+    // Entry IDs change each season, so current standings are the primary
+    // Manager Activity source. The checked-in lookup is only an outage fallback.
     const lookupModule = await import('../../../data/fantasy-managers-lookup.json');
     const maybeDefault: unknown = (lookupModule as { default?: unknown }).default;
-    const managers: ManagerLookup[] = Array.isArray(maybeDefault)
+    const legacyManagers: ManagerLookup[] = Array.isArray(maybeDefault)
       ? (maybeDefault as ManagerLookup[])
       : ((lookupModule as unknown) as ManagerLookup[]);
+    const entryToRank = new Map<number, number>();
+    let managers = legacyManagers;
+
+    try {
+      const standingsData = await fetchFplLeagueStandings(FPL_LEAGUE_ID);
+      const rankedManagers = standingsData.standings.results.flatMap((standing) => {
+        const entryId = Number(standing.entry);
+        const rank = Number(standing.rank);
+        if (!Number.isSafeInteger(entryId) || entryId <= 0 || !Number.isFinite(rank) || rank <= 0) {
+          return [];
+        }
+
+        entryToRank.set(entryId, rank);
+        return [{
+          entryId,
+          teamName: typeof standing.entry_name === 'string'
+            ? standing.entry_name
+            : typeof standing.player_name === 'string'
+              ? standing.player_name
+              : `Manager ${entryId}`,
+        }];
+      });
+
+      const entryIds = rankedManagers.map((manager) => manager.entryId);
+      const claims: Record<string, { fid: number }> = await getClaimsByEntries(
+        getClaimSeason(),
+        entryIds
+      ).catch(() => ({}));
+      const legacyByEntry = new Map(legacyManagers.map((manager) => [manager.entry_id, manager]));
+      managers = rankedManagers.map((manager) => ({
+        entry_id: manager.entryId,
+        fid: claims[String(manager.entryId)]?.fid ?? legacyByEntry.get(manager.entryId)?.fid ?? 0,
+        team_name: manager.teamName,
+      }));
+    } catch (standingsError) {
+      console.warn('Manager Activity is using the fallback manager lookup:', standingsError);
+    }
 
     // Fetch entry history for each manager and pick this GW's points/transfers
     const concurrency = 10;
@@ -191,25 +232,8 @@ export async function GET(request: NextRequest) {
       }));
     } catch {}
 
-    // Enrich with league rank using cached endpoint
-    const entryToRank = new Map<number, number>();
-    try {
-      const standingsRes = await fetch(`${process.env.NEXT_PUBLIC_URL || ''}/api/fpl-league?leagueId=${FPL_LEAGUE_ID}`).catch(() => fetch(`/api/fpl-league?leagueId=${FPL_LEAGUE_ID}`));
-      if (standingsRes && standingsRes.ok) {
-        const standingsData = await standingsRes.json();
-        const list = Array.isArray(standingsData?.standings?.results) ? standingsData.standings.results : [];
-        for (const r of list) {
-          const entry = Number(r?.entry);
-          const rank = Number(r?.rank);
-          if (Number.isFinite(entry) && Number.isFinite(rank)) {
-            entryToRank.set(entry, rank);
-          }
-        }
-      }
-    } catch {}
-
     // Enrich with Farcaster username & pfp via HyperSnap
-    const fidList = results.map(r => r.fid).filter((v, i, a) => a.indexOf(v) === i);
+    const fidList = results.map(r => r.fid).filter((v, i, a) => v > 0 && a.indexOf(v) === i);
     const fidToUser: Record<number, { username?: string; pfp_url?: string }> = {};
     try {
       const users = await fetchUsersByFids(fidList);
@@ -224,10 +248,7 @@ export async function GET(request: NextRequest) {
     // Build final payload with rank, bucket, username, pfp
     const finalManagers = results.map(m => {
       const rank = entryToRank.get(m.entry_id) || null as number | null;
-      let bucket = '151+';
-      if (rank && rank >= 1 && rank <= 50) bucket = '1-50';
-      else if (rank && rank <= 100) bucket = '51-100';
-      else if (rank && rank <= 150) bucket = '101-150';
+      const bucket = getManagerRankBand(rank) ?? 'unranked';
       const fc = fidToUser[m.fid] || {};
       // Exact starting FT calculation by simulating season up to (gameweek - 1)
       const extra = entryExtras[m.entry_id] || { has_3xc_remaining: true, chip_prev_reset: false, resetEvents: new Set<number>() };

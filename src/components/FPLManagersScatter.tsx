@@ -3,6 +3,11 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Chart } from 'chart.js/auto';
 import { sdk } from '@farcaster/miniapp-sdk';
+import {
+  filterManagersByRankBand,
+  MANAGER_RANK_BANDS,
+  type ManagerRankBand,
+} from '~/lib/managerRankBands';
 
 interface ManagerPoint {
   x: number; // transfers
@@ -26,7 +31,12 @@ const FPLManagersScatter: React.FC = () => {
   const [points, setPoints] = useState<ManagerPoint[]>([]);
   const [showNames, setShowNames] = useState(false);
   const [showPfps, setShowPfps] = useState(false);
-  const [visibleBuckets, setVisibleBuckets] = useState<Set<string>>(new Set(['1-50','51-100','101-150','151+']));
+  const [selectedRankBand, setSelectedRankBand] = useState<ManagerRankBand>('1-50');
+
+  const selectedPoints = React.useMemo(
+    () => filterManagersByRankBand(points, selectedRankBand),
+    [points, selectedRankBand]
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -102,15 +112,13 @@ const FPLManagersScatter: React.FC = () => {
     const ctx = canvasRef.current.getContext('2d');
     if (!ctx) return;
 
-    const filtered = points.filter(p => !p.bucket || visibleBuckets.has(p.bucket));
-
     chartRef.current = new Chart(ctx, {
       type: 'scatter',
       data: {
         datasets: [
           {
             label: 'Managers',
-            data: filtered.map(p => ({ x: p.x, y: p.y, manager: p, _c: p.color } as { x: number; y: number; manager: ManagerPoint; _c: string })),
+            data: selectedPoints.map(p => ({ x: p.x, y: p.y, manager: p, _c: p.color } as { x: number; y: number; manager: ManagerPoint; _c: string })),
             backgroundColor: (ctx) => (typeof (ctx.raw as { _c?: string } | undefined)?._c === 'string' ? (ctx.raw as { _c?: string })._c! : 'rgba(192,178,240,0.8)'),
             borderColor: (ctx) => (typeof (ctx.raw as { _c?: string } | undefined)?._c === 'string' ? (ctx.raw as { _c?: string })._c! : 'rgba(192,178,240,1)'),
             pointRadius: showPfps ? 0 : 4,
@@ -279,7 +287,7 @@ const FPLManagersScatter: React.FC = () => {
       ro.disconnect();
       parentEl?.querySelectorAll('.mgr-label, .mgr-pfp').forEach(n => n.remove());
     };
-  }, [points, loading, error, visibleBuckets, showNames, showPfps]);
+  }, [selectedPoints, loading, error, showNames, showPfps]);
 
   if (loading) {
     return (
@@ -305,31 +313,36 @@ const FPLManagersScatter: React.FC = () => {
       </div>
       <div className="p-4 relative" style={{ height: '400px' }}>
         <canvas ref={canvasRef} />
+        {selectedPoints.length === 0 ? (
+          <div className="pointer-events-none absolute inset-0 flex items-center justify-center px-6 text-center text-sm text-lightPurple/70">
+            No managers are available in this league-rank band.
+          </div>
+        ) : null}
       </div>
-      {/* Range Filters (styled like Player Analysis legend) */}
+      {/* A rank band is a mutually exclusive slice, not a chart legend. */}
       <div className="grid grid-cols-2 gap-2 p-4 bg-deepPurple border-t border-limeGreenOpacity">
-        {['1-50','51-100','101-150','151+'].map(bucket => {
-          const active = visibleBuckets.has(bucket);
+        {MANAGER_RANK_BANDS.map(bucket => {
+          const active = selectedRankBand === bucket;
+          const managerCount = points.filter((point) => point.bucket === bucket).length;
           return (
-            <div
+            <button
+              type="button"
               key={bucket}
+              aria-pressed={active}
               className={`flex items-center gap-2 p-2 rounded cursor-pointer transition-all ${
                 active ? 'bg-deepPink border border-fontRed' : 'hover:bg-deepPink opacity-50'
               }`}
-              onClick={() => {
-                const next = new Set(visibleBuckets);
-                if (active) next.delete(bucket); else next.add(bucket);
-                setVisibleBuckets(next);
-              }}
+              onClick={() => setSelectedRankBand(bucket)}
             >
               <div
                 className={`w-5 h-5 rounded-full transition-all ${active ? 'ring-2 ring-white' : ''}`}
                 style={{ backgroundColor: '#C0B2F0' }}
               />
-              <span className={active ? 'text-white font-semibold text-sm' : 'text-lightPurple text-sm'}>
-                {bucket}
+              <span className={`flex min-w-0 flex-1 items-center justify-between gap-2 ${active ? 'text-white font-semibold text-sm' : 'text-lightPurple text-sm'}`}>
+                <span>{bucket === '1-50' ? 'Top 50' : bucket}</span>
+                <span className="text-[10px] opacity-75">{managerCount}</span>
               </span>
-            </div>
+            </button>
           );
         })}
       </div>
