@@ -10,6 +10,7 @@ import {
 } from "~/lib/farcaster/profileValidation";
 import { useFootyFarcaster } from "~/lib/farcaster/useFootyFarcaster";
 import ProfileIdentityCard from "./ProfileIdentityCard";
+import FinalWhistleNewsletterPreference from "./FinalWhistleNewsletterPreference";
 import SettingsFollowClubs from "./SettingsFollowClubs";
 
 interface ProfileTabProps {
@@ -71,6 +72,7 @@ const ProfileTab: React.FC<ProfileTabProps> = ({ viewerFid }) => {
     advanceOnboarding,
     updateManagedProfile,
     claimManagedUsername,
+    getAuthorizationHeaders,
   } = useFootyFarcaster();
   const [activeEditor, setActiveEditor] = React.useState<EditableProfileField>(null);
   const [editorName, setEditorName] = React.useState("");
@@ -388,6 +390,10 @@ const ProfileTab: React.FC<ProfileTabProps> = ({ viewerFid }) => {
       <div ref={clubsSectionRef} className="scroll-mt-3">
         <SettingsFollowClubs viewerFid={viewerFid} />
       </div>
+
+      <FinalWhistleNewsletterPreference
+        getAuthorizationHeaders={getAuthorizationHeaders}
+      />
     </div>
   );
 };

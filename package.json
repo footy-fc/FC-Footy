@@ -24,6 +24,7 @@
     "gameweek:summary:test": "node scripts/gameweek-summary-test.mjs",
     "test:rivals": "node --experimental-strip-types --test src/lib/rivals.test.ts",
     "test:team-preferences": "node --experimental-strip-types --test src/lib/teamPreferenceModel.test.ts",
+    "test:newsletter": "node --experimental-strip-types --test src/lib/newsletterModel.test.ts",
     "scoresquare:players": "node scripts/scoresquare-players-test.mjs",
     "manager:picks:points": "node scripts/manager-picks-points.mjs",
     "managers:chips": "node scripts/list-managers-chips.mjs",
