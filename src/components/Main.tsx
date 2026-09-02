@@ -422,8 +422,8 @@ export default function Main() {
     router.push(`/?tab=${newTab}`);
   };
 
-  const handleOpenTeam = (teamId: string) => {
-    router.push(`/?tab=fanClubs&teamId=${encodeURIComponent(teamId)}`);
+  const handleOpenFanPreferences = () => {
+    router.push("/?tab=profile&section=clubs");
   };
 
   useEffect(() => {
@@ -507,9 +507,9 @@ export default function Main() {
                 selectedTab={selectedTab}
                 onOpenProfile={() => handleTabChange("profile")}
                 onOpenAdmins={() => handleTabChange("admins")}
-                onOpenFantasy={() => handleTabChange("fantasy")}
+                onOpenFanPreferences={handleOpenFanPreferences}
+                fanPreferencesActive={selectedTab === "profile" && effectiveSearchParams.get("section") === "clubs"}
                 onOpenTools={() => handleTabChange("tools")}
-                onOpenTeam={handleOpenTeam}
                 isAdminFid={isAdminFid}
                 viewerFid={currentViewerFid}
               />

@@ -2,6 +2,7 @@
 
 import React from "react";
 import Image from "next/image";
+import { Bell } from "lucide-react";
 import { sdk } from "@farcaster/miniapp-sdk";
 import { usePrivy } from "@privy-io/react-auth";
 import { fetchTeamLogos } from "./utils/fetchTeamLogos";
@@ -9,6 +10,10 @@ import { getTeamPreferences } from "../lib/kvPerferences";
 import { useFootyFarcaster } from "~/lib/farcaster/useFootyFarcaster";
 import { useWorldCupMode } from "~/lib/useWorldCupMode";
 import BadgedProfileAvatar from "./BadgedProfileAvatar";
+import {
+  getPrimaryClubPreference,
+  TEAM_PREFERENCES_UPDATED_EVENT,
+} from "../lib/teamPreferenceModel";
 
 interface Team {
   name: string;
@@ -20,9 +25,9 @@ interface Team {
 interface AppIdentityBarProps {
   onOpenProfile: () => void;
   onOpenAdmins?: () => void;
-  onOpenTeam?: (teamId: string) => void;
+  onOpenFanPreferences?: () => void;
   onOpenTools?: () => void;
-  onOpenFantasy?: () => void;
+  fanPreferencesActive?: boolean;
   selectedTab: string;
   isAdminFid: boolean;
   viewerFid?: number;
@@ -42,9 +47,9 @@ const getSafeMiniAppContext = async () => {
 const AppIdentityBar: React.FC<AppIdentityBarProps> = ({
   onOpenProfile,
   onOpenAdmins,
-  onOpenTeam,
+  onOpenFanPreferences,
   onOpenTools,
-  onOpenFantasy,
+  fanPreferencesActive = false,
   selectedTab,
   isAdminFid,
   viewerFid,
@@ -84,43 +89,45 @@ const AppIdentityBar: React.FC<AppIdentityBarProps> = ({
     const handleFocus = () => load();
     if (typeof window !== "undefined") {
       window.addEventListener("focus", handleFocus);
+      window.addEventListener(TEAM_PREFERENCES_UPDATED_EVENT, handleFocus);
     }
 
     return () => {
       cancelled = true;
       if (typeof window !== "undefined") {
         window.removeEventListener("focus", handleFocus);
+        window.removeEventListener(TEAM_PREFERENCES_UPDATED_EVENT, handleFocus);
       }
     };
   }, [viewerFid]);
 
-  const favoriteTeamId = favTeams[0];
+  const favoriteTeamId = getPrimaryClubPreference(favTeams);
   const favoriteTeam = favoriteTeamId
     ? teams.find((team) => getTeamId(team) === favoriteTeamId)
     : null;
   const followedTeams = favTeams
-    .slice(1)
+    .filter((teamId) => teamId !== favoriteTeamId)
     .map((teamId) => teams.find((team) => getTeamId(team) === teamId))
     .filter((team): team is Team => Boolean(team));
   const showLoginButton = ready && !authenticated && runtime !== "miniapp";
 
   return (
     <div className="mb-3 flex items-center gap-2 overflow-hidden rounded-[20px] border border-limeGreenOpacity/20 bg-purplePanel/80 px-3 py-2 shadow-[0_10px_28px_rgba(0,0,0,0.22)]">
-      <div className="min-w-0 flex-1 overflow-hidden">
-        <div className="flex items-center gap-2 overflow-x-auto whitespace-nowrap">
+      <button
+        type="button"
+        onClick={onOpenFanPreferences}
+        className="min-w-0 flex-1 overflow-hidden rounded-full text-left transition-opacity hover:opacity-85"
+        aria-label={favoriteTeam ? `Manage My club, ${favoriteTeam.name}, and match alerts` : "Choose My club and manage match alerts"}
+      >
+        <div className="flex items-center gap-2 overflow-hidden whitespace-nowrap">
           {!favoriteTeam ? (
             <div className="rounded-full border border-deepPink/30 bg-deepPink/15 px-3 py-1 text-[11px] font-semibold text-notWhite">
-              Pick a favorite club
+              Choose My club
             </div>
           ) : null}
 
           {favoriteTeam?.logoUrl ? (
-            <button
-              type="button"
-              onClick={() => onOpenTeam?.(favoriteTeamId)}
-              className="shrink-0 rounded-full transition-transform hover:scale-105"
-              aria-label={`Open Rivals with ${favoriteTeam.name} context`}
-            >
+            <div className="flex min-w-0 items-center gap-2">
               <Image
                 src={favoriteTeam.logoUrl}
                 alt={favoriteTeam.name}
@@ -128,25 +135,19 @@ const AppIdentityBar: React.FC<AppIdentityBarProps> = ({
                 height={22}
                 className="rounded-full"
               />
-            </button>
+              <span className="max-w-28 truncate text-xs font-semibold text-notWhite">{favoriteTeam.name}</span>
+            </div>
           ) : null}
 
           {followedTeams.slice(0, 3).map((team) => (
-            <button
+            <Image
               key={getTeamId(team)}
-              type="button"
-              onClick={() => onOpenTeam?.(getTeamId(team))}
-              className="shrink-0 rounded-full border border-darkPurple transition-transform hover:scale-105"
-              aria-label={`Open Rivals with ${team.name} context`}
-            >
-              <Image
-                src={team.logoUrl}
-                alt={team.name}
-                width={20}
-                height={20}
-                className="rounded-full"
-              />
-            </button>
+              src={team.logoUrl}
+              alt=""
+              width={20}
+              height={20}
+              className="shrink-0 rounded-full border border-darkPurple"
+            />
           ))}
 
           {followedTeams.length > 3 ? (
@@ -155,23 +156,21 @@ const AppIdentityBar: React.FC<AppIdentityBarProps> = ({
             </div>
           ) : null}
         </div>
-      </div>
+      </button>
 
       <div className="flex items-center gap-2">
-        {!isWorldCupMode && onOpenFantasy ? (
+        {onOpenFanPreferences ? (
           <button
             type="button"
-            onClick={onOpenFantasy}
+            onClick={onOpenFanPreferences}
             className={`flex h-10 w-10 items-center justify-center rounded-2xl border transition-colors ${
-              selectedTab === "fantasy"
+              fanPreferencesActive
                 ? "border-deepPink bg-deepPink/20 text-notWhite"
                 : "border-limeGreenOpacity/20 bg-darkPurple/70 text-lightPurple hover:bg-darkPurple"
             }`}
-            aria-label="Open Fantasy"
+            aria-label="Manage clubs and match alerts"
           >
-            <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M12 3l2.8 5.67L21 9.6l-4.5 4.38L17.6 21 12 18.02 6.4 21l1.1-7.02L3 9.6l6.2-.93L12 3z" />
-            </svg>
+            <Bell className="h-5 w-5" aria-hidden="true" />
           </button>
         ) : null}
         {!isWorldCupMode && onOpenTools ? (
@@ -223,7 +222,7 @@ const AppIdentityBar: React.FC<AppIdentityBarProps> = ({
             type="button"
             onClick={onOpenProfile}
             className={`relative flex h-10 w-10 items-center justify-center overflow-hidden rounded-2xl border transition-colors ${
-              selectedTab === "profile"
+              selectedTab === "profile" && !fanPreferencesActive
                 ? "border-deepPink bg-deepPink/20 text-notWhite"
                 : canWrite
                   ? "border-limeGreenOpacity/35 bg-darkPurple/70 text-lightPurple hover:bg-darkPurple"

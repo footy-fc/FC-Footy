@@ -1,5 +1,5 @@
 import React from "react";
-import { useRouter } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import {
   FARCASTER_BIO_MAX_BYTES,
   FARCASTER_DISPLAY_NAME_MAX_BYTES,
@@ -10,7 +10,7 @@ import {
 } from "~/lib/farcaster/profileValidation";
 import { useFootyFarcaster } from "~/lib/farcaster/useFootyFarcaster";
 import ProfileIdentityCard from "./ProfileIdentityCard";
-import ProfileCastFeed from "./ProfileCastFeed";
+import SettingsFollowClubs from "./SettingsFollowClubs";
 
 interface ProfileTabProps {
   viewerFid?: number;
@@ -53,7 +53,7 @@ const OnboardingStep: React.FC<OnboardingStepProps> = ({ label, description, sta
 );
 
 const ProfileTab: React.FC<ProfileTabProps> = ({ viewerFid }) => {
-  const router = useRouter();
+  const searchParams = useSearchParams();
   const {
     hasFootySession,
     hasEmail,
@@ -67,7 +67,6 @@ const ProfileTab: React.FC<ProfileTabProps> = ({ viewerFid }) => {
     bio,
     isProvisioningFarcasterAccount,
     onboardingError,
-    beginLogin,
     beginCreateFarcasterAccount,
     advanceOnboarding,
     updateManagedProfile,
@@ -80,8 +79,18 @@ const ProfileTab: React.FC<ProfileTabProps> = ({ viewerFid }) => {
   const [isSavingProfile, setIsSavingProfile] = React.useState(false);
   const [profileSaveError, setProfileSaveError] = React.useState<string | null>(null);
   const fileInputRef = React.useRef<HTMLInputElement | null>(null);
+  const clubsSectionRef = React.useRef<HTMLDivElement | null>(null);
 
   const isStandaloneFtue = runtime !== "miniapp" && !hasFarcaster;
+
+  React.useEffect(() => {
+    if (searchParams.get("section") !== "clubs" || isHydratingAccount || isStandaloneFtue) return;
+
+    const frame = window.requestAnimationFrame(() => {
+      clubsSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [isHydratingAccount, isStandaloneFtue, searchParams]);
 
   React.useEffect(() => {
     setEditorName(displayName || "");
@@ -213,7 +222,7 @@ const ProfileTab: React.FC<ProfileTabProps> = ({ viewerFid }) => {
 
         <div className="rounded-[22px] border border-limeGreenOpacity/20 bg-purplePanel p-4 text-lightPurple">
           <div className="text-sm">
-            After setup completes, this tab will switch from onboarding to your live Footy identity, follower count, and cast history.
+            After setup completes, this tab will switch to your Footy identity, My club, and match-alert preferences.
           </div>
         </div>
       </div>
@@ -305,6 +314,12 @@ const ProfileTab: React.FC<ProfileTabProps> = ({ viewerFid }) => {
   return (
     <div className="mb-4">
 
+      <div className="mb-4 px-1">
+        <div className="app-eyebrow mb-2">Settings</div>
+        <h2 className="app-title mb-2">Your Footy</h2>
+        <p className="app-copy">Keep your identity, clubs, and notifications in one place.</p>
+      </div>
+
       <ProfileIdentityCard
         viewerFid={viewerFid}
         bio={bio}
@@ -370,19 +385,8 @@ const ProfileTab: React.FC<ProfileTabProps> = ({ viewerFid }) => {
         className="hidden"
       />
 
-      <ProfileCastFeed />
-
-      <div className="mt-4 rounded-[22px] border border-limeGreenOpacity/20 bg-purplePanel p-4 text-lightPurple">
-        <div className="text-sm">
-          Manage follows from Fan Clubs so the editing flow lives in one place.
-        </div>
-        <button
-          type="button"
-          onClick={() => router.push("/?tab=fanClubs")}
-          className="mt-3 rounded-xl bg-deepPink px-4 py-3 text-sm font-semibold text-notWhite transition-colors hover:bg-deepPink/85"
-        >
-          Open Fan Clubs
-        </button>
+      <div ref={clubsSectionRef} className="scroll-mt-3">
+        <SettingsFollowClubs viewerFid={viewerFid} />
       </div>
     </div>
   );

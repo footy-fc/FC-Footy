@@ -2,13 +2,16 @@
 /* eslint-disable @next/next/no-img-element */
 
 import React from "react";
-import Image from "next/image";
 import { sdk } from "@farcaster/miniapp-sdk";
 import { useFootyFarcaster } from "~/lib/farcaster/useFootyFarcaster";
 import { resolveFanTier } from "~/lib/fanclubs/fanTier";
 import { getTeamPreferences } from "../lib/kvPerferences";
 import { fetchTeamLogos } from "./utils/fetchTeamLogos";
 import BadgedProfileAvatar from "./BadgedProfileAvatar";
+import {
+  getPrimaryClubPreference,
+  TEAM_PREFERENCES_UPDATED_EVENT,
+} from "../lib/teamPreferenceModel";
 
 interface Team {
   name: string;
@@ -146,12 +149,20 @@ const ProfileIdentityCard: React.FC<ProfileIdentityCardProps> = ({
 
     void load();
 
+    const handlePreferencesUpdated = () => void load();
+    if (typeof window !== "undefined") {
+      window.addEventListener(TEAM_PREFERENCES_UPDATED_EVENT, handlePreferencesUpdated);
+    }
+
     return () => {
       cancelled = true;
+      if (typeof window !== "undefined") {
+        window.removeEventListener(TEAM_PREFERENCES_UPDATED_EVENT, handlePreferencesUpdated);
+      }
     };
   }, [viewerFid]);
 
-  const favoriteTeamId = favoriteTeamIds[0];
+  const favoriteTeamId = getPrimaryClubPreference(favoriteTeamIds);
   const favoriteTeam = favoriteTeamId
     ? teams.find((team) => getTeamId(team) === favoriteTeamId)
     : null;

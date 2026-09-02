@@ -1,4 +1,8 @@
 import { Redis } from "@upstash/redis";
+import {
+  isClubPreferenceId,
+  isCountryPreferenceId,
+} from "./teamPreferenceModel";
 
 const redis = new Redis({
   url: process.env.NEXT_PUBLIC_KV_REST_API_URL,
@@ -17,20 +21,12 @@ function getPrimaryTeamFansKey(teamId: string): string {
   return `fc-footy:primary-team-fans:${teamId}`;
 }
 
-const COUNTRY_LEAGUE_PREFIXES = [
-  "fifa.world",
-  "fifa.worldq.",
-  "caf.nations",
-  "uefa.nations",
-];
-
 export function isCountryTeamId(teamId: string): boolean {
-  const [leagueId] = teamId.split("-");
-  return COUNTRY_LEAGUE_PREFIXES.some((prefix) => leagueId.startsWith(prefix));
+  return isCountryPreferenceId(teamId);
 }
 
 export function isClubTeamId(teamId: string): boolean {
-  return !isCountryTeamId(teamId);
+  return isClubPreferenceId(teamId);
 }
 
 /**

@@ -1,14 +1,18 @@
-import React, { useState, useEffect } from "react";
+"use client";
+
+import React from "react";
 import Image from "next/image";
-import { fetchTeamLogos } from "./utils/fetchTeamLogos";
-import {
-  getTeamPreferences,
-  setTeamPreferences,
-  isCountryTeamId,
-  isClubTeamId,
-} from "../lib/kvPerferences";
+import { Bell, Check, Search } from "lucide-react";
 import { sdk } from "@farcaster/miniapp-sdk";
-import { useMiniAppDetection } from "../hooks/useMiniAppDetection";
+import { fetchTeamLogos } from "./utils/fetchTeamLogos";
+import { getTeamPreferences, setTeamPreferences } from "../lib/kvPerferences";
+import {
+  getPrimaryClubPreference,
+  isClubPreferenceId,
+  makePrimaryClubPreference,
+  notifyTeamPreferencesUpdated,
+  toggleTeamPreference,
+} from "../lib/teamPreferenceModel";
 import { useFootyFarcaster } from "~/lib/farcaster/useFootyFarcaster";
 
 interface Team {
@@ -24,504 +28,262 @@ interface SettingsFollowClubsProps {
   favoriteTeamIds?: string[] | null;
 }
 
-const appUrl = process.env.NEXT_PUBLIC_URL;
-const altImage =`${appUrl}/512.png`
-
-// Helper function to generate a unique ID for each team.
+const fallbackImage = `${process.env.NEXT_PUBLIC_URL}/512.png`;
 const getTeamId = (team: Team) => `${team.league}-${team.abbreviation}`;
-
-const getPrimaryByType = (teamIds: string[], type: "club" | "country") =>
-  teamIds.find((teamId) => (type === "club" ? isClubTeamId(teamId) : isCountryTeamId(teamId))) ?? null;
-
-const promoteWithinType = (teamIds: string[], targetTeamId: string) => {
-  const targetIsCountry = isCountryTeamId(targetTeamId);
-  const sameType = teamIds.filter((teamId) =>
-    targetIsCountry ? isCountryTeamId(teamId) : isClubTeamId(teamId)
-  );
-  const otherType = teamIds.filter((teamId) =>
-    targetIsCountry ? isClubTeamId(teamId) : isCountryTeamId(teamId)
-  );
-  const reorderedSameType = [targetTeamId, ...sameType.filter((teamId) => teamId !== targetTeamId)];
-  return targetIsCountry ? [...otherType, ...reorderedSameType] : [...reorderedSameType, ...otherType];
-};
 
 const getSafeMiniAppContext = async () => {
   try {
     await sdk.actions.ready();
     return (await sdk.context) ?? null;
-  } catch (error) {
-    console.warn("Mini app context unavailable:", error);
+  } catch {
     return null;
   }
 };
-
-const deriveClubBio = (teamName: string) =>
-  `${teamName} supporter on Footy. Matchday alerts, club banter, and proper football takes.`;
 
 const SettingsFollowClubs: React.FC<SettingsFollowClubsProps> = ({
   onSave,
   viewerFid,
   favoriteTeamIds: favoriteTeamIdsOverride,
 }) => {
-  const { hasLinkedFarcaster, hasFarcaster, displayName, username, pfpUrl, advanceOnboarding, updateManagedProfile } = useFootyFarcaster();
-  const [teams, setTeams] = useState<Team[]>([]);
-  const [favTeams, setFavTeams] = useState<string[]>([]);
-  const [searchTerm, setSearchTerm] = useState<string>("");
-  const [loadingTeamIds, setLoadingTeamIds] = useState<string[]>([]);
-  const [transactionError, setTransactionError] = useState<string | null>(null);
-  const [hasPromptedMiniApp, setHasPromptedMiniApp] = useState<boolean>(false);
-  const [isInstalled, setIsInstalled] = useState<boolean>(false);
-  const [showProfileSetup, setShowProfileSetup] = useState<boolean>(false);
-  const [isSavingProfileSetup, setIsSavingProfileSetup] = useState<boolean>(false);
-  const [profileName, setProfileName] = useState<string>("");
-  const [profilePfpUrl, setProfilePfpUrl] = useState<string>("");
-  const { isLoading: isMiniAppLoading } = useMiniAppDetection();
-  const primaryClubId = getPrimaryByType(favTeams, "club");
-  const primaryCountryId = getPrimaryByType(favTeams, "country");
-  const primaryClub = primaryClubId ? teams.find((team) => getTeamId(team) === primaryClubId) ?? null : null;
+  const { hasLinkedFarcaster, advanceOnboarding } = useFootyFarcaster();
+  const [teams, setTeams] = React.useState<Team[]>([]);
+  const [favTeams, setFavTeams] = React.useState<string[]>(favoriteTeamIdsOverride ?? []);
+  const [searchTerm, setSearchTerm] = React.useState("");
+  const [loadingTeamId, setLoadingTeamId] = React.useState<string | null>(null);
+  const [transactionError, setTransactionError] = React.useState<string | null>(null);
+  const [isInstalled, setIsInstalled] = React.useState(false);
+  const [isEnablingNotifications, setIsEnablingNotifications] = React.useState(false);
+  const [isLoading, setIsLoading] = React.useState(true);
+  const searchInputRef = React.useRef<HTMLInputElement | null>(null);
 
-  useEffect(() => {
-    setProfileName(displayName || username || "");
-  }, [displayName, username]);
+  React.useEffect(() => {
+    let cancelled = false;
 
-  useEffect(() => {
-    setProfilePfpUrl(pfpUrl || primaryClub?.logoUrl || "");
-  }, [pfpUrl, primaryClub?.logoUrl]);
+    const load = async () => {
+      setIsLoading(true);
+      try {
+        const context = viewerFid ? null : await getSafeMiniAppContext();
+        const fid = viewerFid ?? context?.user?.fid;
+        const [teamData, preferences] = await Promise.all([
+          fetchTeamLogos(),
+          fid && !favoriteTeamIdsOverride
+            ? getTeamPreferences(fid)
+            : Promise.resolve(favoriteTeamIdsOverride ?? null),
+        ]);
 
-  useEffect(() => {
-    const fetchContext = async () => {
-      const context = viewerFid ? null : await getSafeMiniAppContext();
-      const fid = viewerFid ?? context?.user?.fid;
-      setIsInstalled(Boolean(context?.client?.added));
-      if (fid) {
-        getTeamPreferences(fid)
-          .then((teamsFromRedis) => {
-            if (teamsFromRedis) {
-              setFavTeams(teamsFromRedis);
-            }
-          })
-          .catch((err) => {
-            console.error("Error fetching team preferences:", err);
-          });
+        if (!cancelled) {
+          setTeams(teamData);
+          setFavTeams(preferences ?? []);
+          setIsInstalled(Boolean(context?.client?.added));
+        }
+      } catch {
+        if (!cancelled) {
+          setTransactionError("Could not load your clubs. Try again in a moment.");
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
       }
     };
-    fetchContext();
-    fetchTeamLogos().then((data) => setTeams(data));
+
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, [favoriteTeamIdsOverride, viewerFid]);
+
+  const resolveFid = React.useCallback(async () => {
+    if (viewerFid) return viewerFid;
+    const context = await getSafeMiniAppContext();
+    return context?.user?.fid ?? null;
   }, [viewerFid]);
 
-  useEffect(() => {
-    if (favoriteTeamIdsOverride) {
-      setFavTeams(favoriteTeamIdsOverride);
+  const savePreferences = async (updatedFavTeams: string[]) => {
+    const fid = await resolveFid();
+    if (!fid) {
+      setTransactionError("Sign in to save your club and match alerts.");
+      if (!hasLinkedFarcaster) await advanceOnboarding();
+      return false;
     }
-  }, [favoriteTeamIdsOverride]);
 
-  const savePreferences = async (fid: number, updatedFavTeams: string[]) => {
     await setTeamPreferences(fid, updatedFavTeams);
     setFavTeams(updatedFavTeams);
     onSave?.(updatedFavTeams);
+    notifyTeamPreferencesUpdated(fid, updatedFavTeams);
     setTransactionError(null);
+    return true;
   };
 
-  const syncProfileFromPrimaryClub = async (updatedFavTeams: string[]) => {
-    const nextPrimaryClubId = getPrimaryByType(updatedFavTeams, "club");
-    if (!nextPrimaryClubId || !hasFarcaster) {
-      return;
-    }
-
-    const nextPrimaryClub = teams.find((team) => getTeamId(team) === nextPrimaryClubId);
-    if (!nextPrimaryClub) {
-      return;
-    }
-
-    const nextBio = deriveClubBio(nextPrimaryClub.name);
-    const missingDisplayName = !(displayName || "").trim();
-    const missingPfp = !(pfpUrl || "").trim();
-
-    if (missingDisplayName || missingPfp) {
-      setProfileName((current) => current || displayName || username || "");
-      setProfilePfpUrl((current) => current || pfpUrl || nextPrimaryClub.logoUrl || "");
-      setShowProfileSetup(true);
-      return;
-    }
-
-    await updateManagedProfile({ bio: nextBio });
-  };
-
-  const finalizeProfileSetup = async () => {
-    if (!primaryClub) {
-      setTransactionError("Pick your club badge first.");
-      return;
-    }
-
-    const trimmedName = profileName.trim();
-    const resolvedPfpUrl = profilePfpUrl.trim() || primaryClub.logoUrl;
-
-    if (!trimmedName) {
-      setTransactionError("Add a display name for your Footy Farcaster account.");
-      return;
-    }
-
-    if (!resolvedPfpUrl) {
-      setTransactionError("Choose a profile picture for your Footy Farcaster account.");
-      return;
-    }
-
-    setIsSavingProfileSetup(true);
-    try {
-      await updateManagedProfile({
-        displayName: trimmedName,
-        pfpUrl: resolvedPfpUrl,
-        bio: deriveClubBio(primaryClub.name),
-      });
-      setShowProfileSetup(false);
-      setTransactionError(null);
-    } catch (error) {
-      console.error("Error updating Footy profile:", error);
-      setTransactionError(error instanceof Error ? error.message : "Could not update your Footy profile.");
-    } finally {
-      setIsSavingProfileSetup(false);
-    }
-  };
-
-  const handleRowClick = async (team: Team) => {
-    const context = viewerFid ? null : await getSafeMiniAppContext();
-    const fid = viewerFid ?? context?.user?.fid;
-    if (!fid) {
-      console.error("User not authenticated");
-      setTransactionError("Connect Farcaster to manage follows and alerts.");
-      if (!hasLinkedFarcaster) {
-        await advanceOnboarding();
-      }
-      return;
-    }
+  const updatePreference = async (team: Team, mode: "toggle" | "primary") => {
     const teamId = getTeamId(team);
+    if (loadingTeamId) return;
 
-    // Prevent new clicks if any update is in progress
-    if (loadingTeamIds.length > 0) return;
-
-    // Mark this team as loading
-    setLoadingTeamIds((prev) => [...prev, teamId]);
-
+    setLoadingTeamId(teamId);
     try {
-      let updatedFavTeams: string[];
-
-      if (favTeams.includes(teamId)) {
-        updatedFavTeams = favTeams.filter((id) => id !== teamId);
-      } else {
-        updatedFavTeams = [...favTeams, teamId];
-      }
-
-      await savePreferences(fid, updatedFavTeams);
-      await syncProfileFromPrimaryClub(updatedFavTeams);
-
-      // Prompt to add mini app if this is their first team and the app isn't installed yet
-      if (
-        !hasPromptedMiniApp && 
-        updatedFavTeams.length === 1 && 
-        !isInstalled && 
-        !isMiniAppLoading
-      ) {
-        try {
-          if (!sdk || !sdk?.actions?.addMiniApp) return;
-          await sdk.actions.ready();
-          await sdk.actions.addMiniApp();
-          setHasPromptedMiniApp(true);
-        } catch (error) {
-          console.log('User rejected mini app prompt or already has it added', error);
-          setHasPromptedMiniApp(true);
-        }
-      }
-
-      // Clear search term if needed
-      if (searchTerm.trim() !== "") {
-        setSearchTerm("");
-      }
-    } catch (error: unknown) {
+      const updated = mode === "primary"
+        ? makePrimaryClubPreference(favTeams, teamId)
+        : toggleTeamPreference(favTeams, teamId);
+      await savePreferences(updated);
+    } catch (error) {
       console.error("Error updating team preferences:", error);
-      if (
-        error instanceof Error &&
-        error.message.includes("User rejected the request")
-      ) {
-        setTransactionError("User rejected transaction.");
-      } else {
-        setTransactionError("Transaction failed. Please try again.");
-      }
+      setTransactionError("Could not save that change. Please try again.");
     } finally {
-      // Remove the loading state for this team
-      setLoadingTeamIds((prev) => prev.filter((id) => id !== teamId));
+      setLoadingTeamId(null);
     }
   };
 
-  // Filter teams based on the search term (case-insensitive)
-  const filteredTeams = teams.filter((team) =>
-    team.name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const enableNotifications = async () => {
+    setIsEnablingNotifications(true);
+    setTransactionError(null);
+    try {
+      await sdk.actions.ready();
+      await sdk.actions.addMiniApp?.();
+      setIsInstalled(true);
+    } catch {
+      setTransactionError("Notifications were not enabled. You can try again when you’re ready.");
+    } finally {
+      setIsEnablingNotifications(false);
+    }
+  };
 
-  // When there is no search term, order the teams so that those with notifications appear first.
-  const orderedTeams =
-    searchTerm.trim() === ""
-      ? [...filteredTeams].sort((a, b) => {
-          const aFav = favTeams.includes(getTeamId(a));
-          const bFav = favTeams.includes(getTeamId(b));
-          if (aFav === bFav) return 0;
-          return aFav ? -1 : 1;
-        })
-      : filteredTeams;
-
+  const primaryClubId = getPrimaryClubPreference(favTeams);
+  const primaryClub = primaryClubId
+    ? teams.find((team) => getTeamId(team) === primaryClubId) ?? null
+    : null;
   const followedTeams = favTeams
-    .filter((teamId) => teamId !== getPrimaryByType(favTeams, "club") && teamId !== getPrimaryByType(favTeams, "country"))
     .map((teamId) => teams.find((team) => getTeamId(team) === teamId))
     .filter((team): team is Team => Boolean(team));
-
-  const renderAlertsToggle = (isOn: boolean, isBusy: boolean) => (
-    <div
-      className={`relative inline-flex h-7 w-12 items-center rounded-full border transition-colors ${
-        isOn
-          ? "border-limeGreenOpacity/35 bg-limeGreenOpacity/20"
-          : "border-limeGreenOpacity/18 bg-darkPurple"
-      } ${isBusy ? "opacity-60" : ""}`}
-      aria-hidden="true"
-    >
-      <span
-        className={`inline-block h-5 w-5 transform rounded-full bg-notWhite shadow-sm transition-transform ${
-          isOn ? "translate-x-6" : "translate-x-1"
-        }`}
-      />
-    </div>
-  );
+  const normalizedSearch = searchTerm.trim().toLowerCase();
+  const orderedTeams = [...teams]
+    .filter((team) => normalizedSearch
+      ? team.name.toLowerCase().includes(normalizedSearch)
+      : favTeams.includes(getTeamId(team)))
+    .sort((a, b) => {
+      const aFollowed = favTeams.includes(getTeamId(a));
+      const bFollowed = favTeams.includes(getTeamId(b));
+      if (aFollowed !== bFollowed) return aFollowed ? -1 : 1;
+      return a.name.localeCompare(b.name);
+    })
+    .slice(0, normalizedSearch ? 20 : favTeams.length);
 
   return (
-    <div className="w-full h-full overflow-y-auto">
-      <div className="mb-4 space-y-3">
-        {showProfileSetup && primaryClub ? (
-          <div className="rounded-[20px] border border-deepPink/30 bg-purplePanel/90 p-4">
-            <div className="mb-2 text-[11px] uppercase tracking-[0.18em] text-lightPurple/75">Finish your profile</div>
-            <div className="mb-3 text-sm leading-6 text-lightPurple">
-              Your badge is set. Add the name and profile picture Footy should publish to Farcaster, and we will write a bio for {primaryClub.name}.
-            </div>
-            <div className="space-y-3">
-              <input
-                type="text"
-                value={profileName}
-                onChange={(e) => setProfileName(e.target.value)}
-                placeholder="Display name"
-                className="w-full rounded-[16px] border border-limeGreenOpacity/20 bg-darkPurple px-4 py-3 text-base text-notWhite placeholder:text-lightPurple/60 focus:outline-none focus:ring-2 focus:ring-deepPink/30"
-              />
-              <div className="flex items-center gap-3 rounded-[16px] border border-limeGreenOpacity/20 bg-darkPurple px-3 py-3">
-                <Image
-                  src={profilePfpUrl || primaryClub.logoUrl || altImage}
-                  alt={primaryClub.name}
-                  width={44}
-                  height={44}
-                  className="h-11 w-11 rounded-full object-cover"
-                />
-                <div className="min-w-0 flex-1">
-                  <div className="mb-1 text-xs font-semibold uppercase tracking-[0.14em] text-lightPurple/70">Profile picture URL</div>
-                  <input
-                    type="text"
-                    value={profilePfpUrl}
-                    onChange={(e) => setProfilePfpUrl(e.target.value)}
-                    placeholder={primaryClub.logoUrl || "https://..."}
-                    className="w-full bg-transparent text-sm text-notWhite placeholder:text-lightPurple/55 focus:outline-none"
-                  />
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setProfilePfpUrl(primaryClub.logoUrl || "")}
-                  className="rounded-full border border-limeGreenOpacity/20 px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-lightPurple transition-colors hover:bg-darkPurple"
-                >
-                  Use badge
-                </button>
-              </div>
-              <button
-                type="button"
-                onClick={() => void finalizeProfileSetup()}
-                disabled={isSavingProfileSetup}
-                className="w-full rounded-xl bg-deepPink px-4 py-3 text-sm font-semibold text-notWhite transition-colors hover:bg-deepPink/85 disabled:opacity-70"
-              >
-                {isSavingProfileSetup ? "Publishing your profile" : "Publish Footy profile"}
-              </button>
-            </div>
-          </div>
-        ) : null}
+    <section className="overflow-hidden rounded-[24px] border border-limeGreenOpacity/22 bg-[linear-gradient(145deg,rgba(4,8,24,0.98),rgba(24,18,44,0.96))] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.22)]">
+      <div className="mb-4">
+        <div className="app-eyebrow mb-2">Your football</div>
+        <h3 className="text-xl font-semibold text-notWhite">Clubs & match alerts</h3>
+        <p className="mt-1 text-sm leading-6 text-lightPurple">
+          My club is part of your Footy identity. Follow any other team or country for match alerts.
+        </p>
+      </div>
 
-        {followedTeams.length > 0 ? (
-          <div className="rounded-[20px] border border-limeGreenOpacity/20 bg-darkPurple/55 p-3">
-            <div className="mb-2 text-[11px] uppercase tracking-[0.18em] text-lightPurple/75">Alerts on now</div>
-            <div className="flex flex-wrap gap-2">
-              {followedTeams.slice(0, 6).map((team) => (
-                <button
-                  key={getTeamId(team)}
-                  type="button"
-                  onClick={() => void handleRowClick(team)}
-                  disabled={loadingTeamIds.length > 0}
-                  className="flex items-center gap-2 rounded-full border border-limeGreenOpacity/20 bg-purplePanel px-3 py-2 text-xs font-medium text-lightPurple transition-colors hover:border-limeGreenOpacity/40 hover:bg-darkPurple disabled:cursor-wait disabled:opacity-60"
-                >
-                  <Image
-                    src={team.logoUrl || altImage}
-                    alt={team.name}
-                    width={18}
-                    height={18}
-                    className="rounded-full"
-                  />
-                  <span className="truncate">{team.name}</span>
-                </button>
-              ))}
-              {followedTeams.length > 6 ? (
-                <div className="rounded-full border border-limeGreenOpacity/20 bg-purplePanel px-3 py-2 text-xs font-medium text-lightPurple">
-                  +{followedTeams.length - 6} more
-                </div>
-              ) : null}
+      <div className={`mb-4 rounded-[20px] border p-4 ${primaryClub ? "border-deepPink/30 bg-deepPink/10" : "border-dashed border-lightPurple/25 bg-darkPurple/55"}`}>
+        {primaryClub ? (
+          <div className="flex items-center gap-3">
+            <Image src={primaryClub.logoUrl || fallbackImage} alt={primaryClub.name} width={48} height={48} className="h-12 w-12 rounded-full object-contain" />
+            <div className="min-w-0 flex-1">
+              <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-deepPink">My club</div>
+              <div className="truncate text-base font-semibold text-notWhite">{primaryClub.name}</div>
+              <div className="mt-0.5 text-xs text-lightPurple">Shown on your profile</div>
             </div>
+            <button type="button" onClick={() => searchInputRef.current?.focus()} className="rounded-full border border-deepPink/30 px-3 py-2 text-xs font-semibold text-notWhite transition-colors hover:bg-deepPink/15">
+              Change
+            </button>
           </div>
-        ) : null}
-
-        <input
-          type="text"
-          placeholder="Search clubs or countries..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="w-full rounded-[16px] border border-limeGreenOpacity/20 bg-darkPurple px-4 py-3 text-base text-notWhite placeholder:text-lightPurple/60 focus:outline-none focus:ring-2 focus:ring-deepPink/30"
-        />
-        {favTeams.length > 0 && !isInstalled && (
-          <div className="rounded-[16px] border border-limeGreenOpacity/20 bg-gray-800/70 p-3">
-            <div className="text-xs text-gray-300">
-              Turn on match notifications by adding Footy to your Mini‑Apps.
+        ) : (
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <div className="text-sm font-semibold text-notWhite">Choose My club</div>
+              <div className="mt-1 text-xs leading-5 text-lightPurple">Your badge appears beside your Footy profile.</div>
             </div>
-            <div className="mt-2">
-              <button
-                onClick={async () => {
-                  try { await sdk.actions.ready(); await sdk.actions.addMiniApp?.(); } catch (e) { console.warn('addMiniApp failed', e); }
-                }}
-                className="px-3 py-1 text-xs rounded border border-limeGreenOpacity text-lightPurple hover:bg-deepPink hover:text-white transition-colors"
-              >
-                Enable match notifications
-              </button>
-            </div>
-          </div>
-        )}
-        {transactionError && (
-          <div className="text-center text-red-500 text-sm">
-            {transactionError}
+            <button type="button" onClick={() => searchInputRef.current?.focus()} className="shrink-0 rounded-full bg-deepPink px-4 py-2 text-xs font-semibold text-notWhite">
+              Choose
+            </button>
           </div>
         )}
       </div>
 
-      <div className="h-[500px] space-y-2 overflow-y-auto pr-1">
-        {favTeams.length === 0 && searchTerm.trim() === "" ? (
-          <div className="rounded-[18px] border border-dashed border-limeGreenOpacity/25 bg-darkPurple/60 px-4 py-5 text-sm text-lightPurple">
-            Choose one club as My Club, then follow extra clubs or countries for alerts.
+      {followedTeams.length > 0 ? (
+        <div className="mb-4 rounded-[18px] border border-limeGreenOpacity/20 bg-darkPurple/55 p-3">
+          <div className="flex items-center gap-2 text-xs font-semibold text-notWhite">
+            <Bell className="h-4 w-4 text-limeGreen" aria-hidden="true" />
+            Following {followedTeams.length} {followedTeams.length === 1 ? "team" : "teams"}
           </div>
-        ) : null}
+          <div className="mt-3 flex flex-wrap gap-2">
+            {followedTeams.slice(0, 6).map((team) => (
+              <div key={getTeamId(team)} className="flex items-center gap-2 rounded-full border border-lightPurple/15 bg-purplePanel px-2.5 py-1.5 text-xs text-lightPurple">
+                <Image src={team.logoUrl || fallbackImage} alt="" width={18} height={18} className="h-[18px] w-[18px] rounded-full object-contain" />
+                <span className="max-w-24 truncate">{team.name}</span>
+              </div>
+            ))}
+            {followedTeams.length > 6 ? <div className="rounded-full border border-lightPurple/15 bg-purplePanel px-2.5 py-1.5 text-xs text-lightPurple">+{followedTeams.length - 6}</div> : null}
+          </div>
+        </div>
+      ) : null}
 
-        {orderedTeams.map((team) => {
+      {favTeams.length > 0 ? (
+        <div className={`mb-4 flex items-center justify-between gap-3 rounded-[18px] border px-3 py-3 ${isInstalled ? "border-limeGreenOpacity/25 bg-limeGreenOpacity/10" : "border-lightPurple/15 bg-darkPurple/50"}`}>
+          <div className="min-w-0">
+            <div className="text-sm font-semibold text-notWhite">{isInstalled ? "Match alerts are ready" : "Get match alerts"}</div>
+            <div className="mt-0.5 text-xs leading-5 text-lightPurple">
+              {isInstalled ? "We’ll use your Following list for notifications." : "Add Footy to Mini Apps when you want notifications."}
+            </div>
+          </div>
+          {isInstalled ? (
+            <Check className="h-5 w-5 shrink-0 text-limeGreen" aria-label="Notifications ready" />
+          ) : (
+            <button type="button" onClick={() => void enableNotifications()} disabled={isEnablingNotifications} className="shrink-0 rounded-full border border-limeGreenOpacity/30 px-3 py-2 text-xs font-semibold text-notWhite transition-colors hover:bg-limeGreenOpacity/10 disabled:opacity-60">
+              {isEnablingNotifications ? "Enabling…" : "Enable"}
+            </button>
+          )}
+        </div>
+      ) : null}
+
+      <label className="relative block">
+        <Search className="pointer-events-none absolute left-3 top-3.5 h-4 w-4 text-lightPurple/60" aria-hidden="true" />
+        <input ref={searchInputRef} type="search" placeholder="Search clubs or countries" value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} className="w-full rounded-[16px] border border-limeGreenOpacity/20 bg-darkPurple py-3 pl-10 pr-4 text-base text-notWhite placeholder:text-lightPurple/55 focus:outline-none focus:ring-2 focus:ring-deepPink/30" />
+      </label>
+
+      {transactionError ? <div role="alert" className="mt-3 rounded-[14px] border border-[#fea282]/25 bg-[#fea282]/10 px-3 py-2 text-sm text-[#ffd7ca]">{transactionError}</div> : null}
+
+      <div className="mt-3 space-y-2">
+        {isLoading ? (
+          <div className="rounded-[18px] border border-lightPurple/12 bg-darkPurple/50 px-4 py-5 text-sm text-lightPurple">Loading clubs…</div>
+        ) : orderedTeams.length === 0 ? (
+          <div className="rounded-[18px] border border-dashed border-lightPurple/20 bg-darkPurple/50 px-4 py-5 text-sm text-lightPurple">
+            {normalizedSearch ? "No clubs or countries match that search." : "Search by name to choose My club or follow a team."}
+          </div>
+        ) : orderedTeams.map((team) => {
           const teamId = getTeamId(team);
-          const isLoading = loadingTeamIds.includes(teamId);
           const isFollowed = favTeams.includes(teamId);
-          const isCountry = isCountryTeamId(teamId);
-          const isFavorite = isCountry ? primaryCountryId === teamId : primaryClubId === teamId;
-          const favoriteLabel = isCountry ? "Favorite Country" : "My Club";
+          const isPrimary = primaryClubId === teamId;
+          const isClub = isClubPreferenceId(teamId);
+          const isBusy = loadingTeamId === teamId;
 
           return (
-            <div
-              key={teamId}
-              className={`rounded-[18px] border px-4 py-3 transition-colors ${
-                isFavorite
-                  ? "border-yellow-300/30 bg-[linear-gradient(135deg,rgba(255,215,0,0.08),rgba(30,22,48,0.92))] shadow-[0_0_0_1px_rgba(255,215,0,0.08)]"
-                  : isFollowed
-                    ? "border-limeGreenOpacity/30 bg-purplePanel"
-                    : "border-limeGreenOpacity/15 bg-darkPurple/70"
-              }`}
-            >
+            <div key={teamId} className={`rounded-[18px] border px-3 py-3 ${isPrimary ? "border-deepPink/30 bg-deepPink/10" : isFollowed ? "border-limeGreenOpacity/25 bg-purplePanel" : "border-lightPurple/12 bg-darkPurple/55"}`}>
               <div className="flex items-center gap-3">
-                <div className="flex min-w-0 flex-1 items-center gap-3 text-left">
-                  {isLoading ? (
-                    <Image
-                      src="/defifa_spinner.gif"
-                      alt="loading"
-                      width={34}
-                      height={34}
-                    />
-                  ) : (
-                    <Image
-                      src={team.logoUrl || altImage}
-                      alt={team.name}
-                      width={34}
-                      height={34}
-                    />
-                  )}
-                  <div className="min-w-0">
-                    <div className="truncate text-sm font-semibold text-notWhite">{team.name}</div>
-                    {team.league ? (
-                      <div className="mt-1 text-[11px] uppercase tracking-[0.16em] text-lightPurple/60">
-                        {team.league}
-                      </div>
-                    ) : null}
-                  </div>
+                <Image src={team.logoUrl || fallbackImage} alt={team.name} width={38} height={38} className="h-[38px] w-[38px] rounded-full object-contain" />
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-sm font-semibold text-notWhite">{team.name}</div>
+                  <div className="mt-0.5 truncate text-[10px] uppercase tracking-[0.14em] text-lightPurple/60">{team.league}</div>
                 </div>
-
-                <div className="flex shrink-0 items-center gap-3">
-                  {isFavorite ? (
-                    <div className="flex h-10 w-10 items-center justify-center rounded-full border border-yellow-300/25 bg-yellow-300/10 text-xs font-semibold text-yellow-300">
-                      <span aria-hidden="true">★</span>
-                    </div>
-                  ) : isFollowed ? (
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        if (loadingTeamIds.length > 0) return;
-                        const context = viewerFid ? null : await getSafeMiniAppContext();
-                        const fid = viewerFid ?? context?.user?.fid;
-                        if (!fid) return;
-                        const reordered = promoteWithinType(favTeams, teamId);
-                        setLoadingTeamIds((prev) => [...prev, teamId]);
-                        try {
-                          await savePreferences(fid, reordered);
-                          await syncProfileFromPrimaryClub(reordered);
-                        } catch (error) {
-                          console.error("Error updating favorite team:", error);
-                          setTransactionError(`Could not update ${isCountry ? "favorite country" : "club badge"}.`);
-                        } finally {
-                          setLoadingTeamIds((prev) => prev.filter((id) => id !== teamId));
-                        }
-                      }}
-                      disabled={loadingTeamIds.length > 0}
-                      aria-label={`Set ${team.name} as ${favoriteLabel}`}
-                      className="flex h-10 w-10 items-center justify-center rounded-full border border-limeGreenOpacity/25 text-xs font-medium text-lightPurple transition-colors hover:bg-darkPurple disabled:cursor-wait disabled:opacity-60"
-                    >
-                      <span className="text-yellow-300" aria-hidden="true">★</span>
-                    </button>
-                  ) : (
-                    <div className="w-10" />
+                <button type="button" onClick={() => void updatePreference(team, "toggle")} disabled={Boolean(loadingTeamId)} aria-pressed={isFollowed} className={`min-w-[78px] rounded-full border px-3 py-2 text-xs font-semibold transition-colors disabled:cursor-wait disabled:opacity-60 ${isFollowed ? "border-limeGreenOpacity/30 bg-limeGreenOpacity/10 text-notWhite" : "border-lightPurple/20 text-lightPurple hover:border-deepPink/35 hover:text-notWhite"}`}>
+                  {isBusy ? "Saving…" : isFollowed ? "Following" : "Follow"}
+                </button>
+              </div>
+              {isFollowed && isClub ? (
+                <div className="mt-2 flex justify-end border-t border-lightPurple/10 pt-2">
+                  {isPrimary ? <span className="text-[11px] font-semibold text-deepPink">My club</span> : (
+                    <button type="button" onClick={() => void updatePreference(team, "primary")} disabled={Boolean(loadingTeamId)} className="text-[11px] font-semibold text-lightPurple transition-colors hover:text-notWhite disabled:opacity-60">Make My club</button>
                   )}
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      if (!isLoading && loadingTeamIds.length === 0) {
-                        await handleRowClick(team);
-                      }
-                    }}
-                    disabled={loadingTeamIds.length > 0}
-                    className="flex items-center rounded-full px-1 py-1 text-xs font-semibold text-lightPurple transition-opacity disabled:cursor-wait disabled:opacity-60"
-                    aria-label={isFollowed ? `Turn alerts off for ${team.name}` : `Turn alerts on for ${team.name}`}
-                  >
-                    {renderAlertsToggle(isFollowed, isLoading)}
-                  </button>
                 </div>
-              </div>
-              <div className="mt-3 flex items-center justify-between text-[11px] uppercase tracking-[0.14em] text-lightPurple/65">
-                <span>{isFavorite ? favoriteLabel : isFollowed ? "Following" : "Not following"}</span>
-                {!isFavorite && isFollowed ? (
-                  <span className="text-yellow-300/85">
-                    Tap star to make {isCountry ? "Favorite Country" : "My Club"}
-                  </span>
-                ) : null}
-              </div>
+              ) : null}
             </div>
           );
         })}
       </div>
-    </div>
+
+      {!normalizedSearch ? <p className="mt-3 text-center text-xs text-lightPurple/60">Search to add any club or country.</p> : null}
+    </section>
   );
 };
 
