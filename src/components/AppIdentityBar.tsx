@@ -25,9 +25,10 @@ interface Team {
 interface AppIdentityBarProps {
   onOpenProfile: () => void;
   onOpenAdmins?: () => void;
-  onOpenFanPreferences?: () => void;
+  onOpenFollowing?: () => void;
+  onOpenUpdates?: () => void;
   onOpenTools?: () => void;
-  fanPreferencesActive?: boolean;
+  updatesActive?: boolean;
   selectedTab: string;
   isAdminFid: boolean;
   viewerFid?: number;
@@ -47,9 +48,10 @@ const getSafeMiniAppContext = async () => {
 const AppIdentityBar: React.FC<AppIdentityBarProps> = ({
   onOpenProfile,
   onOpenAdmins,
-  onOpenFanPreferences,
+  onOpenFollowing,
+  onOpenUpdates,
   onOpenTools,
-  fanPreferencesActive = false,
+  updatesActive = false,
   selectedTab,
   isAdminFid,
   viewerFid,
@@ -115,9 +117,9 @@ const AppIdentityBar: React.FC<AppIdentityBarProps> = ({
     <div className="mb-3 flex items-center gap-2 overflow-hidden rounded-[20px] border border-limeGreenOpacity/20 bg-purplePanel/80 px-3 py-2 shadow-[0_10px_28px_rgba(0,0,0,0.22)]">
       <button
         type="button"
-        onClick={onOpenFanPreferences}
+        onClick={onOpenFollowing}
         className="min-w-0 flex-1 overflow-hidden rounded-full text-left transition-opacity hover:opacity-85"
-        aria-label={favoriteTeam ? `Manage My club, ${favoriteTeam.name}, and match alerts` : "Choose My club and manage match alerts"}
+        aria-label={favoriteTeam ? `Open Following scores for ${favoriteTeam.name}` : "Choose teams and open Following scores"}
       >
         <div className="flex items-center gap-2 overflow-hidden whitespace-nowrap">
           {!favoriteTeam ? (
@@ -159,16 +161,16 @@ const AppIdentityBar: React.FC<AppIdentityBarProps> = ({
       </button>
 
       <div className="flex items-center gap-2">
-        {onOpenFanPreferences ? (
+        {onOpenUpdates ? (
           <button
             type="button"
-            onClick={onOpenFanPreferences}
+            onClick={onOpenUpdates}
             className={`flex h-10 w-10 items-center justify-center rounded-2xl border transition-colors ${
-              fanPreferencesActive
+              updatesActive
                 ? "border-deepPink bg-deepPink/20 text-notWhite"
                 : "border-limeGreenOpacity/20 bg-darkPurple/70 text-lightPurple hover:bg-darkPurple"
             }`}
-            aria-label="Manage clubs and match alerts"
+            aria-label="Open updates and notification settings"
           >
             <Bell className="h-5 w-5" aria-hidden="true" />
           </button>
@@ -222,7 +224,7 @@ const AppIdentityBar: React.FC<AppIdentityBarProps> = ({
             type="button"
             onClick={onOpenProfile}
             className={`relative flex h-10 w-10 items-center justify-center overflow-hidden rounded-2xl border transition-colors ${
-              selectedTab === "profile" && !fanPreferencesActive
+              selectedTab === "profile"
                 ? "border-deepPink bg-deepPink/20 text-notWhite"
                 : canWrite
                   ? "border-limeGreenOpacity/35 bg-darkPurple/70 text-lightPurple hover:bg-darkPurple"

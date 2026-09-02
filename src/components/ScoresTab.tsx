@@ -3,9 +3,12 @@ import MatchesTab from "./MatchesTab";
 
 interface ScoresTabProps {
   onNavigate: (tab: string) => void;
+  onOpenUpdates: () => void;
+  viewerFid?: number;
+  initialView?: "all" | "following";
 }
 
-const ScoresTab: React.FC<ScoresTabProps> = ({ onNavigate }) => {
+const ScoresTab: React.FC<ScoresTabProps> = ({ onNavigate, onOpenUpdates, viewerFid, initialView = "all" }) => {
   const [league, setLeague] = useState("eng.1");
 
   return (
@@ -19,6 +22,9 @@ const ScoresTab: React.FC<ScoresTabProps> = ({ onNavigate }) => {
         league={league}
         setSelectedTab={onNavigate}
         setSelectedLeague={setLeague}
+        onOpenUpdates={onOpenUpdates}
+        viewerFid={viewerFid}
+        initialView={initialView}
       />
     </div>
   );

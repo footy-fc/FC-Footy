@@ -11,6 +11,7 @@ import dynamic from "next/dynamic";
 import { Dispatch, SetStateAction } from "react";
 import TabNavigation from "./TabNavigation";
 import AppIdentityBar from "./AppIdentityBar";
+import UpdatesSheet from "./UpdatesSheet";
 import { tabDisplayMap } from "../lib/navigation";
 import { Pingem } from 'pingem-sdk';
 import { IS_TESTING } from "../lib/config";
@@ -208,6 +209,7 @@ export default function Main() {
   const [miniAppChecked, setMiniAppChecked] = useState(false);
   const [verifiedFid, setVerifiedFid] = useState<number | null>(null);
   const [authError, setAuthError] = useState<string | null>(null);
+  const [updatesOpen, setUpdatesOpen] = useState(false);
   const effectiveSearchParams = searchParams || customSearchParams;
   const rawSelectedTab = effectiveSearchParams?.get("tab") || "home";
   const selectedTab = (() => {
@@ -419,11 +421,13 @@ export default function Main() {
 
   const handleTabChange: Dispatch<SetStateAction<string>> = (value) => {
     const newTab = typeof value === "function" ? value(selectedTab) : value;
+    setUpdatesOpen(false);
     router.push(`/?tab=${newTab}`);
   };
 
-  const handleOpenFanPreferences = () => {
-    router.push("/?tab=profile&section=clubs");
+  const handleOpenFollowing = () => {
+    setUpdatesOpen(false);
+    router.push("/?tab=scores&view=following");
   };
 
   useEffect(() => {
@@ -507,8 +511,9 @@ export default function Main() {
                 selectedTab={selectedTab}
                 onOpenProfile={() => handleTabChange("profile")}
                 onOpenAdmins={() => handleTabChange("admins")}
-                onOpenFanPreferences={handleOpenFanPreferences}
-                fanPreferencesActive={selectedTab === "profile" && effectiveSearchParams.get("section") === "clubs"}
+                onOpenFollowing={handleOpenFollowing}
+                onOpenUpdates={() => setUpdatesOpen(true)}
+                updatesActive={updatesOpen}
                 onOpenTools={() => handleTabChange("tools")}
                 isAdminFid={isAdminFid}
                 viewerFid={currentViewerFid}
@@ -520,7 +525,14 @@ export default function Main() {
               />
               <div className="rounded-[28px] bg-darkPurple p-3 text-white shadow-[0_18px_50px_rgba(0,0,0,0.28)]">
                 {selectedTab === "home" && <HomeTab onNavigate={(tab) => handleTabChange(tab)} viewerFid={currentViewerFid} />}
-                {selectedTab === "scores" && <ScoresTab onNavigate={(tab) => handleTabChange(tab)} />}
+                {selectedTab === "scores" && (
+                  <ScoresTab
+                    onNavigate={(tab) => handleTabChange(tab)}
+                    onOpenUpdates={() => setUpdatesOpen(true)}
+                    viewerFid={currentViewerFid}
+                    initialView={effectiveSearchParams.get("view") === "following" ? "following" : "all"}
+                  />
+                )}
                 {selectedTab === "highlights" && <HighlightsTab />}
                 {selectedTab === "fanClubs" && <RivalsTab />}
                 {selectedTab === "channels" && <ChannelsTab />}
@@ -532,6 +544,7 @@ export default function Main() {
                   <div className="text-center text-lg text-fontRed">Coming soon...</div>
                 )}
               </div>
+              <UpdatesSheet isOpen={updatesOpen} onClose={() => setUpdatesOpen(false)} viewerFid={currentViewerFid} />
             </>
           )}
         </div>

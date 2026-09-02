@@ -1,5 +1,4 @@
 import React from "react";
-import { useSearchParams } from "next/navigation";
 import {
   FARCASTER_BIO_MAX_BYTES,
   FARCASTER_DISPLAY_NAME_MAX_BYTES,
@@ -10,8 +9,6 @@ import {
 } from "~/lib/farcaster/profileValidation";
 import { useFootyFarcaster } from "~/lib/farcaster/useFootyFarcaster";
 import ProfileIdentityCard from "./ProfileIdentityCard";
-import FinalWhistleNewsletterPreference from "./FinalWhistleNewsletterPreference";
-import SettingsFollowClubs from "./SettingsFollowClubs";
 
 interface ProfileTabProps {
   viewerFid?: number;
@@ -54,7 +51,6 @@ const OnboardingStep: React.FC<OnboardingStepProps> = ({ label, description, sta
 );
 
 const ProfileTab: React.FC<ProfileTabProps> = ({ viewerFid }) => {
-  const searchParams = useSearchParams();
   const {
     hasFootySession,
     hasEmail,
@@ -72,7 +68,6 @@ const ProfileTab: React.FC<ProfileTabProps> = ({ viewerFid }) => {
     advanceOnboarding,
     updateManagedProfile,
     claimManagedUsername,
-    getAuthorizationHeaders,
   } = useFootyFarcaster();
   const [activeEditor, setActiveEditor] = React.useState<EditableProfileField>(null);
   const [editorName, setEditorName] = React.useState("");
@@ -81,18 +76,8 @@ const ProfileTab: React.FC<ProfileTabProps> = ({ viewerFid }) => {
   const [isSavingProfile, setIsSavingProfile] = React.useState(false);
   const [profileSaveError, setProfileSaveError] = React.useState<string | null>(null);
   const fileInputRef = React.useRef<HTMLInputElement | null>(null);
-  const clubsSectionRef = React.useRef<HTMLDivElement | null>(null);
 
   const isStandaloneFtue = runtime !== "miniapp" && !hasFarcaster;
-
-  React.useEffect(() => {
-    if (searchParams.get("section") !== "clubs" || isHydratingAccount || isStandaloneFtue) return;
-
-    const frame = window.requestAnimationFrame(() => {
-      clubsSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-    });
-    return () => window.cancelAnimationFrame(frame);
-  }, [isHydratingAccount, isStandaloneFtue, searchParams]);
 
   React.useEffect(() => {
     setEditorName(displayName || "");
@@ -387,13 +372,6 @@ const ProfileTab: React.FC<ProfileTabProps> = ({ viewerFid }) => {
         className="hidden"
       />
 
-      <div ref={clubsSectionRef} className="scroll-mt-3">
-        <SettingsFollowClubs viewerFid={viewerFid} />
-      </div>
-
-      <FinalWhistleNewsletterPreference
-        getAuthorizationHeaders={getAuthorizationHeaders}
-      />
     </div>
   );
 };
