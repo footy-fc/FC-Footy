@@ -9,6 +9,7 @@ interface PlayerData {
   label: string;
   team: number;
   teamName: string;
+  teamLogoUrl?: string;
   position: number;
 }
 
@@ -30,6 +31,7 @@ interface FPLPlayer {
 interface FPLTeam {
   id: number;
   name: string;
+  logoUrl?: string;
 }
 
 interface FPLBootstrapData {
@@ -47,32 +49,6 @@ const FPLScatterplot: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [visiblePositions, setVisiblePositions] = useState<Set<number>>(new Set([1, 2, 3, 4]));
   const [isMobile, setIsMobile] = useState(false);
-
-  // Team logo mapping
-  const teamLogoMapping: Record<string, string> = {
-    "Arsenal": "http://tjftzpjqfqnbtvodsigk.supabase.co/storage/v1/object/public/d33m_images/teams/leagues/eng.1/ars.png",
-    "Aston Villa": "http://tjftzpjqfqnbtvodsigk.supabase.co/storage/v1/object/public/d33m_images/teams/leagues/eng.1/avl.png",
-    "Bournemouth": "http://tjftzpjqfqnbtvodsigk.supabase.co/storage/v1/object/public/d33m_images/teams/leagues/eng.1/bou.png",
-    "Brentford": "https://tjftzpjqfqnbtvodsigk.supabase.co/storage/v1/object/public/d33m_images/teams/leagues/fra.1/bre.png",
-    "Brighton": "http://tjftzpjqfqnbtvodsigk.supabase.co/storage/v1/object/public/d33m_images/teams/leagues/eng.1/bha.png",
-    "Chelsea": "http://tjftzpjqfqnbtvodsigk.supabase.co/storage/v1/object/public/d33m_images/teams/leagues/eng.1/che.png",
-    "Crystal Palace": "http://tjftzpjqfqnbtvodsigk.supabase.co/storage/v1/object/public/d33m_images/teams/leagues/eng.1/cry.png",
-    "Everton": "http://tjftzpjqfqnbtvodsigk.supabase.co/storage/v1/object/public/d33m_images/teams/leagues/eng.1/eve.png",
-    "Fulham": "http://tjftzpjqfqnbtvodsigk.supabase.co/storage/v1/object/public/d33m_images/teams/leagues/eng.1/ful.png",
-    "Man Utd": "http://tjftzpjqfqnbtvodsigk.supabase.co/storage/v1/object/public/d33m_images/teams/leagues/eng.1/man.png",
-    "Newcastle": "http://tjftzpjqfqnbtvodsigk.supabase.co/storage/v1/object/public/d33m_images/teams/leagues/eng.1/new.png",
-    "Nott'm Forest": "http://tjftzpjqfqnbtvodsigk.supabase.co/storage/v1/object/public/d33m_images/teams/leagues/eng.1/nfo.png",
-    "Spurs": "http://tjftzpjqfqnbtvodsigk.supabase.co/storage/v1/object/public/d33m_images/teams/leagues/eng.1/tot.png",
-    "West Ham": "http://tjftzpjqfqnbtvodsigk.supabase.co/storage/v1/object/public/d33m_images/teams/leagues/eng.1/whu.png",
-    "Wolves": "http://tjftzpjqfqnbtvodsigk.supabase.co/storage/v1/object/public/d33m_images/teams/leagues/eng.1/wol.png",
-    "Burnley": "https://tjftzpjqfqnbtvodsigk.supabase.co/storage/v1/object/public/d33m_images/teams/leagues/eng.2/bur.png",
-    "Luton": "https://tjftzpjqfqnbtvodsigk.supabase.co/storage/v1/object/public/d33m_images/teams/leagues/eng.2/lut.png",
-    "Sheffield United": "https://tjftzpjqfqnbtvodsigk.supabase.co/storage/v1/object/public/d33m_images/teams/leagues/eng.2/shu.png",
-    "Sunderland": "https://tjftzpjqfqnbtvodsigk.supabase.co/storage/v1/object/public/d33m_images/teams/leagues/eng.2/sun.png",
-    "Leeds": "https://tjftzpjqfqnbtvodsigk.supabase.co/storage/v1/object/public/d33m_images/teams/leagues/eng.2/lee.png",
-    "Man City": "http://tjftzpjqfqnbtvodsigk.supabase.co/storage/v1/object/public/d33m_images/teams/leagues/eng.1/mnc.png",
-    "Liverpool": "https://tjftzpjqfqnbtvodsigk.supabase.co/storage/v1/object/public/d33m_images/teams/leagues/eng.1/liv.png"
-  };
 
   const positions = {
     1: { name: 'Goalkeepers', color: '#FEA282' },
@@ -277,8 +253,7 @@ const FPLScatterplot: React.FC = () => {
               try {
                 const logoElement = document.createElement('img');
                 logoElement.className = 'team-logo';
-                const teamName = player.teamName;
-                const logoUrl = teamLogoMapping[teamName];
+                const logoUrl = player.teamLogoUrl;
                 
                 if (logoUrl) {
                   logoElement.src = logoUrl;
@@ -379,6 +354,8 @@ const FPLScatterplot: React.FC = () => {
               return null;
             }
             
+            const team = bootstrapData.teams.find((team: FPLTeam) => team.id === player.team);
+
             return {
               x,
               y,
@@ -387,7 +364,8 @@ const FPLScatterplot: React.FC = () => {
                 y,
                 label: player.web_name,
                 team: player.team,
-                teamName: bootstrapData.teams.find((t: FPLTeam) => t.id === player.team)?.name || 'Unknown',
+                teamName: team?.name || 'Unknown',
+                teamLogoUrl: team?.logoUrl,
                 position: player.element_type
               }
             };

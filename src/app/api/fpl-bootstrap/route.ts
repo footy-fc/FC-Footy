@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { Redis } from '@upstash/redis';
+import { fetchEspnTeamLogos } from '~/lib/espnTeamLogos';
 
 const redis = new Redis({
   url: process.env.NEXT_PUBLIC_KV_REST_API_URL!,
@@ -9,7 +10,7 @@ const redis = new Redis({
 export async function GET() {
   try {
     const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
-    const cacheKey = `fc-footy:fpl-bootstrap:${today}`;
+    const cacheKey = `fc-footy:fpl-bootstrap:v2:${today}`;
     
     // Check if we have cached data for today
     const cachedData = await redis.get(cacheKey);
@@ -33,9 +34,18 @@ export async function GET() {
     }
 
     const data = await response.json();
+    let teams = data.teams;
+
+    try {
+      teams = await fetchEspnTeamLogos(data.teams || [], 'eng.1');
+    } catch (logoError) {
+      console.error('❌ Error fetching ESPN team logos:', logoError);
+      // The FPL data remains useful even when ESPN is temporarily unavailable.
+    }
     
     const bootstrapData = {
       ...data,
+      teams,
       fetched_at: new Date().toISOString()
     };
 
