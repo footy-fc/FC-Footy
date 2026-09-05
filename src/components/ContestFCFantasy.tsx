@@ -1,6 +1,6 @@
 /* eslint-disable react-hooks/exhaustive-deps */
-import React, { useCallback, useEffect, useState } from 'react';
-import { ChevronDown, RefreshCw, Trophy } from 'lucide-react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { RefreshCw, Trophy } from 'lucide-react';
 import FantasyRow from './ContestFantasyRow';
 import { fetchFantasyData, FantasyEntry } from './utils/fetchFantasyData';
 import FplClaimPanel from './FplClaimPanel';
@@ -19,6 +19,7 @@ const ContestFCFantasy = () => {
   const [activeClaimEntryId, setActiveClaimEntryId] = useState<number | null>(null);
   const [claimsByEntry, setClaimsByEntry] = useState<Record<string, FplClaimSummary>>({});
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  const loadMoreRef = useRef<HTMLDivElement>(null);
   const { activeFid: currentUserFid, getAuthorizationHeaders } = useFootyFarcaster();
 
   useEffect(() => {
@@ -68,6 +69,22 @@ const ContestFCFantasy = () => {
   useEffect(() => {
     void fetchData();
   }, [fetchData]);
+
+  useEffect(() => {
+    const loadMoreElement = loadMoreRef.current;
+    if (!loadMoreElement || loadingFantasy || visibleCount >= fantasyData.length) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (!entry.isIntersecting) return;
+        setVisibleCount((count) => Math.min(count + PAGE_SIZE, fantasyData.length));
+      },
+      { rootMargin: '300px 0px' },
+    );
+
+    observer.observe(loadMoreElement);
+    return () => observer.disconnect();
+  }, [fantasyData.length, loadingFantasy, visibleCount]);
 
   const handleClaimClick = (selected: FantasyEntry) => {
     setClaimEntry(selected);
@@ -130,14 +147,14 @@ const ContestFCFantasy = () => {
             </div>
 
             {visibleCount < fantasyData.length ? (
-              <button
-                type="button"
-                onClick={() => setVisibleCount((count) => Math.min(count + PAGE_SIZE, fantasyData.length))}
-                className="mt-3 flex w-full items-center justify-center gap-2 rounded-[16px] border border-lightPurple/14 bg-darkPurple/35 px-4 py-3 text-xs font-semibold text-lightPurple transition-colors hover:border-deepPink/30 hover:text-notWhite"
+              <div
+                ref={loadMoreRef}
+                className="app-micro mt-4 text-center"
+                role="status"
+                aria-live="polite"
               >
-                Show managers {visibleCount + 1}–{Math.min(visibleCount + PAGE_SIZE, fantasyData.length)}
-                <ChevronDown className="h-4 w-4" aria-hidden="true" />
-              </button>
+                Loading more managers…
+              </div>
             ) : (
               <p className="app-micro mt-4 text-center">All {fantasyData.length} managers shown</p>
             )}
