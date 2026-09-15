@@ -225,8 +225,8 @@ const MatchEventCard: React.FC<EventCardProps> = ({ event, sportId, isOpen: isOp
   // Extract match info from event data using utilities
   const competitorsLong = event.name;
   
-  const eventStarted = new Date() >= new Date(event.date);
-  const clock = `${event.status.displayClock || ''} ${event.status.type.detail || ''}`.trim() || '00:00';
+  const eventStarted = event.status.type.state === 'in' || event.status.type.state === 'post' || Boolean(event.status.type.completed);
+  const clock = event.status.type.detail || event.status.displayClock || '00:00';
   const eventCompleted = event.status.type.completed || event.status.type.state === 'post';
 
   // Use match data utilities for consistent processing
@@ -240,7 +240,7 @@ const MatchEventCard: React.FC<EventCardProps> = ({ event, sportId, isOpen: isOp
   const awayTeamLogo = event.competitions[0]?.competitors[1]?.team.logo;
 
   const keyMoments: KeyMoment[] = event.competitions[0]?.details
-    ?.sort((a: Detail, b: Detail) => {
+    ?.slice().sort((a: Detail, b: Detail) => {
       const timeA = a.clock.displayValue || "00:00";
       const timeB = b.clock.displayValue || "00:00";
       const secondsA = timeA.split(":").reduce((min, sec) => min * 60 + parseInt(sec, 10), 0);

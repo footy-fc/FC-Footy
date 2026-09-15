@@ -1,6 +1,7 @@
 /* eslint-disable */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import sportsData from './sportsData';  // Import the sportsData array
+import { fetchScoreboardEvents, type EventDateWindow } from '~/lib/scoreboard';
 
 interface Event {
   links: any;
@@ -54,37 +55,8 @@ interface Detail {
   };
 }
 
-interface EventDateWindow {
-  pastDays: number;
-  futureDays: number;
-}
-
 const LIVE_SCOREBOARD_REFRESH_MS = 20000;
 const DUE_PREMATCH_REFRESH_MS = 60000;
-
-function formatEspnDate(date: Date) {
-  return [
-    date.getUTCFullYear(),
-    `${date.getUTCMonth() + 1}`.padStart(2, '0'),
-    `${date.getUTCDate()}`.padStart(2, '0'),
-  ].join('');
-}
-
-function getScoreboardUrl(baseUrl: string, dateWindow?: EventDateWindow) {
-  if (!dateWindow) {
-    return baseUrl;
-  }
-
-  const now = new Date();
-  const start = new Date(now);
-  const end = new Date(now);
-  start.setUTCDate(start.getUTCDate() - dateWindow.pastDays);
-  end.setUTCDate(end.getUTCDate() + dateWindow.futureDays);
-
-  const url = new URL(baseUrl);
-  url.searchParams.set('dates', `${formatEspnDate(start)}-${formatEspnDate(end)}`);
-  return url.toString();
-}
 
 function getEventStatusState(event: Event) {
   return event.competitions?.[0]?.status?.type?.state || event.status?.type?.state || null;
@@ -122,10 +94,10 @@ function useEventsData(selectedSport: string, dateWindow?: EventDateWindow) {
   const [events, setEvents] = useState<Event[]>([]); // Use the Event type
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const isFetchingRef = useRef(false);
+  const requestRef = useRef<AbortController | null>(null);
 
   const fetchEventsData = useCallback(async (showLoading = false) => {
-    if (isFetchingRef.current) {
+    if (requestRef.current) {
       return;
     }
 
@@ -135,7 +107,8 @@ function useEventsData(selectedSport: string, dateWindow?: EventDateWindow) {
       return;
     }
 
-    isFetchingRef.current = true;
+    const controller = new AbortController();
+    requestRef.current = controller;
     if (showLoading) {
       setLoading(true);
     }
@@ -148,39 +121,44 @@ function useEventsData(selectedSport: string, dateWindow?: EventDateWindow) {
         throw new Error("Invalid sport selected");
       }
   
-      const response = await fetch(getScoreboardUrl(sport.url, dateWindow), { cache: 'no-store' });
-      if (!response.ok) {
-        throw new Error(`Failed to fetch data for ${sport.name}`);
-      }
-  
-      // ✅ FIX: Call response.json() only once and store it in a variable
-      const data = await response.json();
-      // console.log("✅ Response received:", data); // Log the parsed data, not response.json()
-      
-      setEvents(data.events || []);
+      const nextEvents = await fetchScoreboardEvents<Event>(sport.url, dateWindow, {
+        signal: controller.signal,
+      });
+      if (!controller.signal.aborted) setEvents(nextEvents);
     } catch (error) {
+      if (controller.signal.aborted) return;
       if (showLoading) {
         setError('Failed to load events data');
       }
       console.error(error);
     } finally {
-      isFetchingRef.current = false;
-      if (showLoading) {
+      if (requestRef.current === controller) requestRef.current = null;
+      if (showLoading && !controller.signal.aborted) {
         setLoading(false);
       }
     }
   }, [dateWindow?.futureDays, dateWindow?.pastDays, selectedSport]);
 
   useEffect(() => {
-    if (selectedSport) {
-      fetchEventsData(true);
-    }
-  }, [selectedSport, fetchEventsData]);  // Dependency array includes selectedSport
+    setEvents([]);
+    void fetchEventsData(true);
+    const refreshOnReturn = () => {
+      if (document.visibilityState !== 'hidden') void fetchEventsData(false);
+    };
+    document.addEventListener('visibilitychange', refreshOnReturn);
+    window.addEventListener('focus', refreshOnReturn);
+    return () => {
+      requestRef.current?.abort();
+      requestRef.current = null;
+      document.removeEventListener('visibilitychange', refreshOnReturn);
+      window.removeEventListener('focus', refreshOnReturn);
+    };
+  }, [fetchEventsData]);
 
   const liveEventCount = useMemo(() => events.filter(isEventLive).length, [events]);
 
   useEffect(() => {
-    if (!selectedSport || events.length === 0) {
+    if (!selectedSport) {
       return;
     }
 
@@ -195,19 +173,16 @@ function useEventsData(selectedSport: string, dateWindow?: EventDateWindow) {
       return () => window.clearInterval(interval);
     }
 
-    const nextUnstartedEventDelay = getNextUnstartedEventDelay(events);
-    if (nextUnstartedEventDelay == null) {
-      return;
-    }
-
-    const timeout = window.setTimeout(() => {
-      if (document.visibilityState === 'hidden') {
-        return;
-      }
-
-      fetchEventsData(false);
-    }, nextUnstartedEventDelay);
-    return () => window.clearTimeout(timeout);
+    // Keep retrying after a failed refresh or a timer firing while hidden.
+    // Cap the delay so a date window also rolls forward on long-lived tabs.
+    const delay = Math.min(
+      getNextUnstartedEventDelay(events) ?? DUE_PREMATCH_REFRESH_MS,
+      DUE_PREMATCH_REFRESH_MS,
+    );
+    const interval = window.setInterval(() => {
+      if (document.visibilityState !== 'hidden') void fetchEventsData(false);
+    }, delay);
+    return () => window.clearInterval(interval);
   }, [events, fetchEventsData, liveEventCount, selectedSport]);
 
   return { events, loading, error, liveEventCount };
