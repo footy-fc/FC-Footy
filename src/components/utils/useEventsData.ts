@@ -112,7 +112,7 @@ function useEventsData(selectedSport: string, dateWindow?: EventDateWindow) {
     if (showLoading) {
       setLoading(true);
     }
-    setError(null);
+    if (showLoading) setError(null);
     // console.log("Fetching events data for selected sport:", selectedSport);
     
     try {
@@ -124,7 +124,10 @@ function useEventsData(selectedSport: string, dateWindow?: EventDateWindow) {
       const nextEvents = await fetchScoreboardEvents<Event>(sport.url, dateWindow, {
         signal: controller.signal,
       });
-      if (!controller.signal.aborted) setEvents(nextEvents);
+      if (!controller.signal.aborted) {
+        setEvents(nextEvents);
+        setError(null);
+      }
     } catch (error) {
       if (controller.signal.aborted) return;
       if (showLoading) {

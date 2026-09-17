@@ -65,3 +65,47 @@ test('zero past-day window does not add yesterday and handles year boundaries', 
   });
   assert.deepEqual(dates, ['20261231-20270107', '20261231']);
 });
+
+test('400 range response falls back to every single day without duplicate overlay requests', async () => {
+  const requests: string[] = [];
+  const live = event('live', 'in', '2', ['Goal']);
+  const recent = event('recent', 'post', '3');
+  const upcoming = event('upcoming', 'pre');
+  const fetcher: typeof fetch = async input => {
+    const dates = new URL(String(input)).searchParams.get('dates')!;
+    requests.push(dates);
+    if (dates.includes('-')) return Response.json({ message: 'Failed to get events endpoint.' }, { status: 400 });
+    return Response.json({ events: dates === '20260917' ? [live]
+      : dates === '20260910' ? [recent] : dates === '20260924' ? [upcoming] : [] });
+  };
+  const result = await fetchScoreboardEvents(base, { pastDays: 7, futureDays: 7 }, {
+    now: new Date('2026-09-17T01:00:00Z'), fetcher,
+  });
+  assert.deepEqual(result, [recent, live, upcoming]);
+  assert.equal(requests[0], '20260910-20260924');
+  assert.equal(requests.length, 16);
+  assert.equal(new Set(requests).size, 16);
+});
+
+test('failed daily fallback rejects instead of publishing an incomplete fixture window', async () => {
+  const fetcher: typeof fetch = async input => {
+    const dates = new URL(String(input)).searchParams.get('dates')!;
+    return dates.includes('-') || dates === '20260910'
+      ? new Response(null, { status: 400 }) : Response.json({ events: [] });
+  };
+  await assert.rejects(fetchScoreboardEvents(base, { pastDays: 7, futureDays: 7 }, { now, fetcher }), /400/);
+});
+
+test('cancelled range requests do not launch daily fallback requests', async () => {
+  const controller = new AbortController();
+  let requests = 0;
+  const fetcher: typeof fetch = async () => {
+    requests++;
+    controller.abort();
+    throw new DOMException('Aborted', 'AbortError');
+  };
+  await assert.rejects(fetchScoreboardEvents(base, { pastDays: 7, futureDays: 7 }, {
+    now, fetcher, signal: controller.signal,
+  }), /Aborted/);
+  assert.equal(requests, 3);
+});

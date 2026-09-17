@@ -41,9 +41,39 @@ export async function fetchScoreboardEvents<T extends { id: string }>(
   });
   // Yesterday also covers games crossing UTC midnight and their final results.
   // Fail the refresh if daily data fails; never replace live data with the stale range.
+  // Share daily requests between the live overlay and a range fallback.
+  const dailyRequests = new Map<string, Promise<T[]>>();
+  const readDay = (day: string) => {
+    let request = dailyRequests.get(day);
+    if (!request) {
+      request = read(urlForDates(day));
+      dailyRequests.set(day, request);
+    }
+    return request;
+  };
+  const readRange = async () => {
+    try {
+      return await read(urlForDates(`${formatEspnDate(start)}-${formatEspnDate(end)}`));
+    } catch (error) {
+      if (signal?.aborted) throw error;
+      // Some ESPN leagues reject all date ranges with HTTP 400, even though
+      // the same dates work individually. Retain the entire fixture window.
+      const days: string[] = [];
+      for (const day = new Date(start); day <= end; day.setUTCDate(day.getUTCDate() + 1)) {
+        days.push(formatEspnDate(day));
+      }
+      const events: T[] = [];
+      // Bound fallback concurrency instead of issuing a request per day at once.
+      for (let index = 0; index < days.length; index += 4) {
+        if (signal?.aborted) throw error;
+        events.push(...(await Promise.all(days.slice(index, index + 4).map(readDay))).flat());
+      }
+      return events;
+    }
+  };
   const [range, ...daily] = await Promise.all([
-    read(urlForDates(`${formatEspnDate(start)}-${formatEspnDate(end)}`)),
-    ...dailyDates.map(day => read(urlForDates(day))),
+    readRange(),
+    ...dailyDates.map(readDay),
   ]);
   const events = new Map(range.map(event => [event.id, event]));
   for (const event of daily.flat()) events.set(event.id, event);
