@@ -4,6 +4,7 @@ import Image from 'next/image';
 // import Link from 'next/link';
 // import RefereeIcon from '../components/ui/RefereeIcon';
 import FantasyImpactCompact from './FantasyImpactCompact';
+import MatchLineups from './MatchLineups';
 import { WarpcastShareButton } from './ui/WarpcastShareButton';
 import { fetchTeamLogos } from './utils/fetchTeamLogos';
 //import { GET_SS_GAMES } from '../lib/graphql/queries';
@@ -77,6 +78,7 @@ interface EventCardProps {
   };
   isOpen?: boolean;
   onToggle?: () => void;
+  viewerFid?: number;
 }
 
 interface SelectedMatch {
@@ -109,7 +111,7 @@ interface Team {
 }
 
 // Types for formatted FPL picks enrichment
-const MatchEventCard: React.FC<EventCardProps> = ({ event, sportId, isOpen: isOpenProp = false, onToggle }) => {
+const MatchEventCard: React.FC<EventCardProps> = ({ event, sportId, isOpen: isOpenProp = false, onToggle, viewerFid }) => {
   const [selectedMatch, setSelectedMatch] = useState<SelectedMatch | null>(null);
   // Local open state for uncontrolled usage (when onToggle/isOpen not provided)
   const [localOpen, setLocalOpen] = useState<boolean>(false);
@@ -153,8 +155,8 @@ const MatchEventCard: React.FC<EventCardProps> = ({ event, sportId, isOpen: isOp
   useEffect(() => {
     const checkFantasyLeague = async () => {
       try {
-        const context = await sdk.context;
-        const fid = context?.user?.fid;
+        const context = viewerFid ? null : await sdk.context;
+        const fid = viewerFid ?? context?.user?.fid;
         
         if (fid) {
           // setUserFid(fid); // Removed as per edit hint
@@ -205,7 +207,7 @@ const MatchEventCard: React.FC<EventCardProps> = ({ event, sportId, isOpen: isOp
     if (sportId === 'eng.1') {
       checkFantasyLeague();
     }
-  }, [sportId, selectedMatch]);
+  }, [sportId, selectedMatch, viewerFid]);
 
    // useEffect(() => {
    //   const fetchPrice = async () => {
@@ -428,6 +430,8 @@ const MatchEventCard: React.FC<EventCardProps> = ({ event, sportId, isOpen: isOp
               </div>
             </>
           )}
+
+          {sportId === 'eng.1' && selectedMatch.espnEventId ? <MatchLineups eventId={selectedMatch.espnEventId} league={sportId} picks={relevantPicks} /> : null}
           
           {/* Fantasy Impact Section - Only show for Premier League matches with relevant players that have started */}
           {sportId === 'eng.1' && isInFantasyLeague === true && hasRelevantPlayers === true && relevantPicks.length > 0 && selectedMatch.eventStarted && (

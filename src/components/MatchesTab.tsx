@@ -143,6 +143,7 @@ const MatchesTab: React.FC<MatchesTabProps> = ({ league, setSelectedLeague, onOp
         key={event.id}
         event={event}
         sportId={league}
+        viewerFid={viewerFid}
         isOpen={openCardId === event.id}
         onToggle={() => handleCardToggle(event.id)}
       />
