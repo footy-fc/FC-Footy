@@ -431,7 +431,7 @@ const MatchEventCard: React.FC<EventCardProps> = ({ event, sportId, isOpen: isOp
             </>
           )}
 
-          {sportId === 'eng.1' && selectedMatch.espnEventId ? <MatchLineups eventId={selectedMatch.espnEventId} league={sportId} picks={relevantPicks} /> : null}
+          {selectedMatch.espnEventId ? <MatchLineups eventId={selectedMatch.espnEventId} league={sportId} picks={relevantPicks} moments={keyMoments} /> : null}
           
           {/* Fantasy Impact Section - Only show for Premier League matches with relevant players that have started */}
           {sportId === 'eng.1' && isInFantasyLeague === true && hasRelevantPlayers === true && relevantPicks.length > 0 && selectedMatch.eventStarted && (
