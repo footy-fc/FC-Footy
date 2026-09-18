@@ -40,10 +40,9 @@ function getUpcomingScoreboardUrl(baseUrl: string) {
   return url.toString();
 }
 
-function getLocalMatchDay(date: string) {
-  const matchDay = new Date(date);
-  matchDay.setHours(0, 0, 0, 0);
-  return matchDay.getTime();
+function getKickoffTime(date: string) {
+  const kickoff = new Date(date).getTime();
+  return Number.isFinite(kickoff) ? kickoff : Infinity;
 }
 
 const useSortedSportsData = () => {
@@ -72,15 +71,15 @@ const useSortedSportsData = () => {
                 (event) => event.status.type.state === "in"
               );
 
-              // Compare calendar match days, not kickoff times, so competitions
-              // playing on the same day fall back to alphabetical order.
+              // Use the actual kickoff so the first competition to play is easy
+              // to find, even when several competitions play on the same day.
               const upcomingEvents = events.filter(
                 (event) => event.status.type.state === "pre"
               );
-              const nextMatchDay = upcomingEvents.length
+              const nextKickoff = upcomingEvents.length
                 ? Math.min(
                     ...upcomingEvents.map((event) =>
-                      getLocalMatchDay(event.date)
+                      getKickoffTime(event.date)
                     )
                   )
                 : Infinity;
@@ -88,11 +87,11 @@ const useSortedSportsData = () => {
               return {
                 sport,
                 hasLive,
-                nextMatchDay,
+                nextKickoff,
               };
             } catch (error) {
               console.error(`Error fetching ${sport.name}:`, error);
-              return { sport, hasLive: false, nextMatchDay: Infinity };
+              return { sport, hasLive: false, nextKickoff: Infinity };
             }
           })
         );
@@ -104,8 +103,8 @@ const useSortedSportsData = () => {
           if (!a.hasLive && b.hasLive) return 1;
 
           // Priority 2: Earliest upcoming match day
-          if (a.nextMatchDay !== b.nextMatchDay) {
-            return a.nextMatchDay - b.nextMatchDay;
+          if (a.nextKickoff !== b.nextKickoff) {
+            return a.nextKickoff - b.nextKickoff;
           }
 
           // Priority 3: Alphabetical by name (fallback)
