@@ -1,18 +1,17 @@
 import React from "react";
 import { ChevronDown, Users } from "lucide-react";
 
-interface Pick { is_captain?: boolean; player?: { web_name?: string; name?: string } | null }
+interface Pick { element: number; is_captain?: boolean; player?: { web_name?: string; name?: string } | null }
 interface Athlete { displayName?: string; shortName?: string }
 interface Player { athlete?: Athlete; starter?: boolean; subbedIn?: boolean }
 interface Roster { homeAway?: "home" | "away"; team?: { displayName?: string; abbreviation?: string; id?: string }; roster?: Player[] }
 interface Moment { playerName: string; action: string; times: string[] }
 
 const clean = (value: string) => value.toLowerCase().replace(/[^a-z0-9]/g, "");
-const iconFor = (action: string) => action.includes("Goal") ? "⚽" : action.includes("Assist") ? "🅰" : action.includes("Yellow") ? "🟨" : action.includes("Red") ? "🟥" : action.includes("Sub") ? "↔" : "•";
-
 export default function MatchLineups({ eventId, league, picks, moments }: { eventId: string; league: string; picks: Pick[]; moments: Moment[] }) {
   const [rosters, setRosters] = React.useState<Roster[]>([]);
   const [visible, setVisible] = React.useState(false);
+  const [livePoints, setLivePoints] = React.useState<Record<string, number>>({});
 
   React.useEffect(() => {
     let cancelled = false;
@@ -23,6 +22,15 @@ export default function MatchLineups({ eventId, league, picks, moments }: { even
     return () => { cancelled = true; };
   }, [eventId, league]);
 
+  React.useEffect(() => {
+    if (!visible || rosters.length === 0) return;
+    const names = rosters.flatMap((roster) => (roster.roster ?? []).map((player) => player.athlete?.displayName ?? player.athlete?.shortName).filter(Boolean));
+    fetch(`/api/fpl-live-points?names=${names.map((name) => encodeURIComponent(name!)).join("|")}`)
+      .then((response) => response.ok ? response.json() : Promise.reject())
+      .then((data) => setLivePoints(data.byName ?? {}))
+      .catch(() => setLivePoints({}));
+  }, [picks, rosters, visible]);
+
   const renderRoster = (roster: Roster) => {
     const players = roster.roster ?? [];
     const starters = players.filter((player) => player.starter !== false && !player.subbedIn);
@@ -31,7 +39,8 @@ export default function MatchLineups({ eventId, league, picks, moments }: { even
       const name = player.athlete?.displayName ?? player.athlete?.shortName ?? "Unknown player";
       const pick = picks.find((item) => item.player && [item.player.web_name, item.player.name].filter(Boolean).some((value) => clean(value!) === clean(name) || clean(name).includes(clean(value!))));
       const playerMoments = moments.filter((moment) => clean(moment.playerName) === clean(name) || clean(name).includes(clean(moment.playerName)));
-      return <div key={`${name}-${index}`} className={`rounded-lg px-2 py-1.5 text-xs ${pick ? "bg-limeGreenOpacity/15 text-notWhite ring-1 ring-limeGreenOpacity/40" : "text-lightPurple"}`}><div className="flex items-center justify-between gap-2"><span className="truncate">{name}</span><span className="flex shrink-0 items-center gap-1">{pick ? <span className="font-bold text-limeGreenOpacity">FPL{pick.is_captain ? " · C" : ""}</span> : null}{playerMoments.map((moment, momentIndex) => <span key={momentIndex} title={`${moment.action} ${moment.times.join(", ")}`}>{iconFor(moment.action)}</span>)}</span></div></div>;
+      const points = livePoints[clean(name)];
+      return <div key={`${name}-${index}`} className={`rounded-lg px-2 py-1.5 text-xs ${pick ? "bg-limeGreenOpacity/15 text-notWhite ring-1 ring-limeGreenOpacity/40" : "text-lightPurple"}`}><div className="flex items-center justify-between gap-2"><span className="truncate">{name}</span><span className="shrink-0 font-bold text-lightPurple" title="Live FPL points">{points ?? "—"} pts{pick?.is_captain ? " · C×2" : ""}</span></div>{playerMoments.length > 0 ? <div className="mt-0.5 truncate text-[10px] text-lightPurple/60">{playerMoments.map((moment) => `${moment.action} ${moment.times.join(", ")}`).join(" · ")}</div> : null}</div>;
     };
     return <div key={roster.homeAway ?? roster.team?.id} className="min-w-0 rounded-xl border border-lightPurple/10 bg-black/10 p-2"><div className="mb-1 flex justify-between gap-2 text-xs font-semibold text-notWhite"><span className="truncate">{roster.team?.displayName ?? roster.team?.abbreviation}</span><span className="shrink-0 text-[10px] text-lightPurple/60">{starters.length} starters</span></div><div className="space-y-1">{starters.map(renderPlayer)}</div>{bench.length > 0 ? <><div className="mb-1 mt-3 text-[10px] font-semibold uppercase tracking-wide text-lightPurple/50">Bench</div><div className="space-y-1">{bench.map(renderPlayer)}</div></> : null}</div>;
   };
