@@ -5,6 +5,8 @@ import {
   storeManagerPicks, 
   ManagerPicksData 
 } from '~/lib/kvPicksStorage';
+import { getClaimByFid, getClaimSeason } from '~/lib/fplClaimServer';
+import { resolveClaimedEntryId } from '~/lib/fplManagerIdentity';
 
 const redis = new Redis({
   url: process.env.NEXT_PUBLIC_KV_REST_API_URL!,
@@ -19,7 +21,9 @@ const corsHeaders = {
 
 const responseHeaders = {
   ...corsHeaders,
-  'Cache-Control': 'public, max-age=300, s-maxage=300, stale-while-revalidate=86400',
+  // The FID route is backed by a mutable attestation. Never let an old
+  // FID-to-entry response survive a claim change in an HTTP/CDN cache.
+  'Cache-Control': 'no-store',
 };
 
 function jsonResponse(body: unknown, status = 200) {
@@ -216,25 +220,14 @@ async function getBootstrapData(): Promise<BootstrapData> {
   throw new Error(`No available gameweek found for entry ${entryId}`);
 } */
 
-interface FantasyManagerLookup {
-  entry_id: number;
-  fid: number;
-  team_name: string;
-}
-
-// Function to look up entry ID from FID using fantasy managers lookup
+// Resolve only the manager's active attested team. The old static lookup is a
+// historical snapshot and can point at a previous FPL entry for the same FID.
 async function getEntryIdFromFid(fid: number): Promise<number | null> {
   try {
-    // Import the lookup data directly from the JSON file
-    const fantasyManagersLookup = await import('../../../data/fantasy-managers-lookup.json');
-    const managers = Array.isArray(fantasyManagersLookup.default) 
-      ? fantasyManagersLookup.default 
-      : fantasyManagersLookup;
-    
-    const manager = (managers as FantasyManagerLookup[]).find((m) => m.fid === fid);
-    return manager ? manager.entry_id : null;
+    const claim = await getClaimByFid(getClaimSeason(), fid);
+    return resolveClaimedEntryId(claim);
   } catch (error) {
-    console.error('Error looking up entry ID from FID:', error);
+    console.error('Error looking up claimed entry ID from FID:', error);
     return null;
   }
 }
@@ -265,7 +258,7 @@ export async function GET(request: NextRequest) {
         const resolvedEntryId = await getEntryIdFromFid(fidNum);
         if (!resolvedEntryId) {
           return jsonResponse(
-            { error: `No manager found for FID ${fidNum}` },
+            { error: `No active FPL team claim found for FID ${fidNum}` },
             404
           );
         }
