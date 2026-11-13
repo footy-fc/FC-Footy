@@ -1,7 +1,7 @@
 import { Message, makeMessageHash } from '@farcaster/hub-web';
 
 const FARCASTER_SUBMIT_TIMEOUT_MS = 30000;
-const DEFAULT_FARCASTER_HTTP_API_URL = 'http://154.16.171.247';
+const DEFAULT_FARCASTER_HTTP_API_URL = 'https://hypersnap.castrater.xyz';
 
 function isByteObject(value: unknown): value is Record<string, number> {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {

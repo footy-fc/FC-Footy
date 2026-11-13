@@ -13,7 +13,7 @@ type UsernameClaimPayload = {
 };
 
 const DEFAULT_FNAME_REGISTRY_URL = 'https://fnames.farcaster.xyz';
-const DEFAULT_HUB_HTTP_URL = 'http://154.16.171.247';
+const DEFAULT_HUB_HTTP_URL = 'https://hypersnap.castrater.xyz';
 
 function getFnameRegistryUrl() {
   return (process.env.FARCASTER_FNAME_REGISTRY_URL || DEFAULT_FNAME_REGISTRY_URL).replace(/\/+$/, '');

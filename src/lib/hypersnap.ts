@@ -1,4 +1,4 @@
-const DEFAULT_FARCASTER_HTTP_API_URL = 'http://154.16.171.247';
+const DEFAULT_FARCASTER_HTTP_API_URL = 'https://hypersnap.castrater.xyz';
 
 function trimTrailingSlash(value: string) {
   return value.replace(/\/+$/, '');

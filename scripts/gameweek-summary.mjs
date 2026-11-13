@@ -138,7 +138,7 @@ async function fetchFPLLeagueData(leagueId = 143466) {
 /**
  * Fetch username from HyperSnap by FID
  */
-const FARCASTER_HTTP_API_URL = process.env.NEXT_PUBLIC_FARCASTER_HTTP_API_URL || 'http://154.16.171.247';
+const FARCASTER_HTTP_API_URL = process.env.NEXT_PUBLIC_FARCASTER_HTTP_API_URL || 'https://hypersnap.castrater.xyz';
 
 async function fetchUsernameByFid(fid) {
   try {

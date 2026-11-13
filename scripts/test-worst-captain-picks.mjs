@@ -6,7 +6,7 @@
  */
 
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
-const FARCASTER_HTTP_API_URL = process.env.NEXT_PUBLIC_FARCASTER_HTTP_API_URL || 'http://154.16.171.247';
+const FARCASTER_HTTP_API_URL = process.env.NEXT_PUBLIC_FARCASTER_HTTP_API_URL || 'https://hypersnap.castrater.xyz';
 
 // Function to fetch Farcaster username by FID
 async function fetchFanUserData(fanFid) {
