@@ -1,195 +1,34 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
-/* eslint-disable @typescript-eslint/no-explicit-any */
-import { NextRequest, NextResponse } from "next/server";
-import { Redis } from "@upstash/redis";
-import axios from "axios";
-import { sendFrameNotification } from "~/lib/notifications";
-import { sendFrameNotificationsBatch } from "~/lib/notificationsBatch";
-import { getFansForTeams } from "~/lib/kvPerferences";
-import { scanKeys } from "../../lib/redisScan";
-import { fetchJSONWithRetry, errorAsOk, okJson } from "../../lib/http";
-
-// Ensure that your environment variables are correctly set.
-// Consider renaming them if they are meant for server-only usage.
-const redis = new Redis({
-  url: process.env.NEXT_PUBLIC_KV_REST_API_URL,
-  token: process.env.NEXT_PUBLIC_KV_REST_API_TOKEN,
-});
-
-export async function POST(request: NextRequest) {
-  // ESPN Scoreboard endpoint for laliga
-  const scoreboardUrl =
-    "https://site.web.api.espn.com/apis/site/v2/sports/soccer/ger.1/scoreboard";
-
-  let liveEvents;
-  const leagueId = "ger.1";
-  try {
-    const data = await fetchJSONWithRetry<any>(scoreboardUrl, {
-      retries: 3,
-      timeoutMs: 8000,
-      backoffMs: 600,
-    });
-    if (!data.events) {
-      throw new Error("No events data returned from API");
-    }
-    // Filter events for live matches (state === "in")
-    liveEvents = data.events.filter(
-      (event: any) =>
-        event.competitions?.[0]?.status?.type?.state === "in"
-    );
-    console.log(`Found ${liveEvents.length} live event(s).`);
-  } catch (error) {
-    console.error("Error fetching scoreboard:", error);
-    return errorAsOk("Failed to fetch scoreboard", { league: "bundesliga" });
-  }
-
-  const goalNotifications: string[] = [];
-
-  // Loop through each live event
-  for (const event of liveEvents) {
-    const matchId = event.id;
-    const competition = event.competitions?.[0];
-    if (!competition) {
-      console.warn(`No competition data for match ${matchId}. Skipping.`);
-      continue;
-    }
-
-    // Extract home and away teams
-    const homeTeam = competition.competitors?.find(
-      (c: any) => c.homeAway === "home"
-    );
-    const awayTeam = competition.competitors?.find(
-      (c: any) => c.homeAway === "away"
-    );
-    if (!homeTeam || !awayTeam) {
-      console.warn(`Missing team data for match ${matchId}. Skipping.`);
-      continue;
-    }
-    const homeScore = parseInt(homeTeam.score, 10);
-    const awayScore = parseInt(awayTeam.score, 10);
-
-    // Fetch previous scores from Redis
-    let previousScore;
-    try {
-      previousScore = await redis.hgetall(`fc-footy:ger:match:${matchId}`);
-    } catch (err) {
-      console.error(`Error fetching Redis data for match ${matchId}`, err);
-      continue;
-    }
-
-    // Initialize match in Redis if not found
-    if (!previousScore || Object.keys(previousScore).length === 0) {
-      console.log(
-        `Initializing Redis for match ${matchId} with scores: ${homeScore}-${awayScore}`
-      );
-      await redis.hset(`fc-footy:ger:match:${matchId}`, { homeScore, awayScore });
-      continue; // Skip notification on first data record
-    }
-
-    // If scores have not changed, skip notification
-    if (
-      Number(previousScore.homeScore) === homeScore &&
-      Number(previousScore.awayScore) === awayScore
-    ) {
-      continue;
-    }
-
-    // Extract goal details if available
-    let scoringPlayer = "Baller";
-    let clockTime = "00:00";
-    if (competition.details && Array.isArray(competition.details)) {
-      // Sort details by clock time (converted to seconds)
-      const keyMoments = competition.details.sort((a: any, b: any) => {
-        const timeA = a.clock?.displayValue || "00:00";
-        const timeB = b.clock?.displayValue || "00:00";
-        const secondsA = timeA
-          .split(":")
-          .reduce(
-            (acc: number, val: string) => acc * 60 + parseInt(val, 10),
-            0
-          );
-        const secondsB = timeB
-          .split(":")
-          .reduce(
-            (acc: number, val: string) => acc * 60 + parseInt(val, 10),
-            0
-          );
-        return secondsA - secondsB;
-      });
-      if (keyMoments.length > 0) {
-        const latestMoment = keyMoments[keyMoments.length - 1];
-        scoringPlayer =
-          latestMoment.athletesInvolved?.[0]?.displayName || scoringPlayer;
-        clockTime = latestMoment.clock?.displayValue || clockTime;
-      }
-    } else {
-      console.warn(`No detailed moments found for match ${matchId}.`);
-    }
-
-    // Create a notification message
-    const message = `${
-      homeTeam.team?.shortDisplayName || homeTeam.team?.displayName
-    } ${homeScore} - ${awayScore} ${
-      awayTeam.team?.shortDisplayName || awayTeam.team?.displayName
-    } | ${scoringPlayer} scored at ${clockTime}`;
-    goalNotifications.push(message);
-    console.log(`Goal detected in match ${matchId}: ${message}`);
-
-    // Fetch fans for both teams
-    let homeFans: number[] = [];
-    let awayFans: number[] = [];
-    const homeTeamId =  `${leagueId}-${homeTeam.team?.abbreviation}`;
-    const awayTeamId =  `${leagueId}-${awayTeam.team?.abbreviation}`;
-
-    console.log(`Fetching fans for teams: ${homeTeamId}, ${awayTeamId}`);
-
-    try {
-      homeFans = await getFansForTeams([(homeTeamId).toLowerCase()]);
-      awayFans = await getFansForTeams([(awayTeamId).toLowerCase()]);
-      console.log(homeFans, awayFans);
-    } catch (err) {
-      console.error(`Error fetching fans for match ${matchId}`, err);
-    }
-    const uniqueFansToNotify = new Set([...homeFans, ...awayFans]);
-
-    // Use users index set instead of scanning keys
-    let userFids: (number | string)[] = [];
-    try {
-      userFids = await (redis as any).smembers("fc-footy:users");
-    } catch (err) {
-      console.error("Error reading users set from Redis", err);
-    }
-    const userSet = new Set<number>(
-      (Array.isArray(userFids) ? userFids : []).map((v) => (typeof v === 'string' ? Number(v) : (v as number)))
-        .filter((n) => Number.isFinite(n)) as number[]
-    );
-    const fidsToNotify = userSet.size > 0
-      ? Array.from(uniqueFansToNotify).filter((fid) => userSet.has(fid))
-      : Array.from(uniqueFansToNotify);
-    console.log(`Notifying ${fidsToNotify.length} fans for match ${matchId}`);
-
-    await sendFrameNotificationsBatch({
-      fids: fidsToNotify,
-      title: "Goal! Goal! Goal!",
-      body: message,
-    });
-
-    // Update Redis with the new scores after sending notifications
-    try {
-      await redis.hset(`fc-footy:ger:match:${matchId}`, { homeScore, awayScore });
-    } catch (err) {
-      console.error(`Failed to persist scores for ${matchId}`, err);
-    }
-  }
-
-  return okJson({
-    success: true,
-    notificationsSent: goalNotifications.length,
-    goalNotifications,
-  });
-}
+// Thin wrapper kept for manual triggers and rollback. The shared runner
+// in ../lib/runLeague.ts implements this league; scheduled polling now
+// goes through the fixture-gated dispatcher at
+// /api/goal-notification/dispatch, so this route is no longer cronned.
+import { NextRequest } from "next/server";
+import { runLeague } from "../lib/runLeague";
+import { LEAGUES } from "../lib/leagues";
+import { errorAsOk, okJson } from "../../lib/http";
 
 export const runtime = "edge";
+
+export async function POST(_request: NextRequest) {
+  const league = LEAGUES.find((l) => l.id === "bund");
+  if (!league) {
+    return errorAsOk("Unknown league", { league: "bund" });
+  }
+  const result = await runLeague(league);
+  if (!result.success) {
+    return errorAsOk("Failed to fetch scoreboard", {
+      league: league.errorLeague,
+    });
+  }
+  return okJson({
+    success: true,
+    notificationsSent: result.notificationsSent,
+    goalNotifications: result.goalNotifications,
+    ...(league.mode === "full"
+      ? { otherNotifications: result.otherNotifications }
+      : {}),
+  });
+}
 
 export async function GET(request: NextRequest) {
   return POST(request);

@@ -1,31 +1,18 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { Redis } from "@upstash/redis";
-import { fetchJSONWithRetry, okJson } from "../../lib/http";
+import { okJson } from "../../lib/http";
+import { LEAGUES } from "../lib/leagues";
 
+// Health now reads the poll summaries the dispatcher writes to Redis
+// (`fc-footy:health:poll:<league>`, one per league per poll) instead of
+// re-fetching all 11 ESPN scoreboards itself. The old version was the
+// single most expensive cron in the app: every 2 minutes it made 11
+// parallel ESPN fetches just to report that polling works. Response
+// shape is unchanged for the admin HealthTab.
 const redis = new Redis({
   url: process.env.NEXT_PUBLIC_KV_REST_API_URL,
   token: process.env.NEXT_PUBLIC_KV_REST_API_TOKEN,
 });
-
-type LeagueHealth = {
-  id: string;
-  label: string;
-  scoreboardUrl: string;
-};
-
-const leagues: LeagueHealth[] = [
-  { id: "epl", label: "EPL", scoreboardUrl: "https://site.web.api.espn.com/apis/site/v2/sports/soccer/eng.1/scoreboard" },
-  { id: "ucl", label: "UCL", scoreboardUrl: "https://site.web.api.espn.com/apis/site/v2/sports/soccer/uefa.champions/scoreboard" },
-  { id: "laliga", label: "La Liga", scoreboardUrl: "https://site.web.api.espn.com/apis/site/v2/sports/soccer/esp.1/scoreboard" },
-  { id: "bund", label: "Bundesliga", scoreboardUrl: "https://site.web.api.espn.com/apis/site/v2/sports/soccer/ger.1/scoreboard" },
-  { id: "eng-2", label: "Championship", scoreboardUrl: "https://site.web.api.espn.com/apis/site/v2/sports/soccer/eng.2/scoreboard" },
-  { id: "mls", label: "MLS", scoreboardUrl: "https://site.web.api.espn.com/apis/site/v2/sports/soccer/usa.1/scoreboard" },
-  { id: "eflcup", label: "EFL Cup", scoreboardUrl: "https://site.web.api.espn.com/apis/site/v2/sports/soccer/eng.league_cup/scoreboard" },
-  { id: "uel", label: "UEL", scoreboardUrl: "https://site.web.api.espn.com/apis/site/v2/sports/soccer/uefa.europa/scoreboard" },
-  { id: "cwc", label: "Club World Cup", scoreboardUrl: "https://site.web.api.espn.com/apis/site/v2/sports/soccer/fifa.cwc/scoreboard" },
-  { id: "afcon", label: "AFCON", scoreboardUrl: "https://site.web.api.espn.com/apis/site/v2/sports/soccer/caf.nations/scoreboard" },
-  { id: "worldcup", label: "FIFA World Cup", scoreboardUrl: "https://site.web.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard" },
-];
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
@@ -42,42 +29,39 @@ export async function GET(request: Request) {
   }
 
   const results = await Promise.all(
-    leagues.map(async (lg) => {
+    LEAGUES.map(async (lg) => {
       try {
-        const data: any = await fetchJSONWithRetry(lg.scoreboardUrl, {
-          retries: 3,
-          timeoutMs: 8000,
-          backoffMs: 600,
-        });
-        const events = Array.isArray(data?.events) ? data.events : [];
-        const inCount = events.filter((e: any) => e?.competitions?.[0]?.status?.type?.state === "in").length;
-        const postCount = events.filter((e: any) => e?.competitions?.[0]?.status?.type?.state === "post").length;
-        const preCount = events.filter((e: any) => e?.competitions?.[0]?.status?.type?.state === "pre").length;
+        const raw = await redis.get(`fc-footy:health:poll:${lg.id}`);
+        if (!raw) {
+          return {
+            id: lg.id,
+            label: lg.label,
+            ok: false,
+            error: "No poll yet — dispatcher has not run for this league",
+          };
+        }
+        const summary =
+          typeof raw === "string" ? JSON.parse(raw) : (raw as any);
         return {
           id: lg.id,
           label: lg.label,
-          ok: true,
-          eventsCount: events.length,
-          inCount,
-          postCount,
-          preCount,
+          ok: Boolean(summary.ok),
+          eventsCount: summary.eventsCount ?? 0,
+          inCount: summary.inCount ?? 0,
+          postCount: summary.postCount ?? 0,
+          preCount: summary.preCount ?? 0,
+          ...(summary.ok ? {} : { error: summary.error ?? "Poll failed" }),
+          lastPollAt: summary.ts,
         };
       } catch (err: any) {
-        const failure = {
+        return {
           id: lg.id,
           label: lg.label,
           ok: false,
           error: String(err?.message || err),
-          ts: timestamp,
         };
-        // Push failure to rolling log, keep last 200
-        try {
-          await redis.lpush("fc-footy:health:failures", JSON.stringify(failure));
-          await redis.ltrim("fc-footy:health:failures", 0, 199);
-        } catch {}
-        return failure;
       }
-    })
+    }),
   );
 
   let recentFailures: Array<{ id: string; label: string; error: string; ts: string }> | undefined;
